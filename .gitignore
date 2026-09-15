@@ -5,3 +5,10 @@ dist
 outputs
 work/*
 
+# Python environments and generated files
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.DS_Store

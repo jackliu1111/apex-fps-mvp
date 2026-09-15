@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "apex-highlight"
 version = "0.1.0"
-description = "Audio-only gameplay highlight terminal wizard"
+description = "Audio and damage-based gameplay highlight terminal wizard"
 requires-python = ">=3.10"
 dependencies = ["numpy>=2,<3", "typer>=0.16,<1", "questionary>=2,<3", "rich>=14,<16"]
 

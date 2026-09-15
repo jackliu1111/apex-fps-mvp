@@ -27,40 +27,41 @@ ffmpeg-windows-amd64.zip
 fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9
 ```
 
-## 打包
+## Python 发布包构建
 
-从项目根目录在 macOS 执行：
+macOS 在项目根目录执行（先准备上文的 `bin/ffplay`）：
 
 ```sh
-bash go/scripts/build_release.sh darwin arm64
-bash go/scripts/build_release.sh windows amd64
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[build]'
+.venv/bin/python scripts/build_macos.py
 ```
 
-Windows 本机构建时，带上 `bin/windows-amd64/` 并执行：
+Windows 在本机 PowerShell 执行，使用 `bin/windows-amd64/` 中的工具：
 
 ```powershell
-.\go\scripts\build_windows.ps1 -Architecture amd64
+.\scripts\build_windows.bat
+# 或指定完整的 FFmpeg 发行包目录
+.\scripts\build_windows.bat --ffmpeg-dir "C:\tools\ffmpeg"
 ```
 
-发布包：
+发布包位于：
 
 ```text
-dist/go/apex-highlight-macos-arm64.zip
-dist/go/apex-highlight-windows-amd64.zip
+dist/apex-highlight-macos-arm64.zip
+dist/apex-highlight-windows-<架构>.zip
 ```
 
-每个包均包含主程序、`bin/` 内的三个媒体工具、许可证和构建信息。macOS 使用者无需 Homebrew，Windows 使用者无需单独安装 FFmpeg；两边都无需 Go 或 Python。完整解压使用，不能只移动主程序。
+macOS 包按本机构建架构命名；Windows 架构名由 `platform.machine()` 决定。Python 包必须在对应操作系统构建。
 
-原 Python 打包脚本也已补上 ffplay，并将 Windows 工具目录与 Mac 工具隔离；本次实际生成和验收的是 Go 发布包，未重新构建 Python 发布包。
+每个包包含主程序、Python 运行环境、依赖、`bin/` 内三个媒体工具、许可证和构建信息。使用者无需安装 Python 或 FFmpeg。完整解压使用，保留 `_internal/`、`bin/` 等全部内容。
 
-`bin/`、`build/`、`dist/` 均被 Git 忽略。仅克隆代码不会带上媒体工具；使用已生成 ZIP，或另行复制工具目录。
+`bin/`、`build/`、`dist/` 均被 Git 忽略。仅克隆代码不会带上媒体工具；需另行准备工具后运行或打包。
 
 ## 验证边界
 
-macOS 动态依赖检查覆盖三个媒体工具，均仅依赖系统库，不依赖 `/opt/homebrew`。macOS 打包脚本在限制 PATH 的环境检查程序帮助、doctor 和三个媒体工具启动。
+打包脚本在限制 PATH 的环境检查程序帮助和 doctor；macOS 脚本还审计动态依赖，要求媒体工具只依赖系统库。
 
-Windows 主程序交叉编译，媒体工具使用原生 Windows x64 构建；Mac 上的 PE 架构及导入表检查不能代替 Windows 实机运行。正式使用前在 Windows 解压运行 `apex-highlight.exe doctor`，再完成分析、按 P 预览和导出。当前输出落盘使用硬链接，请选择支持硬链接的输出目录（如 NTFS），不要直接导出到 exFAT/FAT32。
+本次分支整理未重新构建 Python 发布包。既有 Python 验证范围见 [VALIDATION.md](../VALIDATION.md)。Windows 构建脚本尚未完成 Windows 实机验收；正式发布前应在目标系统解压，运行 `apex-highlight.exe doctor`，并完成真实录像分析、菜单中的预览播放和导出。
 
 主程序尚未完成开发者签名、公证或 Windows 安全软件验收。
-
-本次 macOS 额外从中文及空格路径解压 ZIP，在不包含 Homebrew 的 PATH 下完成真实录像伤害分析、剪辑导出和成片完整解码。ffplay 已在允许访问桌面的进程中开启播放并正常自动退出（包含音频）；沙箱内因显示服务隔离无法创建窗口。证据位于 `work/bundled-media-validation/summary.json` 和 `verification.log`。

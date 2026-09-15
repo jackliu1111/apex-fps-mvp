@@ -2,9 +2,19 @@
 
 提供音频高能片段和伤害增长片段两种模式，按时间顺序导出集锦。伤害模式读取右上角累计伤害数字，不区分伤害来源，也不判断击杀或观战。
 
-## Go 迁移版本
+## Python 开发版
 
-独立的 Go 检测与剪辑核心位于 [`go/`](go/README.md)，含音频检测、伤害识别、候选区间生成、FFmpeg 剪辑、薄 CLI 和分页 Go 终端 UI，可构建不携带 Python 的 Windows EXE。核心不包含任务管理或选片交互。构建、调用与验证见 [Go 使用文档](go/README.md) 和 [迁移验证记录](go/VALIDATION.md)。下文仍介绍原 Python 交互版。
+本分支 `dev/main` 维护 Python 实现，包含终端交互、音频检测、伤害识别、曲线报告、编号预览和集锦导出。视频处理调用 FFmpeg；Windows 和 macOS 发布包分别在对应系统构建，并携带 Python 运行环境及媒体工具。
+
+源码启动：
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/apex-highlight
+```
+
+运行前准备 `bin/ffmpeg` 和 `bin/ffprobe`，或将它们加入系统 PATH；打包还需要 ffplay，详见 [媒体工具说明](docs/media-tools.md)。Windows 源码环境使用 `.venv\Scripts\python.exe` 和 `.venv\Scripts\apex-highlight.exe`。
 
 ## 伤害集锦
 
@@ -120,4 +130,4 @@ uv pip install --python .venv/bin/python -e '.[build,test]'
 
 参考：[FFmpeg 官方发行源码](https://ffmpeg.org/releases/)、[PyInstaller 构建说明](https://pyinstaller.org/en/stable/usage.html)。
 
-已准备的跨平台媒体工具及完整 Go 包构建方式见 [媒体工具说明](docs/media-tools.md)。
+已准备的跨平台媒体工具及 Python 发布包构建方式见 [媒体工具说明](docs/media-tools.md)。
