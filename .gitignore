@@ -1,0 +1,7 @@
+build
+bin
+dist
+*.mkv
+outputs
+work/*
+
