@@ -1,0 +1,5 @@
+{
+  "source": "damage_templates.py",
+  "sha256": "eecc02e1ae7006ccbfa35968c98a443f5d0ce88b94ca55e786e6917ff9c1649b",
+  "note": "One-time data migration; TypeScript build and runtime do not require Python."
+}

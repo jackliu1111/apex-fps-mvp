@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50" fill="currentColor" role="img" aria-labelledby="title">
+  <title id="title">寻血猎犬单色图标</title>
+  <!-- Feather, helmet crown and wide brim. All negative space is transparent. -->
+  <path d="m34 14 3-7 8-4-2 7-5 5-2-1 4-5-6 5Z"/>
+  <path d="m13 15 1.7-5.4L21 6h6l5.3 4.3L34 15H13Z"/>
+  <path d="M21 3h6v10h-6z"/>
+  <path d="m4 19 8-3h23l9 3-2 3H6l-2-3Z"/>
+  <!-- Round goggles cut out of the mask; no white paint or background layer. -->
+  <path fill-rule="evenodd" d="M10 23h29v8l-5 9-6 4h-7l-6-4-5-9v-8Zm12 5a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm14 0a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm-13 4h3l4 4v5H19v-5l4-4Z"/>
+  <!-- Central respirator and two side filters. -->
+  <path d="m24 34-3 3v2h7v-2l-3-3h-1Z"/>
+  <path d="M5 27h3v9l6 6-2 2-7-7V27Zm36 0h3v10l-7 7-2-2 6-6v-9Z"/>
+  <path d="m15 43 6 3h7l6-3 3 4H12l3-4Z"/>
+</svg>

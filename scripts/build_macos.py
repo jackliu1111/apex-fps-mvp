@@ -127,6 +127,12 @@ def main():
                 raise SystemExit(f'External dependency in {path}: {dep}')
         audit[str(path.relative_to(bundle))] = deps
     (bundle / 'dependency-audit.json').write_text(json.dumps(audit, indent=2))
+    # PyInstaller trims Python.framework resources; seal the final framework
+    # layout so its ad-hoc signature matches the files we actually distribute.
+    framework = bundle / '_internal' / 'Python.framework'
+    run(['/usr/bin/codesign', '--force', '--sign', '-', '--timestamp=none', str(framework)])
+    run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(framework)])
+    run(['/usr/bin/codesign', '--verify', '--deep', '--strict', str(bundle / 'apex-highlight')])
     archive = ROOT / 'dist' / f'apex-highlight-macos-{platform.machine()}.zip'
     # ditto preserves executable bits and the framework symlinks used by Python.
     run(['/usr/bin/ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(bundle), str(archive)])

@@ -1,0 +1,7 @@
+node_modules/
+.generated/
+dist/
+work/
+*.log
+.venv-ocr/
+.paddleocr-cache/

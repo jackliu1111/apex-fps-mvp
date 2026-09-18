@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apex Highlight · 寻血猎犬图标</title>
+  <style>
+    :root { color-scheme: dark; --page:#101215; --surface:#191c21; --ink:#f2f3f5; --muted:#a7afb9; --line:#30343c; --accent:#ed9177; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+    main { max-width:1000px; margin:0 auto; padding:46px 44px; }
+    .eyebrow { margin:0 0 8px; color:var(--accent); font-size:11px; letter-spacing:2.5px; font-weight:650; }
+    h1 { margin:0; font-size:27px; font-weight:620; letter-spacing:-.5px; }
+    .intro { color:var(--muted); margin:8px 0 28px; }
+    .hero { display:grid; grid-template-columns:1fr 1.3fr; border:1px solid var(--line); border-radius:16px; overflow:hidden; }
+    .specimen { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px; min-height:292px; background:var(--surface); padding:30px; }
+    .icon { display:block; width:50px; height:50px; flex:none; filter:invert(1); }
+    .large { width:180px; height:180px; }
+    .caption { font-size:11px; letter-spacing:1.3px; color:var(--muted); }
+    .lockup { padding:34px; display:flex; flex-direction:column; justify-content:center; gap:34px; }
+    .brand { display:flex; align-items:center; gap:16px; }
+    .brand strong { font-size:21px; font-weight:620; letter-spacing:-.45px; }
+    .brand p { margin:3px 0 0; color:var(--muted); font-size:13px; }
+    .rule { height:1px; background:var(--line); }
+    .note { margin:0; color:var(--muted); font-size:13px; max-width:26em; }
+    .samples { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:16px; }
+    .sample { min-height:140px; border:1px solid var(--line); border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:17px; }
+    .sample.light { background:#f4f3ef; color:#101215; border-color:#f4f3ef; }
+    .light .icon { filter:none; }
+    .sample.accent { background:#191c21; }
+    .accent .icon { background:var(--accent); filter:none; mask:url('./bloodhound-mark.svg') center / contain no-repeat; -webkit-mask:url('./bloodhound-mark.svg') center / contain no-repeat; }
+    .sample span { font-size:11px; letter-spacing:.7px; }
+    footer { margin-top:23px; display:flex; justify-content:space-between; gap:14px; color:var(--muted); font-size:11px; }
+    a { color:inherit; text-underline-offset:3px; }
+    a:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+    @media (max-width:620px) {
+      main { padding:28px 20px; }
+      .hero { grid-template-columns:1fr; }
+      .specimen { min-height:235px; }
+      .large { width:150px; height:150px; }
+      .lockup { padding:25px; gap:22px; }
+      .brand strong { font-size:19px; }
+      .samples { gap:8px; }
+      .sample { min-height:126px; }
+      footer { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">APEX HIGHLIGHT / ICON CONCEPT 01</p>
+    <h1>寻血猎犬 · 锁定高光</h1>
+    <p class="intro">以帽檐、圆镜片与面罩建立识别。单色，透明底，为 50 × 50 px 简化。</p>
+    <section class="hero" aria-label="图标与标语组合预览">
+      <div class="specimen">
+        <img class="icon large" src="./bloodhound-mark.svg" width="180" height="180" alt="寻血猎犬单色头像放大预览">
+        <span class="caption">形态预览 · 180 PX</span>
+      </div>
+      <div class="lockup">
+        <div>
+          <div class="brand">
+            <img class="icon" src="./bloodhound-mark.svg" width="50" height="50" alt="">
+            <div><strong>Apex Highlight</strong><p>锁定高光，一帧不漏。</p></div>
+          </div>
+        </div>
+        <div class="rule"></div>
+        <p class="note">实际图标尺寸 50 × 50 px。留出清楚的镜片与面罩负形，让小尺寸也保有角色轮廓。</p>
+      </div>
+    </section>
+    <section class="samples" aria-label="相同图标在不同背景上的原尺寸预览">
+      <div class="sample"><img class="icon" src="./bloodhound-mark.svg" width="50" height="50" alt="白色图标，深色背景"><span>白色 / 50 × 50</span></div>
+      <div class="sample light"><img class="icon" src="./bloodhound-mark.svg" width="50" height="50" alt="黑色图标，浅色背景"><span>黑色 / 50 × 50</span></div>
+      <div class="sample accent"><div class="icon" role="img" aria-label="珊瑚色图标，深色背景"></div><span>项目强调色 / 50 × 50</span></div>
+    </section>
+    <footer><span>角色主题概念稿 · SVG 矢量 · 标语为设计提案</span><a href="./bloodhound-mark.svg" download>下载 SVG 源文件</a></footer>
+  </main>
+</body>
+</html>

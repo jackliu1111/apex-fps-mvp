@@ -14,6 +14,7 @@ import typer
 import apex_highlight as core
 import highlight_service as service
 import audio_chart
+import damage_chart
 import terminal_ui as ui
 from media_runtime import tool_path, run_command
 
@@ -45,6 +46,8 @@ def show_result(data, result=None):
     damage=data.get('config',{}).get('selection_signal')=='damage_counter_growth'
     if not damage:audio_chart.terminal_chart(console, data)
     else:
+        data=damage_chart.with_evidence(data,result)
+        damage_chart.terminal_chart(console,data)
         stats=data.get('damage_stats',{})
         console.print(f"伤害数字可读帧：{stats.get('readable_frames',0)}/{stats.get('sampled_frames',0)}")
         for warning in stats.get('warnings',[]):console.print(warning,style='yellow',markup=False)
@@ -151,6 +154,20 @@ def inspect_result(result: Path):
         show_result(service.load_result(result), result)
 
 
+@app.command('damage-axis')
+def damage_axis_command(result: Path, start: float=0., end: float | None=None):
+    """显示伤害数字轴和读数明细；--start/--end 使用源录像秒数。"""
+    with errors():
+        data = service.load_result(result)
+        if data.get('config', {}).get('selection_signal') != 'damage_counter_growth':
+            raise ValueError('请选择伤害模式的 clips.json')
+        data = damage_chart.with_evidence(data, result)
+        start, end = damage_chart.window(data, start, end)
+        damage_chart.terminal_chart(console, data, start, end)
+        damage_chart.detail_table(console, data, start, end)
+        console.print('终端菜单「已有结果 → C 曲线」可逐次跳转增长并翻阅全部读数。', style='dim')
+
+
 @app.command('export')
 def export_command(result: Path, clips: str | None = typer.Option(None, help='从 1 开始，例如 1,3；省略为全部'),
                    source: Path | None = typer.Option(None, help='重新指定同一源录像'),
@@ -173,15 +190,15 @@ def doctor():
         console.print('运行环境检查通过。', style='green')
 
 
-def ask(prompt):
+def ask(prompt, *, allow_none=False):
     value = (ui.prepare_prompt(prompt) if interactive else prompt).unsafe_ask()
-    if value is None:
+    if value is None and not allow_none:
         raise KeyboardInterrupt()
     return value
 
 
 def input_path(message, default=''):
-    return Path(ask(q.path(message, default=default)).strip().strip('"').strip("'")).expanduser()
+    return Path(ask(q.path(message, default=default, validate=path_validation)).strip().strip('"').strip("'")).expanduser()
 
 
 def choose_clips(data):
@@ -195,7 +212,8 @@ def screen(title, subtitle='', step=None):
 
 
 def pause(message='返回主菜单'):
-    ask(q.press_any_key_to_continue(f'按任意键{message}…'))
+    # Questionary's any-key prompt completes normally with None.
+    ask(q.press_any_key_to_continue(f'按任意键{message}…'), allow_none=True)
 
 
 def open_artifact(path):
@@ -206,12 +224,12 @@ def open_artifact(path):
         raise RuntimeError(f'无法打开，请手动打开：{path}')
 
 
-def wizard_export(result, auto=False):
+def wizard_export(result, auto=False, ids=None):
     data = service.load_result(result)
     if not data['clips'] or data.get('format_version') != service.VERSION or not data.get('source'):
         return
     source = Path(data['input'])
-    screen('选择导出片段', '空格勾选 / 取消 · A 全选 / 全不选 · 候选列表可上下滚动', 3)
+    screen('准备导出', '确认后导出当前勾选的候选片段。', 4)
     ui.context(console, 录像=source.name, 候选=f"{len(data['clips'])} 个", 结果=result)
     if not source.is_file():
         source = input_path('源录像缺失，请指定原录像：')
@@ -219,7 +237,8 @@ def wizard_export(result, auto=False):
         preview = result.parent / 'candidate_preview.mp4'
         if not preview.exists():
             do_preview(result, source=source)
-    ids = service.selected_ids(data) if auto else choose_clips(data)
+    if ids is None:
+        ids = service.selected_ids(data) if auto else choose_clips(data)
     if not ids:
         ask(ui.select('未选择片段', choices=['返回结果页']))
         return
@@ -250,102 +269,236 @@ def wizard_export(result, auto=False):
         open_artifact(target if action == '播放成片' else result.parent)
 
 
+def damage_axis_page(data, result):
+    data = damage_chart.with_evidence(data, result)
+    start, end = 0., data['duration_seconds']
+    events = data.get('damage_events', [])
+    selected = None
+    while True:
+        screen('伤害识别验证')
+        damage_chart.terminal_chart(console, data, start, end, height=max(3, min(8, console.height-24)))
+        if selected is not None:
+            event = events[selected]
+            console.print(f"增长 {selected+1}/{len(events)} · {event['time']:.3f}s · "
+                          f"{event['previous']} → {event['value']} (+{event['increase']})", style='bold green')
+        else:
+            stats = data.get('damage_stats', {})
+            console.print(f"确认增长 {len(events)} 次 · 可读帧 {stats.get('readable_frames', 0)}/"
+                          f"{stats.get('sampled_frames', 0)}", style='dim')
+        choices = (['下一次增长', '上一次增长'] if events else [])
+        choices += ['查看读数明细', '设置时间范围', '全片概览', '返回结果页']
+        action = ask(ui.select('时间轴操作', choices=choices))
+        if action == '返回结果页':
+            return
+        if action in ('下一次增长', '上一次增长'):
+            if selected is None:
+                selected = 0 if action == '下一次增长' else len(events)-1
+            else:
+                selected = (selected+(1 if action == '下一次增长' else -1)) % len(events)
+            span = min(10., data['duration_seconds'])
+            start = min(max(0., events[selected]['time']-span/2), data['duration_seconds']-span)
+            end = start+span
+        elif action == '全片概览':
+            start, end, selected = 0., data['duration_seconds'], None
+        elif action == '设置时间范围':
+            try:
+                screen('伤害数字轴 · 时间范围', '使用源录像秒数；缩小范围可核对短暂读数。')
+                a = ask(q.text('开始 / 秒', default=f'{start:.3f}', validate=lambda s: valid_number(s, float)))
+                b = ask(q.text('结束 / 秒', default=f'{end:.3f}', validate=lambda s: valid_number(s, float)))
+                try:
+                    start, end = damage_chart.window(data, float(a), float(b))
+                    selected = None
+                except ValueError as error:
+                    console.print(str(error), style='yellow')
+                    pause('返回时间轴')
+            except ui.ReturnBack:
+                continue
+        elif action == '查看读数明细':
+            try:
+                page = 0
+                while True:
+                    screen('伤害读数明细', f'源录像 {start:.3f}–{end:.3f} 秒')
+                    page, pages = damage_chart.detail_table(console, data, start, end, page,
+                                                            max(1, min(8, (console.height-14)//2)))
+                    choices = (['下一页', '上一页'] if pages > 1 else [])+['返回时间轴']
+                    action = ask(ui.select('明细操作', choices=choices))
+                    if action == '返回时间轴':
+                        break
+                    page = (page+(1 if action == '下一页' else -1)) % pages
+            except ui.ReturnBack:
+                continue
+
+
+def result_more(data, result):
+    while True:
+        screen('更多操作')
+        action = ask(ui.select('选择操作', ['查看检测说明', '打开输出目录', '查看运行日志', '返回结果页']))
+        if action == '返回结果页':
+            return
+        try:
+            if action == '查看检测说明':
+                screen('检测说明')
+                if data.get('config', {}).get('selection_signal') == 'damage_counter_growth':
+                    stats = data.get('damage_stats', {})
+                    console.print(f"伤害数字可读帧：{stats.get('readable_frames', 0)}/{stats.get('sampled_frames', 0)}")
+                    for warning in stats.get('warnings', []):
+                        console.print(warning, style='yellow', markup=False)
+                    console.print('伤害增长不区分伤害来源，也不判断击杀或观战。')
+                else:
+                    console.print('音频能量用于发现候选，不代表已经确认击杀或命中。')
+                count = sum(bool(c.get('exceeds_max_duration')) for c in data['clips'])
+                console.print(f'超过建议时长的候选：{count} 个（保留，不截断）。')
+                pause('返回更多操作')
+            elif action == '打开输出目录':
+                open_artifact(result.parent)
+            else:
+                logs = sorted(result.parent.glob('run-*.log'), key=lambda p: p.stat().st_mtime)
+                if logs:
+                    open_artifact(logs[-1])
+                else:
+                    console.print('此任务目录没有运行日志。')
+                    pause('返回更多操作')
+        except ui.ReturnBack:
+            continue
+
+
 def result_page(result):
     data = service.load_result(result)
-    index = 0
+    eligible = bool(data.get('format_version') == service.VERSION and data.get('source'))
+    state = ui.ReviewState(set(range(1, len(data['clips'])+1)) if eligible else set())
+    damage = data.get('config', {}).get('selection_signal') == 'damage_counter_growth'
     while True:
-        screen('分析结果', step=3)
-        damage = data.get('config', {}).get('selection_signal') == 'damage_counter_growth'
-        ui.context(console, 录像=Path(data['input']).name, 模式='高能剪辑' if damage else '复盘剪辑')
-        index, pages = ui.candidates(console, data, index)
-        eligible = data.get('format_version') == service.VERSION and data.get('source')
-        if not data['clips']:
-            console.print('未发现候选片段，分析结果已保存。', style='yellow')
-        if not eligible:
-            console.print('旧结果仅供查看，请重新分析后导出。', style='yellow')
-        choices = []
-        if data['clips'] and eligible:
-            choices.append('选择片段并导出')
-        if pages > 1:
-            choices.extend(['下一页', '上一页'])
-        if (result.parent / 'candidate_preview.mp4').exists():
-            choices.append('播放编号预览')
-        if (result.parent / 'analysis.html').exists() and not damage:
-            choices.append('打开音频曲线')
-        choices.extend(['查看检测说明', '打开输出目录', '查看运行日志', '返回主菜单'])
-        action = ask(ui.select('结果操作', choices=choices))
-        if action == '返回主菜单':
-            return
-        if action == '下一页':
-            index = (index + 1) % pages
-        elif action == '上一页':
-            index = (index - 1) % pages
-        elif action == '选择片段并导出':
-            wizard_export(result)
-        elif action == '查看检测说明':
-            screen('检测说明')
-            if damage:
-                stats = data.get('damage_stats', {})
-                console.print(f"伤害数字可读帧：{stats.get('readable_frames', 0)}/{stats.get('sampled_frames', 0)}")
-                for warning in stats.get('warnings', []):
-                    console.print(warning, style='yellow', markup=False)
-                console.print('伤害增长不区分伤害来源，也不判断击杀或观战。')
-            else:
-                console.print('音频能量用于发现候选，不代表已经确认击杀或命中。')
-            long_count = sum(bool(c.get('exceeds_max_duration')) for c in data['clips'])
-            console.print(f'超过建议时长的候选：{long_count} 个（保留，不截断）。')
-            pause('返回结果页')
-        elif action == '查看运行日志':
-            logs = sorted(result.parent.glob('run-*.log'), key=lambda p: p.stat().st_mtime)
-            if logs:
-                open_artifact(logs[-1])
-            else:
-                screen('运行日志')
-                console.print('此任务目录没有运行日志。')
+        console.clear()
+        action = ui.review_app(data, state, eligible=eligible,
+                              preview=(result.parent / 'candidate_preview.mp4').exists(),
+                              curve=damage or (result.parent / 'analysis.html').exists()).run()
+        try:
+            if action == 'back':
+                return
+            if action == 'export':
+                wizard_export(result, ids=sorted(state.selected))
+            elif action == 'preview':
+                open_artifact(result.parent / 'candidate_preview.mp4')
+            elif action == 'curve':
+                if damage:
+                    damage_axis_page(data, result)
+                else:
+                    open_artifact(result.parent / 'analysis.html')
+            elif action == 'more':
+                result_more(data, result)
+        except ui.ReturnBack:
+            continue
+        except (OSError, ValueError, RuntimeError, KeyError, TypeError) as error:
+            screen('操作未完成', '返回后保留当前勾选，可重试或查看日志。')
+            console.print(str(error), style='red', markup=False)
+            try:
                 pause('返回结果页')
-        else:
-            paths = {'播放编号预览': result.parent / 'candidate_preview.mp4',
-                     '打开音频曲线': result.parent / 'analysis.html', '打开输出目录': result.parent}
-            open_artifact(paths[action])
+            except ui.ReturnBack:
+                pass
+
+
+def path_value(text):
+    return Path(text.strip().strip('"').strip("'")).expanduser()
+
+
+def path_validation(text, *, directory=False):
+    if not text.strip():
+        return '请输入路径'
+    path = path_value(text)
+    if directory:
+        return '请选择目录，当前路径是文件' if path.exists() and not path.is_dir() else True
+    return True if path.is_file() else '文件不存在，请修改路径后重试'
+
+
+def edit_parameters(params, source):
+    labels = {'sample_rate':'采样率 Hz', 'frame_ms':'分析帧长 ms',
+        'threshold_percentile':'能量阈值百分位', 'event_bridge_ms':'事件桥接 ms',
+        'fight_gap_s':'战斗聚类间隔 秒', 'min_events':'最少事件数',
+        'before_s':'前置缓冲 秒', 'after_s':'后置缓冲 秒', 'max_clip_s':'建议最大时长 秒（只提示）',
+        'damage_fps':'伤害数字采样 FPS（10–60）', 'damage_gap_s':'伤害事件合并间隔 秒',
+        'damage_before_s':'伤害片段前置缓冲 秒', 'damage_after_s':'伤害片段后置缓冲 秒'}
+    while True:
+        screen('高级检测参数', '选择要修改的参数；Esc 返回选片方式，已确认的值会保留。', 1)
+        keys = [k for k in labels if k.startswith('damage_') == (params.mode == 'damage')]
+        choices = [q.Choice('使用当前参数，继续', value='done')]
+        choices += [q.Choice(f'{labels[k]}：{getattr(params, k)}', value=k) for k in keys]
+        key = ask(ui.select('参数', choices))
+        if key == 'done':
+            return
+        value = getattr(params, key)
+        def validate(text):
+            valid = valid_number(text, type(value))
+            if valid is not True:
+                return valid
+            candidate = service.Parameters(**asdict(params))
+            setattr(candidate, key, type(value)(text))
+            try:
+                candidate.validate(source)
+            except ValueError as error:
+                return str(error)
+            return True
+        try:
+            screen('修改参数', labels[key], 1)
+            text = ask(q.text(labels[key], default=str(value), validate=validate))
+            setattr(params, key, type(value)(text))
+        except ui.ReturnBack:
+            continue
 
 
 def configure_task():
-    screen('任务设置 · 录像', '输入或拖入录像路径。', 1)
-    source = input_path('录像路径：').resolve()
-    if not source.is_file():
-        raise ValueError(f'录像文件不存在：{source}')
-    screen('任务设置 · 输出与模式', step=1)
-    ui.context(console, 录像=source)
-    folder = input_path('输出目录：', str(service.new_output_dir())).resolve()
-    mode = ask(ui.select('选片方式', choices=[
-        q.Choice('1. 复盘剪辑（片段更长且覆盖战斗全周期，用于复盘背锅）', value='audio'),
-        q.Choice('2. 高能剪辑（只剪辑击中状态，唐比必备）', value='damage')]))
-    params = service.Parameters(mode=mode)
-    if ask(q.confirm('修改高级检测参数？', default=False)):
-        labels = {'sample_rate':'采样率 Hz', 'frame_ms':'分析帧长 ms',
-            'threshold_percentile':'能量阈值百分位', 'event_bridge_ms':'事件桥接 ms',
-            'fight_gap_s':'战斗聚类间隔 秒', 'min_events':'最少事件数',
-            'before_s':'前置缓冲 秒', 'after_s':'后置缓冲 秒', 'max_clip_s':'建议最大时长 秒（只提示）',
-            'damage_fps':'伤害数字采样 FPS（10–60）', 'damage_gap_s':'伤害事件合并间隔 秒',
-            'damage_before_s':'伤害片段前置缓冲 秒', 'damage_after_s':'伤害片段后置缓冲 秒'}
-        for key, value in asdict(params).items():
-            if key == 'mode' or (key.startswith('damage_') != (mode == 'damage')):
-                continue
-            screen('高级检测参数', step=1)
-            text = ask(q.text(labels[key], default=str(value),
-                       validate=lambda text, cast=type(value): valid_number(text, cast)))
-            setattr(params, key, type(value)(text))
-    params.validate(source)
-    screen('任务确认', step=1)
-    ui.context(console, 录像=source, 输出=folder, 模式='高能剪辑' if mode == 'damage' else '复盘剪辑')
-    overwrite = False
-    if any((folder / name).exists() for name in ('clips.json', 'events.json', 'analysis.html')):
-        overwrite = ask(q.confirm('输出目录已有分析结果，是否覆盖？', default=False))
-        if not overwrite:
-            raise ui.ReturnHome()
-    if not ask(q.confirm('开始分析？', default=True)):
-        raise ui.ReturnHome()
-    return source, folder, params, overwrite
+    # Draft values survive backward navigation; invalid paths stay in the input.
+    drafts = {'source': '', 'folder': str(service.new_output_dir())}
+    params = service.Parameters()
+    step = 0
+    while True:
+        try:
+            if step in (0, 1):
+                key = 'source' if step == 0 else 'folder'
+                screen('任务设置 · ' + ('录像' if step == 0 else '输出目录'),
+                       '输入或拖入路径；Esc 返回上一步。', 1)
+                prompt = q.path('录像路径：' if step == 0 else '输出目录：', default=drafts[key],
+                                validate=lambda text: path_validation(text, directory=step == 1))
+                try:
+                    drafts[key] = ask(prompt)
+                except ui.ReturnBack:
+                    drafts[key] = prompt.application.current_buffer.text
+                    raise
+                step += 1
+            elif step == 2:
+                screen('任务设置 · 选片方式', '检测结果是候选片段，建议预览后再导出。', 1)
+                params.mode = ask(ui.select('选片方式', [
+                    q.Choice('音频片段 · 按音频能量寻找候选，保留较长前后片段', value='audio'),
+                    q.Choice('伤害增长片段 · 按累计伤害增长寻找短片段', value='damage'),
+                ], default=params.mode))
+                step += 1
+            elif step == 3:
+                source = path_value(drafts['source']).resolve()
+                edit_parameters(params, source)
+                step += 1
+            else:
+                source = path_value(drafts['source']).resolve()
+                folder = path_value(drafts['folder']).resolve()
+                params.validate(source)
+                screen('任务确认', 'Esc 返回参数设置。', 1)
+                ui.context(console, 录像=source, 输出=folder,
+                           模式='伤害增长片段' if params.mode == 'damage' else '音频片段')
+                action = ask(ui.select('接下来', ['开始分析', '返回修改参数', '返回主菜单']))
+                if action == '返回主菜单':
+                    raise ui.ReturnHome()
+                if action == '返回修改参数':
+                    step = 3
+                    continue
+                overwrite = False
+                if any((folder / name).exists() for name in ('clips.json', 'events.json', 'analysis.html')):
+                    overwrite = ask(q.confirm('输出目录已有分析结果，是否覆盖？', default=False))
+                    if not overwrite:
+                        step = 1
+                        continue
+                return source, folder, params, overwrite
+        except ui.ReturnBack:
+            if step == 0:
+                raise ui.ReturnHome()
+            step -= 1
 
 
 def wizard():

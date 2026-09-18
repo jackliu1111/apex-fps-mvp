@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from media_runtime import media_process
 from apex_highlight import Clip
+from damage_locator import HudLocator, digit_band
 
 METHODS = ('white_180', 'gray_otsu', 'white_otsu')
 
@@ -42,7 +43,10 @@ def otsu(a):
     return int(np.argmax(score))
 
 def binary(frame,method):
-    rgb=frame[24:55,0:160].astype(float)
+    return binary_pixels(frame[24:55,0:160],method)
+
+def binary_pixels(pixels,method):
+    rgb=pixels.astype(float)
     low=rgb.min(2);gray=rgb.mean(2);chroma=rgb.max(2)-low
     if method.startswith('white_') and method.split('_')[1].isdigit():
         return (low>int(method.split('_')[1]))&(chroma<75)
@@ -88,6 +92,9 @@ def glyphs(f,method):
 
 def classify(f,method,bank):
     gs=glyphs(f,method)
+    return classify_glyphs(gs,bank)
+
+def classify_glyphs(gs,bank):
     if not gs:return None
     digits=[]
     for g in gs:
@@ -95,6 +102,34 @@ def classify(f,method,bank):
         if scores[0][0]<.68 or scores[0][0]-scores[1][0]<.05:return None
         digits.append(scores[0][1])
     return int(''.join(map(str,digits)))
+
+
+def read_located_counter(frame,anchor):
+    band=digit_band(frame,anchor)
+    if band is None:return None
+    votes=set()
+    for method in METHODS:
+        mask=binary_pixels(band,method)
+        cols=np.flatnonzero(mask.sum(0)>2)
+        if not len(cols):continue
+        runs=np.split(cols,np.where(np.diff(cols)>1)[0]+1)
+        gs=[]
+        for run in runs:
+            # Stop at the sloped badge border, following the number. Never
+            # silently skip an unrecognized glyph in the middle of a number.
+            if len(gs) and run[0]-previous_end>12:break
+            if (not gs and run[0]>12) or run[-1]==mask.shape[1]-1:
+                gs=[];break
+            if not 6<=len(run)<=21:
+                gs=[];break
+            g=normalize(mask[:,run[0]:run[-1]+1])
+            if g is None:
+                gs=[];break
+            gs.append(g);previous_end=run[-1]
+        if not 1<=len(gs)<=5:continue
+        value=classify_glyphs(gs,BANKS[method])
+        if value is not None:votes.add(value)
+    return next(iter(votes)) if len(votes)==1 else None
 
 class CounterTracker:
     """Only confirmed increases; no inferred transition across unreadable HUD."""
@@ -139,20 +174,32 @@ def make_clips(events,duration,gap=.3,before=.1,after=.2,fps=30):
 def analyze_video(source,media,*,fps=30,gap=.3,before=.1,after=.2,progress=None):
     video=next((s for s in media['streams'] if s['codec_type']=='video'),None)
     if not video:raise ValueError('录像缺少视频轨道')
-    if abs(video['width']/video['height']-16/9)>.02:
-        raise ValueError('伤害模式暂只支持完整 16:9 游戏画面及默认 HUD')
+    width,height=int(video['width']),int(video['height'])
     command=['ffmpeg','-v','error','-i',str(source),'-an','-vf',
-        f'fps={fps}:start_time=0,crop=iw*200/3840:ih*90/2160:iw*3320/3840:ih*175/2160,scale=200:90',
+        f'fps={fps}:start_time=0',
         '-pix_fmt','rgb24','-f','rawvideo','-']
+    # Keep decoded dimensions consistent with metadata even for rotated files.
+    command.insert(command.index('-i'),'-noautorotate')
+    locator=HudLocator(fps);locations=[];unreadable_streak=0
     tracker=CounterTracker();events=[];readings=[];count=0;valid=0
     total=math.ceil(media['duration_seconds']*fps)
     with media_process(command) as process:
         while True:
-            raw=process.stdout.read(200*90*3)
+            raw=process.stdout.read(width*height*3)
             if not raw:break
-            if len(raw)!=200*90*3:raise RuntimeError('伤害分析的视频帧不完整')
-            frame=np.frombuffer(raw,np.uint8).reshape(90,200,3)
-            value=read_counter(frame);time=count/fps
+            if len(raw)!=width*height*3:raise RuntimeError('伤害分析的视频帧不完整')
+            frame=np.frombuffer(raw,np.uint8).reshape(height,width,3)
+            anchor=locator.locate(frame,count)
+            value=read_located_counter(frame,anchor) if anchor else None
+            unreadable_streak=unreadable_streak+1 if value is None else 0
+            # A stale scale can still resemble the icon while making the digits
+            # unreadable. Reacquire after one second instead of locking forever.
+            if anchor and unreadable_streak>=fps:
+                locator.anchor=None
+                unreadable_streak=0
+            time=count/fps
+            if not locations or (anchor is None)!=(locations[-1]['anchor'] is None) or count%fps==0:
+                locations.append({'time':round(time,6),'anchor':anchor.as_dict() if anchor else None})
             event=tracker.update(time,value)
             if value is not None:valid+=1
             if event:events.append(event)
@@ -162,7 +209,9 @@ def analyze_video(source,media,*,fps=30,gap=.3,before=.1,after=.2,progress=None)
             count+=1
             if progress and count%fps==0:progress('识别伤害数字',count,total)
     stats={'sampled_frames':count,'readable_frames':valid,'unreadable_frames':count-valid,
+           'localization':{'method':'multiscale_icon_ncc','global_searches':locator.searches,
+                           'located_frames':locator.located_frames,'samples':locations},
            'sampling_fps':fps,'timestamp_basis':'sampling_grid_from_video_start',
            'warnings':['未读出数字的画面可能是 HUD 未显示、遮挡或识别失败；空白不按零处理。']}
-    if valid==0:stats['warnings'].append('没有可靠读出伤害数字，请检查 HUD 布局和录像清晰度。')
+    if valid==0:stats['warnings'].append('没有可靠读出伤害数字，请检查伤害图标是否完整、HUD 样式及录像清晰度。')
     return events,make_clips(events,media['duration_seconds'],gap,before,after,fps),readings,stats

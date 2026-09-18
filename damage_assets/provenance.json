@@ -89,5 +89,39 @@
       "sampling": "fps=0.5 after seek320; nominal sample time, not original PTS"
     }
   },
-  "missing_digits": []
+  "missing_digits": [],
+  "location_anchors": {
+    "array": "tests/data/damage_hud.npz",
+    "shape_hw": [
+      38,
+      64
+    ],
+    "samples": [
+      {
+        "frame_index": 1,
+        "crop_xywh": [
+          40,
+          20,
+          64,
+          38
+        ]
+      },
+      {
+        "frame_index": 2,
+        "crop_xywh": [
+          26,
+          20,
+          64,
+          38
+        ]
+      }
+    ],
+    "encoding": "RGB channel mean, rounded uint8, hex in damage_templates.LOCATION_ICONS",
+    "digit_band_relative_xywh": [
+      64,
+      4,
+      120,
+      31
+    ]
+  }
 }
