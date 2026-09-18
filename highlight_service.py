@@ -164,6 +164,8 @@ def analyze(source, output_dir=None, params=None, *, overwrite=False, progress=N
                         'damage_stats': stats,
                         'audio_curve': [] if rms is None else audio_chart.summarize(rms,
                             max(1, round(params.sample_rate * params.frame_ms / 1000)) / params.sample_rate)}
+        if rms is None:
+            data.update(damage_readings=readings, damage_events=events)
         notify('保存伤害候选' if params.mode=='damage' else '绘制音频曲线', 0, None)
         fd, name = tempfile.mkstemp(prefix='.apex-chart-', dir=folder)
         temp = Path(name)

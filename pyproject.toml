@@ -17,4 +17,4 @@ test = ["pexpect>=4.9,<5"]
 apex-highlight = "highlight_cli:main"
 
 [tool.setuptools]
-py-modules = ["apex_highlight", "highlight_service", "highlight_cli", "terminal_ui", "media_runtime", "audio_chart", "damage_detector", "damage_templates", "precise_render"]
+py-modules = ["apex_highlight", "highlight_service", "highlight_cli", "terminal_ui", "media_runtime", "audio_chart", "damage_chart", "damage_detector", "damage_templates", "damage_locator", "precise_render"]

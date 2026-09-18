@@ -51,6 +51,8 @@ class DamageTests(unittest.TestCase):
             data=service.load_result(result)
             self.assertEqual('damage_counter_growth',data['config']['selection_signal'])
             self.assertEqual([],data['audio_curve'])
+            self.assertEqual([event],data['damage_events'])
+            self.assertEqual([],data['damage_readings'])
             def render(source,clips,output,work,progress,preview_ids):
                 self.assertEqual([1],preview_ids)
                 output.write_bytes(b'preview')

@@ -1,0 +1,71 @@
+name: Go CGO single executable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/go-with-CGO]
+    paths: ['go/**', '.github/workflows/go-cgo.yml']
+  pull_request:
+    paths: ['go/**', '.github/workflows/go-cgo.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache: false
+      - uses: actions/setup-python@v5
+        if: runner.os == 'macOS'
+        with:
+          python-version: '3.12'
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          path-type: inherit
+          update: true
+          install: >-
+            make
+            diffutils
+            tar
+            xz
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-pkgconf
+      - uses: actions/cache@v4
+        with:
+          path: |
+            build/cgo
+            build/ffmpeg-7.1.1.tar.xz
+            build/go-modcache
+          key: cgo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go/scripts/build_native.py', 'go/go.sum') }}
+      - name: Build, test and package macOS
+        if: runner.os == 'macOS'
+        run: python3 go/scripts/build_native.py --test --package
+      - name: Build, test and package Windows
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: python go/scripts/build_native.py --test --package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apex-cgo-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/cgo/*.zip
+            dist/cgo/*.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs-${{ runner.os }}-${{ runner.arch }}
+          path: build/cgo/**/*.log

@@ -12,3 +12,10 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .DS_Store
+
+# Local agent tooling and regenerable caches are not part of source archives.
+/.agents/
+/skills-lock.json
+.ruff_cache/
+.mypy_cache/
+*.tmp

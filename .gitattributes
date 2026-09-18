@@ -1,0 +1,2 @@
+# Raw RGB fixtures must never undergo text diffing or line-ending conversion.
+*.rgb binary

@@ -1,0 +1,45 @@
+name: TypeScript portable release
+on:
+  workflow_dispatch:
+  push:
+    branches: ['dev/TypeScript']
+    paths: ['typescript/**', '.github/workflows/typescript.yml']
+  pull_request:
+    paths: ['typescript/**', '.github/workflows/typescript.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: bun-windows-x64
+            binary: ./dist/windows-x64/apex-highlight.exe
+          - os: macos-14
+            target: bun-darwin-arm64
+            binary: ./dist/darwin-arm64/apex-highlight
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.13'
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun test
+      - run: bun run package ${{ matrix.target }}
+      - name: Test native portable package
+        run: bun run verify --binary ${{ matrix.binary }} --work-dir ./work/ci-verification
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apex-highlight-${{ matrix.target }}
+          path: |
+            typescript/dist/*.zip
+            typescript/dist/*.sha256
+            typescript/work/ci-verification/verification.json
+          if-no-files-found: error
