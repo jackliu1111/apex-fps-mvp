@@ -17,6 +17,14 @@
 
 TypeScript 实现位于 [`typescript/`](typescript/README.md)：解压后双击程序，在浏览器中批量分析、播放候选并导出，视频留在本机。发布包自带媒体工具；音频模式无需额外语言环境，伤害模式需要另行配置 Python/PaddleOCR，见 [OCR 环境说明](typescript/docs/paddleocr-debug.md)。开发机可使用 Bun 1.3.13 或更新版本运行 `bun run package bun-windows-x64` 交叉打包 Windows；验证范围见 [TypeScript 验证记录](typescript/VALIDATION.md)。
 
+### 伤害分析流水线
+
+下图展示封存版本中 TypeScript 伤害模式的实现：关键帧提取 → HUD 模板定位 → PaddleOCR 数字识别 → 整局时序建模 → 伤害区间判定 → 候选片段整理。
+
+![伤害分析流水线：从整局录像提取关键帧，经 HUD 模板定位和数字 OCR 构建伤害时间序列，再生成候选高光片段](typescript/docs/images/damage-pipeline-v6-only.png)
+
+图中画面与读数为示意。未知读数或计数下降处断线；关键帧之间的增长仅确定候选区间，不代表精确命中时刻或性能验收结果。
+
 以下为保留的 Python 终端版文档。
 
 提供音频高能片段和伤害增长片段两种模式，按时间顺序导出集锦。伤害模式读取右上角累计伤害数字，不区分伤害来源，也不判断击杀或观战。

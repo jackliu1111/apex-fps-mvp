@@ -4,6 +4,12 @@
 
 技术栈：React / TypeScript 界面，Bun 本地 HTTP 服务及编译打包，TypeScript 音频与 HUD 图标定位、本地 PaddleOCR 数字识别，预编译 FFmpeg / ffprobe 解码及 H.264 / AAC 导出。Bun 运行时与网页资源编入主程序，音频功能无需额外语言环境；当前源码的伤害识别需要 Python 3.13 与 PaddleOCR，见 [OCR 安装与调试](docs/paddleocr-debug.md)。旧发布包不包含本次更改。
 
+## 伤害分析流水线
+
+![伤害分析流水线：关键帧提取、HUD 模板定位、PaddleOCR 数字识别、整局时序建模、伤害区间判定与候选片段整理](docs/images/damage-pipeline-v6-only.png)
+
+图中画面与读数为示意。模板匹配负责 HUD 定位，PaddleOCR 负责读取累计伤害；未知读数或计数下降处断线，关键帧之间的增长仅确定候选区间，不代表精确命中时刻。
+
 ## 使用发布包
 
 - Windows x64：解压 `apex-highlight-windows-x64.zip`，双击 `apex-highlight.exe`。
