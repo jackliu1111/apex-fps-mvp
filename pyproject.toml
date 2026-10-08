@@ -15,6 +15,12 @@ test = ["pexpect>=4.9,<5"]
 
 [project.scripts]
 apex-highlight = "highlight_cli:main"
+apex-model-web = "model_web:main"
+apex-model-ipc = "model_ipc:main"
 
 [tool.setuptools]
-py-modules = ["apex_highlight", "highlight_service", "highlight_cli", "terminal_ui", "media_runtime", "audio_chart", "damage_chart", "damage_detector", "damage_templates", "damage_locator", "precise_render"]
+packages = ["model_web_ui"]
+py-modules = ["apex_highlight", "highlight_service", "highlight_cli", "terminal_ui", "media_runtime", "audio_chart", "damage_chart", "damage_detector", "damage_templates", "damage_locator", "precise_render", "model_service", "model_inference", "model_web", "model_review", "model_identity", "model_runtime", "model_ipc"]
+
+[tool.setuptools.package-data]
+model_web_ui = ["*.html", "*.js", "*.css"]

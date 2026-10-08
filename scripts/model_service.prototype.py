@@ -197,10 +197,11 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source',type=Path,required=True)
-    parser.add_argument('--model-workspace',type=Path,default=Path('/Users/jackliu/game/apex-voice-detect'))
+    parser.add_argument('--model-workspace',type=Path,default=ROOT.parent / 'apex-voice-detect')
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--port',type=int,default=8769)
     CONFIG=parser.parse_args()
+    CONFIG.model_workspace=CONFIG.model_workspace.expanduser().resolve()
     CONFIG.ffmpeg=shutil.which('ffmpeg');CONFIG.ffprobe=shutil.which('ffprobe');CONFIG.bun=shutil.which('bun')
     CONFIG.output=CONFIG.output.resolve();CONFIG.source=CONFIG.source.resolve();CONFIG.output.mkdir(parents=True,exist_ok=True)
     if not all([CONFIG.ffmpeg,CONFIG.ffprobe,CONFIG.bun]):raise RuntimeError('Need existing ffmpeg, ffprobe and bun')

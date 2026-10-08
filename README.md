@@ -13,6 +13,22 @@
 
 本次快照保留重构前的 Python、Go/CGO 和 TypeScript 实现。基于图像定位与 OCR 的伤害识别在长录像中效率不足，后续将重构架构；本版本用于历史对照与回退，不代表性能或跨平台验收完成。范围、已知问题和验证边界见 [封存说明](docs/archive-version0.md)。
 
+## Python 模型服务：批量分析、候选复核与独立导出
+
+独立 Python Web 入口现支持选择多份本地录像、逐份确认游戏音轨、常驻 BEATs 顺序分析、调参重算、勾选与范围编辑、按需预览和逐片段快速复制导出。完整预测独立保存，分数按范围分页读取；候选按 5/5/5 默认规则生成。修改参数或范围会使相应旧引用失效，源文件与模型配置变化要求重新分析。可查询阶段、逐份耗时和错误，并取消任务；失败或取消保留已完成文件，重启标记中断任务。候选不代表本人开枪、命中或击杀。
+
+```sh
+sh scripts/start-python-model-web.sh
+```
+
+打开启动日志中的完整访问地址。分析使用已有 `apex-voice-detect` 模型工作目录、BEATs 权重及推理 Python 环境，运行时不需要 Bun、Node 或 Electron。单独探测仍可用标准库 Python；完整分析还需要 NumPy 和模型依赖。启动配置见 [Web 入口说明](docs/python-model-web.md)，模型契约见 [分析说明](docs/python-model-analysis.md)，批量、身份校验与恢复证据见 [任务生命周期](docs/python-model-lifecycle.md)，切点策略、逐文件记录与 TDD 证据见 [复核与导出](docs/python-model-review.md)。
+
+Electron 入口复用同一界面和 Python 核心，通过受限 preload IPC 处理业务；预览和成片使用受控媒体协议。开发启动与原生构建见 [桌面入口](docs/desktop-model.md)，HTTP／IPC 契约、本机 Mac 包和真实样本记录见 [桌面验收](docs/desktop-validation.md)。真实 21 分钟 4K 来源已通过双入口分析、各 34 段独立导出、全量解码与全部分数比对，见 [4K 技术记录](docs/model-recording-4k-validation.md)。当前 Mac 测试包声明最低 macOS 27，采用本地 ad-hoc 签名，运行前后资源签名有效；另一台 Mac 的步骤见 [移交验收](docs/desktop-mac-acceptance.md)。精确成片重编码未启用；1080p 和其他代表素材、[人工边界／音画复核](docs/model-recording-human-review.md)、干净 Mac／Windows 安装验收仍待完成。
+
+本轮分工、各 issue 的实现／验收状态和最终回归结果见 [实现记录](docs/model-service-implementation.md)。
+
+用户新增的一小时真实 1080p 回放已完成 HTTP 全流程与已有桌面结果对照：90,063×447 原始分数最大差 0，98 段请求／实测范围一致，双方成片完整解码通过，见 [1080p 技术记录](docs/model-recording-1080-validation.md)。用户确认其他播放器正常，macOS 文件预览中的 [卡顿调查](docs/copy-stutter-investigation.md) 按要求暂缓，不作为当前阻塞项；人工验收仍待完成。
+
 ## TypeScript 本地网页版
 
 TypeScript 实现位于 [`typescript/`](typescript/README.md)：解压后双击程序，在浏览器中批量分析、播放候选并导出，视频留在本机。发布包自带媒体工具；音频模式无需额外语言环境，伤害模式需要另行配置 Python/PaddleOCR，见 [OCR 环境说明](typescript/docs/paddleocr-debug.md)。开发机可使用 Bun 1.3.13 或更新版本运行 `bun run package bun-windows-x64` 交叉打包 Windows；验证范围见 [TypeScript 验证记录](typescript/VALIDATION.md)。
