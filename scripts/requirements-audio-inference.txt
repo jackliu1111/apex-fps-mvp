@@ -1,0 +1,7 @@
+# Known working macOS CPU inference versions; use Python 3.12.
+# Training dependencies are separate: PretrainedSED/requirements.txt.
+torch==2.8.0
+torchaudio==2.8.0
+numpy==1.26.4
+scipy==1.16.2
+soundfile==0.13.1
