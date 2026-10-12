@@ -1,13 +1,15 @@
 # Apex 终端集锦助手
 
-> 当前项目用于 Apex Legends 录像自动剪辑，面向复盘与高亮片段整理，减少手动筛选时间并节省硬盘空间。伤害剪辑基于 OCR 识别累计伤害数字。
+> 当前项目用于 Apex Legends 录像自动剪辑，面向复盘与高亮片段整理，减少手动筛选时间并节省硬盘空间。当前主线为模型枪声模式：纯音频 BEATs 枪声候选检测，见下方「Python 模型服务」。
 >
-> 当前剪辑速度过慢：按当前使用反馈，一段 20 分钟的 4K / 60 FPS 录像需要约 5 分钟处理，严重不符合项目快速整理录像的定位，后续计划重构与优化。
+> 旧版伤害剪辑基于 OCR 识别累计伤害数字，长录像处理过慢（20 分钟 4K 约 5 分钟），已在 version1 重构中由音频模型方案取代：同规格 4K 录像从分析到候选约 1 分钟，实测见 [模型服务基准](docs/design/model-service.benchmark.md)。
 
 后续计划：
 
-- [ ] 新增基于重新训练的 Apex 专用音频分析模型的剪辑方案。
+- [x] 基于音频分析模型的剪辑方案（version1：通用预训练 BEATs，双入口上线）。
+- [ ] 基于人工标注数据重新训练 Apex 专用音频分析模型（标注与训练按 ADR 0001 延后）。
 - [ ] 增加基于 AI 的分析模式，用于用户精准预测与模型训练数据标注。
+- [ ] 双入口人工边界／音画复核与 Windows 实机验收（自 version1 延后，原 #16／#18）。
 
 ## version0 封存
 
@@ -23,7 +25,7 @@ sh scripts/start-python-model-web.sh
 
 打开启动日志中的完整访问地址。分析使用已有 `apex-voice-detect` 模型工作目录、BEATs 权重及推理 Python 环境，运行时不需要 Bun、Node 或 Electron。单独探测仍可用标准库 Python；完整分析还需要 NumPy 和模型依赖。启动配置见 [Web 入口说明](docs/python-model-web.md)，模型契约见 [分析说明](docs/python-model-analysis.md)，批量、身份校验与恢复证据见 [任务生命周期](docs/python-model-lifecycle.md)，切点策略、逐文件记录与 TDD 证据见 [复核与导出](docs/python-model-review.md)。
 
-Electron 入口复用同一界面和 Python 核心，通过受限 preload IPC 处理业务；预览和成片使用受控媒体协议。开发启动与原生构建见 [桌面入口](docs/desktop-model.md)，HTTP／IPC 契约、本机 Mac 包和真实样本记录见 [桌面验收](docs/desktop-validation.md)。真实 21 分钟 4K 来源已通过双入口分析、各 34 段独立导出、全量解码与全部分数比对，见 [4K 技术记录](docs/model-recording-4k-validation.md)。当前 Mac 测试包声明最低 macOS 27，采用本地 ad-hoc 签名，运行前后资源签名有效；另一台 Mac 的步骤见 [移交验收](docs/desktop-mac-acceptance.md)。精确成片重编码未启用；1080p 和其他代表素材、[人工边界／音画复核](docs/model-recording-human-review.md)、干净 Mac／Windows 安装验收仍待完成。
+Electron 入口复用同一界面和 Python 核心，通过受限 preload IPC 处理业务；预览和成片使用受控媒体协议。开发启动与原生构建见 [桌面入口](docs/desktop-model.md)，HTTP／IPC 契约、本机 Mac 包和真实样本记录见 [桌面验收](docs/desktop-validation.md)。真实 21 分钟 4K 来源已通过双入口分析、各 34 段独立导出、全量解码与全部分数比对，见 [4K 技术记录](docs/model-recording-4k-validation.md)。当前 Mac 测试包声明最低 macOS 27，采用本地 ad-hoc 签名，运行前后资源签名有效；另一台 Mac 的干净机验收已于 2026-10-12 通过（#17），步骤见 [移交验收](docs/desktop-mac-acceptance.md)。精确成片重编码未启用；[人工边界／音画复核](docs/model-recording-human-review.md)（4K 清单 0/74，1080p 及其他代表素材）与 Windows 实机验收（#18）按用户决定延后至下一版本。
 
 本轮分工、各 issue 的实现／验收状态和最终回归结果见 [实现记录](docs/model-service-implementation.md)。
 
