@@ -51,4 +51,4 @@ python3 integrations/filmcraft/recognition-ui.prototype/serve.py
 - 无生产构建入口；所有文件明确位于 `.prototype` 目录，本轮不会接入正式应用。
 - **用户已选择 A 的双行呈现并给出本轮修订。** 当前轨道内整合已完成限定范围的实际浏览器检查，用户体验结论仍待试用；旧版 A/B/C 检查不能替代本轮未覆盖行为。
 
-本轮没有新增测试套件；实际拖拽、点击、键盘及布局检查的有界证据已单独记录于 [CAPTURE.md](CAPTURE.md)，并保留[当前时间线截图](evidence/prototype-timeline.jpg)。整理后的源码提交到 `feature/porotype`；本地临时分支不作为 GitHub 使用前提。产品约定统一维护在[AI 识别与选片方案](../../../docs/design/ai-recognition-workspace.md)，不再在原型目录重复保存设计正文。
+本轮没有新增测试套件；实际拖拽、点击、键盘及布局检查的有界证据已单独记录于 [CAPTURE.md](CAPTURE.md)，并保留[当前时间线截图](evidence/prototype-timeline.jpg)。整理后的源码提交到 `feature/prototype`；本地临时分支不作为 GitHub 使用前提。产品约定统一维护在[AI 识别与选片方案](../../../docs/design/ai-recognition-workspace.md)，不再在原型目录重复保存设计正文。

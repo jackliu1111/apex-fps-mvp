@@ -1,6 +1,6 @@
 # Prototype capture
 
-Current revision: the user selected A's dual recognition lanes and requested their integration into the lower main timeline. The previous source-monitor placement is superseded. Bounded browser checks for this revision are recorded below; the final screenshot is included below. The repository delivery branch is `feature/porotype`. The observations from `d3f2506` apply only to the initial prototype.
+Current revision: the user selected A's dual recognition lanes and requested their integration into the lower main timeline. The previous source-monitor placement is superseded. Bounded browser checks for this revision are recorded below; the final screenshot is included below. The repository delivery branch is `feature/prototype`. The observations from `d3f2506` apply only to the initial prototype.
 
 ## Initial A/B/C revision — local-only archive `d3f2506`
 
@@ -8,7 +8,7 @@ Question: Does sound-lane selection, independent range editing, drag insertion, 
 
 Status: ready for user trial; no UI variant preference has been inferred. The already accepted decisions are reproduced in this prototype, not newly validated model or product claims.
 
-The initial study was captured on the development machine in the local-only throwaway branch `codex/prototype-filmcraft-ai-selection`. Its commits are historical local references, not required or published GitHub branches. The cleaned source and evidence are delivered on `feature/porotype`. No implementation issue was provided; this file retains the design and verification context.
+The initial study was captured on the development machine in the local-only throwaway branch `codex/prototype-filmcraft-ai-selection`. Its commits are historical local references, not required or published GitHub branches. The cleaned source and evidence are delivered on `feature/prototype`. No implementation issue was provided; this file retains the design and verification context.
 
 The UI is a browser shell because the FilmCraft host is native Rust and has no existing browser route. All variants live on the same local route with `?variant=A|B|C`, replacing only the recognition subsection. The user's requirement to retain the original layout takes precedence over the skill's generic suggestion of radically different whole-page layouts.
 
@@ -62,6 +62,6 @@ Final interaction fix and follow-up check:
 
 Cancellation, repeated-use hint updates, current-range assembly, and in-memory snapshot restoration were not rechecked in this revision. Prior-revision observations do not establish those behaviors for the revised layout. These checks also do not establish frame-accurate preview, audio synchronization, actual inference, on-disk recovery, or native FilmCraft behavior.
 
-Local capture completed as `423afc2` on `codex/prototype-filmcraft-ai-selection`; the earlier capture is retained locally. The cleaned deliverable is on `feature/porotype`, including the final screenshot below. Canonical product decisions are in `docs/design/ai-recognition-workspace.md`; the former duplicate DESIGN-SNAPSHOT.md has been removed during repository cleanup.
+Local capture completed as `423afc2` on `codex/prototype-filmcraft-ai-selection`; the earlier capture is retained locally. The cleaned deliverable is on `feature/prototype`, including the final screenshot below. Canonical product decisions are in `docs/design/ai-recognition-workspace.md`; the former duplicate DESIGN-SNAPSHOT.md has been removed during repository cleanup.
 
 Final preview synchronization check: after the last preview fix, a physical drag created V2/A2 at timeline 0–12 seconds from source 5–17. Selecting gun 01 positioned the source preview and shared ruler at 10.00 seconds while the program preview mapped the clip to source 15.00 seconds. The final screenshot shows this state. Browser console inspection returned no captured warnings or errors.
