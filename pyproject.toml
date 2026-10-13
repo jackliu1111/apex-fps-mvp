@@ -5,22 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "apex-highlight"
 version = "0.1.0"
-description = "Audio and damage-based gameplay highlight terminal wizard"
+description = "Local audio-model highlight analysis and review for Web and Electron"
 requires-python = ">=3.10"
-dependencies = ["numpy>=2,<3", "typer>=0.16,<1", "questionary>=2,<3", "rich>=14,<16"]
+dependencies = ["numpy>=1.26,<3"]
 
 [project.optional-dependencies]
 build = ["pyinstaller>=6.22,<7"]
-test = ["pexpect>=4.9,<5"]
 
 [project.scripts]
-apex-highlight = "highlight_cli:main"
 apex-model-web = "model_web:main"
 apex-model-ipc = "model_ipc:main"
 
 [tool.setuptools]
 packages = ["model_web_ui"]
-py-modules = ["apex_highlight", "highlight_service", "highlight_cli", "terminal_ui", "media_runtime", "audio_chart", "damage_chart", "damage_detector", "damage_templates", "damage_locator", "precise_render", "model_service", "model_inference", "model_web", "model_review", "model_identity", "model_runtime", "model_ipc"]
+py-modules = ["model_service", "model_inference", "model_web", "model_review", "model_identity", "model_runtime", "model_ipc"]
 
 [tool.setuptools.package-data]
 model_web_ui = ["*.html", "*.js", "*.css"]

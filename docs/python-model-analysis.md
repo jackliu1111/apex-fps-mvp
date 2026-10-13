@@ -4,7 +4,7 @@
 
 ## 运行与公开边界
 
-从项目根目录运行 `sh scripts/start-python-model-web.sh`，打开日志中的完整访问地址。该脚本默认使用相邻 `apex-voice-detect/.venv-pretrainedsed/bin/python` 和工作目录；可通过 `APEX_MODEL_WORKSPACE`、`APEX_ENGINE_PYTHON` 覆盖，并透传 `--checkpoint`、`--ffmpeg`、`--ffprobe`、`--data-dir`、`--port` 等服务选项。旧 `start-model-service.sh` 仍用于历史性能原型。
+从项目根目录运行 `sh scripts/start-python-model-web.sh`，打开日志中的完整访问地址。该脚本默认使用相邻 `apex-voice-detect/.venv-pretrainedsed/bin/python` 和工作目录；可通过 `APEX_MODEL_WORKSPACE`、`APEX_ENGINE_PYTHON` 覆盖，并透传 `--checkpoint`、`--ffmpeg`、`--ffprobe`、`--data-dir`、`--port` 等服务选项。历史性能原型已从当前主线移除，恢复方式见 [封存说明](archive-version0.md)。
 
 完整分析需要已准备的本地权重、模型工作目录的 `scripts/infer_apex_audio.py` 与 `PretrainedSED` 代码，以及 `scripts/requirements-audio-inference.txt` 对应的模型环境。服务端需要 NumPy；可用项目 Python 启动 HTTP 服务，并通过 `--engine-python` 指定独立模型环境。无需 Electron、Bun 或 Node；单独探测路径仍可在标准库 Python 中运行。
 

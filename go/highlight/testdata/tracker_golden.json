@@ -1,1 +1,0 @@
-{"values": [160, 160, null, 170, 170, 10, 10, 20, 20, 25, 30, 30], "events": [{"time": 0.233333, "previous": 10, "value": 20, "increase": 10}, {"time": 0.333333, "previous": 20, "value": 30, "increase": 10}], "clips": [{"start": 0.133333, "end": 0.5333330000000001, "raw_start": 0.233333, "raw_end": 0.333333, "event_count": 2, "peak_dbfs": 0.0, "exceeds_max_duration": false}]}
