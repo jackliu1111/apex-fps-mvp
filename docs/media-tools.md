@@ -27,41 +27,19 @@ ffmpeg-windows-amd64.zip
 fec81ae03971d9dd4be3ebe02e263bd2ec1d789483f931bdba5f5715e65da2e9
 ```
 
-## Python 发布包构建
+## 当前模型服务与桌面包
 
-macOS 在项目根目录执行（先准备上文的 `bin/ffplay`）：
+当前 Python Web 和 Electron 入口使用 FFmpeg／ffprobe，模型主线不需要 ffplay。Web 可用 `--ffmpeg`／`--ffprobe` 显式指定路径；桌面开发模式使用 `APEX_FFMPEG`／`APEX_FFPROBE`。未显式指定时的配置与查找行为见 [Web 入口](python-model-web.md) 和 [桌面入口](desktop-model.md)。
+
+桌面包在目标平台的推理环境中构建：
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[build]'
-.venv/bin/python scripts/build_macos.py
+python scripts/build_model_desktop.py \
+  --model-workspace /path/to/apex-voice-detect \
+  --ffmpeg /path/to/native/ffmpeg --ffprobe /path/to/native/ffprobe \
+  --media-license-dir /path/to/media-license-source-and-build-provenance
 ```
 
-Windows 在本机 PowerShell 执行，使用 `bin/windows-amd64/` 中的工具：
+`bin/`、`build/`、`dist/` 均被 Git 忽略；克隆代码不会带上媒体工具。上表记录的是历史准备情况，构建时应核对实际工具、平台架构和许可证材料。
 
-```powershell
-.\scripts\build_windows.bat
-# 或指定完整的 FFmpeg 发行包目录
-.\scripts\build_windows.bat --ffmpeg-dir "C:\tools\ffmpeg"
-```
-
-发布包位于：
-
-```text
-dist/apex-highlight-macos-arm64.zip
-dist/apex-highlight-windows-<架构>.zip
-```
-
-macOS 包按本机构建架构命名；Windows 架构名由 `platform.machine()` 决定。Python 包必须在对应操作系统构建。
-
-每个包包含主程序、Python 运行环境、依赖、`bin/` 内三个媒体工具、许可证和构建信息。使用者无需安装 Python 或 FFmpeg。完整解压使用，保留 `_internal/`、`bin/` 等全部内容。
-
-`bin/`、`build/`、`dist/` 均被 Git 忽略。仅克隆代码不会带上媒体工具；需另行准备工具后运行或打包。
-
-## 验证边界
-
-打包脚本在限制 PATH 的环境检查程序帮助和 doctor；macOS 脚本还审计动态依赖，要求媒体工具只依赖系统库。
-
-本次分支整理未重新构建 Python 发布包。既有 Python 验证范围见 [VALIDATION.md](../VALIDATION.md)。Windows 构建脚本尚未完成 Windows 实机验收；正式发布前应在目标系统解压，运行 `apex-highlight.exe doctor`，并完成真实录像分析、菜单中的预览播放和导出。
-
-主程序尚未完成开发者签名、公证或 Windows 安全软件验收。
+旧终端包的 `build_macos.py`／`build_windows.py`／`build_windows.bat` 已随 version0 功能移除；历史构建和验证文档从 [封存源码](archive-version0.md) 查阅。当前桌面验证范围见 [桌面验收](desktop-validation.md)，Windows 实机与人工边界复核仍需独立完成。
