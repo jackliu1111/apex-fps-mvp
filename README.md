@@ -4,6 +4,18 @@
 >
 > 旧版伤害剪辑基于 OCR 识别累计伤害数字，长录像处理过慢（20 分钟 4K 约 5 分钟），已在 version1 重构中由音频模型方案取代：同规格 4K 录像从分析到候选约 1 分钟，实测见 [模型服务基准](docs/design/model-service.benchmark.md)。
 
+## FilmCraft 原型入口
+
+浏览器交互原型用于体验 **A1 下的枪声／人声分类子行、调整高亮范围、拖拽创建 V2/A2 剪辑轨道**。它使用演示识别数据，尚未接入 Python 模型；刷新页面会清空操作状态。
+
+```sh
+python3 integrations/filmcraft/recognition-ui.prototype/serve.py
+```
+
+启动后打开 [本地交互原型](http://127.0.0.1:8791/?variant=A)，完整说明与操作记录见 [交互原型文档](integrations/filmcraft/recognition-ui.prototype/README.md)。
+
+另有 [FilmCraft 原生 AI 接入原型](integrations/filmcraft/README.md)，已在本机验证通过 Python 桥调用现有模型、添加事件标记、生成草稿并保存原稿／编辑副本。它尚未实现上述新交互；需要另行准备 FilmCraft 构建环境、模型环境及权重，与当前 Electron 发行版并行保留。安装分发与正式宿主迁移仍待验收。
+
 后续计划：
 
 - [x] 基于音频分析模型的剪辑方案（version1：通用预训练 BEATs，双入口上线）。
@@ -38,6 +50,7 @@ Electron 入口复用同一界面和 Python 核心，通过受限 preload IPC �
 - `model_*.py`：共享任务核心、BEATs 推理、复核导出和 HTTP／IPC 入口。
 - `model_web_ui/`：Web 与桌面共用的复核界面。
 - `desktop/`：Electron 桌面宿主及原生打包配置。
+- `integrations/filmcraft/`：独立的原生 AI 桥接原型与浏览器交互演示。
 - `scripts/`、`tests/`：模型服务构建、验证与回归检查。
 
 服务的基础依赖由 `pyproject.toml` 和 `uv.lock` 管理。完整推理还需准备 `apex-voice-detect` 工作目录、BEATs 权重及 [推理依赖](scripts/requirements-audio-inference.txt)；已验证的推理环境使用 Python 3.12。仅安装本项目不会下载模型或 PyTorch。
