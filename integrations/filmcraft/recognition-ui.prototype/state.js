@@ -16,25 +16,44 @@
   function eventById(state, id) { return state.events.find(function (event) { return event.id === id; }); }
 
   function makeTrack(state, sequence) {
-    var number = sequence.tracks.reduce(function (highest, track) { return Math.max(highest, track.number); }, 1) + 1;
-    var track = { id: nextId(state, 'track'), number: number, name: '剪辑 ' + number };
+    if (sequence.tracks.length) return sequence.tracks[0];
+    var track = { id: nextId(state, 'track'), number: 1, name: '声画剪辑' };
     sequence.tracks.push(track);
     return track;
+  }
+
+  // A sequence is one continuous edit. Video and its linked audio share each clip.
+  function closeGaps(sequence) {
+    var cursor = 0;
+    sequence.clips.forEach(function (clip) {
+      clip.start = cursor;
+      cursor += clip.duration;
+    });
+  }
+
+  function resolveInsertTime(sequence, at) {
+    if (!sequence) return null;
+    var duration = sequenceDuration(sequence);
+    if (at === undefined) return duration;
+    at = Number(at);
+    if (!Number.isFinite(at)) return null;
+    at = clamp(at, 0, duration);
+    var nearest = 0;
+    sequence.clips.forEach(function (clip) {
+      var boundary = clip.start + clip.duration;
+      // Equidistant drops insert after the clip, never split its source range.
+      if (Math.abs(boundary - at) <= Math.abs(nearest - at)) nearest = boundary;
+    });
+    return nearest;
   }
 
   function clipAtTime(state, time, trackId) {
     var sequence = activeSequence(state);
     if (!sequence) return null;
-    var candidates = sequence.clips.filter(function (clip) {
+    return sequence.clips.find(function (clip) {
       return time >= clip.start && time < clip.start + clip.duration &&
         (trackId == null || clip.trackId === trackId);
-    });
-    if (trackId == null) {
-      var numbers = {};
-      sequence.tracks.forEach(function (track) { numbers[track.id] = track.number; });
-      candidates.sort(function (a, b) { return numbers[b.trackId] - numbers[a.trackId]; });
-    }
-    return candidates[0] || null;
+    }) || null;
   }
 
   function normalizeRange(state, start, end) {
@@ -171,50 +190,21 @@
     };
   }
 
-  function insertClip(state, eventId, at, targetTrackId) {
+  function insertClip(state, eventId, at) {
     var sequence = activeSequence(state);
     var event = eventById(state, eventId);
     var range = state.ranges[eventId];
-    if (targetTrackId === undefined) targetTrackId = 'new';
-    at = Number(at);
-    if (!sequence || sequence.readOnly || !event || !range || !Number.isFinite(at)) return null;
-    var track = sequence.tracks.find(function (item) { return item.id === targetTrackId; });
-    var createdTrack = targetTrackId === 'new';
-    if (!createdTrack && !track) return null;
-    at = Math.max(0, at);
+    if (!sequence || sequence.readOnly || !event || !range) return null;
+    at = resolveInsertTime(sequence, at);
+    if (at === null) return null;
+    var createdTrack = !sequence.tracks.length;
     checkpoint(state, '插入 ' + event.label);
-    if (createdTrack) track = makeTrack(state, sequence);
+    var track = makeTrack(state, sequence);
     var inserted = makeClip(state, event, range.start, range.end, at, null, track.id);
-    var duration = inserted.duration;
-    var result = [];
-    sequence.clips.forEach(function (clip) {
-      if (clip.trackId !== track.id) {
-        result.push(clip);
-        return;
-      }
-      var end = clip.start + clip.duration;
-      if (clip.start >= at) {
-        clip.start += duration;
-        result.push(clip);
-      } else if (end > at) {
-        var originalSourceEnd = clip.sourceEnd;
-        var sourceCut = clip.sourceStart + at - clip.start;
-        var right = clone(clip);
-        right.id = nextId(state, 'clip');
-        right.fragmentOf = clip.fragmentOf || clip.id;
-        right.start = at + duration;
-        right.sourceStart = sourceCut;
-        right.sourceEnd = originalSourceEnd;
-        right.duration = originalSourceEnd - sourceCut;
-        clip.sourceEnd = sourceCut;
-        clip.duration = sourceCut - clip.sourceStart;
-        result.push(clip, right);
-      } else {
-        result.push(clip);
-      }
-    });
-    result.push(inserted);
-    sequence.clips = result.sort(function (a, b) { return a.start - b.start; });
+    var index = sequence.clips.findIndex(function (clip) { return clip.start >= at; });
+    if (index < 0) index = sequence.clips.length;
+    sequence.clips.splice(index, 0, inserted);
+    closeGaps(sequence);
     return { clip: inserted, sequence: sequence, track: track, createdTrack: createdTrack };
   }
 
@@ -224,14 +214,10 @@
     var range = normalizeRange(state, start, end);
     if (!clip || sequence.readOnly || !range) return null;
     checkpoint(state, '调整 ' + clip.label);
-    var oldEnd = clip.start + clip.duration;
-    var delta = range.end - range.start - clip.duration;
     clip.sourceStart = range.start;
     clip.sourceEnd = range.end;
     clip.duration = range.end - range.start;
-    sequence.clips.forEach(function (other) {
-      if (other.id !== clip.id && other.trackId === clip.trackId && other.start >= oldEnd - 0.000001) other.start += delta;
-    });
+    closeGaps(sequence);
     return clip;
   }
 
@@ -240,11 +226,8 @@
     var clip = sequence && sequence.clips.find(function (item) { return item.id === id; });
     if (!clip || sequence.readOnly) return null;
     checkpoint(state, '移除 ' + clip.label);
-    var oldEnd = clip.start + clip.duration;
     sequence.clips = sequence.clips.filter(function (item) { return item.id !== id; });
-    sequence.clips.forEach(function (other) {
-      if (other.trackId === clip.trackId && other.start >= oldEnd - 0.000001) other.start -= clip.duration;
-    });
+    closeGaps(sequence);
     return clip;
   }
 
@@ -362,7 +345,7 @@
     removeClip: removeClip, undo: undo, createDraft: createDraft,
     switchSequence: switchSequence, snapshot: snapshot, restoreSnapshot: restoreSnapshot,
     overlapInfo: overlapInfo, activeSequence: activeSequence, clipAtTime: clipAtTime,
-    sequenceDuration: sequenceDuration, formatTime: formatTime,
+    sequenceDuration: sequenceDuration, resolveInsertTime: resolveInsertTime, formatTime: formatTime,
     MIN_DURATION: MIN_DURATION
   };
 }());

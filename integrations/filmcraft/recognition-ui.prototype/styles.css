@@ -19,3 +19,19 @@
 #recognition .lane{height:24px}#recognition .lane-track{height:23px}#recognition .event{top:5px;height:12px}#recognition .range-overlay{height:22px;top:0}#recognition .range-overlay .evidence-mark{top:5px;height:10px}
 #new-video-tracks .timeline-row{height:34px;min-height:34px}#new-audio-tracks .timeline-row{height:26px;min-height:26px}#new-video-tracks .timeline-clip{height:28px}#new-audio-tracks .timeline-clip{height:20px}
 .new-track-row{height:32px;min-height:32px}.new-track-label{font-size:9px}#timeline-ruler span:first-child{transform:none}#timeline-ruler span:last-child{transform:translateX(-100%)}
+
+/* One continuous editing lane: each block contains linked picture and sound. */
+.editing-row{height:76px;min-height:76px;margin-top:7px;border-top:1px solid #56769f;border-bottom:1px solid #56769f;background:#1d2939}
+.editing-row .track-header{background:#25364e;color:#d1e1f8;font-size:11px;gap:8px}
+.editing-row .track-header b{background:#466997;font-size:9px;padding:6px 3px}
+.editing-row .track-header small{display:block;margin-top:5px;color:#9eb7da;font-size:9px}
+.linked-track{background-color:#1c2837;min-height:74px}
+.linked-track .linked-clip{height:68px;top:3px;animation:none}
+.linked-clip .clip-name{height:19px;z-index:2;padding-right:12px}
+.linked-track .linked-clip .filmstrip{inset:19px 0 23px;opacity:.65}
+.linked-clip .clip-audio{position:absolute;inset:auto 0 0;height:23px;background:#193e47d9;border-top:1px solid #729b9a66;color:#9bd1c4}
+.linked-clip .clip-link{position:absolute;bottom:3px;right:5px;color:#d5e9ef;font-size:12px;pointer-events:none}
+.append-hint{position:absolute;top:3px;bottom:3px;border:1px dashed #6f92bc66;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden;padding:0 8px}
+.append-hint span{font-size:10px;color:#9cb9df;text-align:center;white-space:nowrap}
+.linked-track.active-drop{background-color:#28415d}.readonly-track .append-hint{border-color:#68748955}
+.linked-clip .clip-trim-handle{z-index:5}

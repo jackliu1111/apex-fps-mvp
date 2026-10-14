@@ -8,7 +8,7 @@
 
 ## 当前设计：FilmCraft AI 识别与选片
 
-2026-10-14 整理当前 grill 讨论。Q1–Q19 均已确认；本次提交只归档产品需求、决策、术语及验收要求，不包含本轮代码实现、构建产物或验收结果。完整决策与讨论经过见 [AI 识别与选片首版方案](docs/design/ai-recognition-workspace.md)。
+2026-10-14 整理当前 grill 讨论。Q1–Q19 均已确认；本分支归档产品需求、决策、术语及验收要求，并同步用于讨论的网页原型、截图与浏览器检查记录；不包含本轮原生改造、构建产物或原生验收结果。完整决策与讨论经过见 [AI 识别与选片首版方案](docs/design/ai-recognition-workspace.md)。
 
 2026-10-13 的初始接入方向是在 FilmCraft 中保留 AI 原始草稿，在编辑副本上人工删改补段，复核后导出；应用内后台导出沿用 FilmCraft 默认参数。详见[接入范围](docs/design/auto-highlight-editing.md)及[草稿保留决策](docs/adr/0003-preserve-ai-draft-and-editing-copy.md)。随后用户重新开启 UI 设计，提出导入即分析、按类别展示声音事件、调整范围并加入剪辑轨道。
 
@@ -24,4 +24,4 @@
 
 用户以“全部默认”确认 Q16–Q19：自动拼接由目标剪辑轨决定，普通素材和 AI 待剪范围采用相同规则，其他原生轨道保持自身行为，见 [ADR 0005](docs/adr/0005-target-track-controls-contiguous-editing.md)；剪辑范围内全部枪声、人声事件映射到成片位置，随裁边、重排和重复使用更新；分析音轨只决定模型输入，剪辑默认保留原有声音；界面分别标示原片／成片时间及对应位置。新增操作和动效需兼容原生交互，冲突时依据用户习惯权衡。
 
-[浏览器原型](integrations/filmcraft/recognition-ui.prototype/README.md)用于设计讨论。本分支沿用基线 `7e4ad4e` 的原型代码，最新约定以设计文档为准；本次未同步原型修改。既往浏览器记录不代表最新方案或原生功能已经通过验收。
+[浏览器原型](integrations/filmcraft/recognition-ui.prototype/README.md)用于设计讨论。本分支已同步声画关联单轨、自动拼接的网页演示及截图，具体浏览器检查范围见 [CAPTURE.md](integrations/filmcraft/recognition-ui.prototype/CAPTURE.md)。原型仍使用演示数据，未覆盖的产品约定以设计文档为准；浏览器检查不代表原生功能已通过验收。

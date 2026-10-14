@@ -1,6 +1,6 @@
 # Prototype capture
 
-Current revision: the user selected A's dual recognition lanes and requested their integration into the lower main timeline. The previous source-monitor placement is superseded. Bounded browser checks for this revision are recorded below; the final screenshot is included below. The repository delivery branch is `feature/prototype`. The observations from `d3f2506` apply only to the initial prototype.
+Current revision: one continuous editing lane contains linked picture and sound, with automatic append and gap closure. This supersedes the earlier V2/A2, V3/A3 multi-track creation behavior. A's dual recognition lanes remain below the original A1 reference. Bounded checks for each revision are recorded separately below; the latest screenshot is `evidence/prototype-single-track.jpg`. The current delivery branch is `codex/grill-ai-selection-decisions`; this sync includes the browser prototype and its evidence, excluding the new native implementation. Earlier observations apply only to their corresponding revisions.
 
 ## Initial A/B/C revision — local-only archive `d3f2506`
 
@@ -8,7 +8,7 @@ Question: Does sound-lane selection, independent range editing, drag insertion, 
 
 Status: ready for user trial; no UI variant preference has been inferred. The already accepted decisions are reproduced in this prototype, not newly validated model or product claims.
 
-The initial study was captured on the development machine in the local-only throwaway branch `codex/prototype-filmcraft-ai-selection`. Its commits are historical local references, not required or published GitHub branches. The cleaned source and evidence are delivered on `feature/prototype`. No implementation issue was provided; this file retains the design and verification context.
+The initial study was captured on the development machine in the local-only throwaway branch `codex/prototype-filmcraft-ai-selection`. Its commits are historical local references, not required or published GitHub branches. The cleaned source and evidence for that revision were delivered on `feature/prototype`. No implementation issue was provided; this file retains the design and verification context.
 
 The UI is a browser shell because the FilmCraft host is native Rust and has no existing browser route. All variants live on the same local route with `?variant=A|B|C`, replacing only the recognition subsection. The user's requirement to retain the original layout takes precedence over the skill's generic suggestion of radically different whole-page layouts.
 
@@ -62,6 +62,31 @@ Final interaction fix and follow-up check:
 
 Cancellation, repeated-use hint updates, current-range assembly, and in-memory snapshot restoration were not rechecked in this revision. Prior-revision observations do not establish those behaviors for the revised layout. These checks also do not establish frame-accurate preview, audio synchronization, actual inference, on-disk recovery, or native FilmCraft behavior.
 
-Local capture completed as `423afc2` on `codex/prototype-filmcraft-ai-selection`; the earlier capture is retained locally. The cleaned deliverable is on `feature/prototype`, including the final screenshot below. Canonical product decisions are in `docs/design/ai-recognition-workspace.md`; the former duplicate DESIGN-SNAPSHOT.md has been removed during repository cleanup.
+Local capture completed as `423afc2` on `codex/prototype-filmcraft-ai-selection`; the earlier capture is retained locally. That revision was delivered on `feature/prototype`, including its timeline screenshot. Canonical product decisions are in `docs/design/ai-recognition-workspace.md`; the former duplicate DESIGN-SNAPSHOT.md has been removed during repository cleanup.
 
 Final preview synchronization check: after the last preview fix, a physical drag created V2/A2 at timeline 0–12 seconds from source 5–17. Selecting gun 01 positioned the source preview and shared ruler at 10.00 seconds while the program preview mapped the clip to source 15.00 seconds. The final screenshot shows this state. Browser console inspection returned no captured warnings or errors.
+
+## Revision: one linked audiovisual editing lane — 2026-10-13
+
+The user clarified that created picture and associated sound should be in the same editing dimension and automatically concatenate. Each sequence now has one editing lane. Each block displays picture and a waveform together; dragging into empty space or pressing Shift+Enter appends at the end. Dropping near an existing clip snaps to its nearest boundary and inserts a whole clip, shifting subsequent content. Trimming and deletion close gaps. Source V1/A1 and recognition events remain reference material.
+
+Observed through actual browser interaction on `?variant=A&revision=single-track`:
+
+- Dragged gun 01 (source 5–17) into empty editing space well after zero: it became sequence 0–12, without a leading gap.
+- Dragged voice 02 (source 22–32.5) into empty editing space: it appended at 12–22.5 on the same lane.
+- Dragged gun 03 (source 41–53.5) between those clips: it occupied 12–24.5 and voice 02 shifted to 24.5–35. No extra track or split source fragment was created.
+- Changed gun 03's end with a numeric edit followed by a keyboard increment to 49.1: the placed clip shortened to 8.1 seconds, voice 02 moved to 20.1–30.6, and the pending source range remained 41–53.5.
+- Focused the first placed clip, activated it with Enter, and pressed Delete: that clip was removed, with the remaining clips closing to 0–8.1 and 8.1–18.6. One Undo restored all three clips and their positions.
+- With the playhead at zero, Shift+Enter on gun 02 appended source 22.5–35 at sequence 30.6–43.1. Duplicate source content was retained and reported, without overlapping output layers.
+- Played the program from about 11.2 seconds across the intervening clip transitions. At about sequence 32.36, the program displayed source about 24.08 from the final clip. This establishes basic traversal, not frame-accurate playback or audio synchronization.
+- The browser showed one editing row with four linked blocks. No captured warning or error logs were returned during the check.
+
+Additional checks: JavaScript syntax and `git diff --check` passed. Small in-memory state assertions covered append, boundary snapping, single-track continuity, trim/delete/undo, independent pending ranges, read-only baselines, editable copies, and snapshot restoration. No new test suite was added.
+
+This remains a fixture-based browser prototype. Real inference, real audio, persistent project save/reopen, native FilmCraft editing, and actual export were not validated. Queue/cancellation, draft creation and snapshot recovery were not repeated through the browser in this revision; state-level checks are not a substitute for those UI paths.
+
+![Single linked editing lane with four consecutive clips](evidence/prototype-single-track.jpg)
+
+## Repository sync — 2026-10-14
+
+The single-lane browser prototype, screenshot, and design discussion were synchronized to `codex/grill-ai-selection-decisions`. JavaScript syntax and diff whitespace checks passed. In-memory checks passed for append, boundary insertion, linked single-lane continuity, trim/delete gap closure, undo, independent pending ranges, repeated use, current-range draft creation, baseline/copy isolation, and snapshot restoration. Browser interactions were not repeated during this repository sync; the observations above remain bounded to their original capture. The new native implementation and native validation results are excluded from this branch.

@@ -6,7 +6,7 @@
 
 ## FilmCraft 原型入口
 
-浏览器交互原型用于体验 **A1 下的枪声／人声分类子行、调整高亮范围、拖拽创建 V2/A2 剪辑轨道**。它使用演示识别数据，尚未接入 Python 模型；刷新页面会清空操作状态。
+浏览器交互原型用于体验 **A1 下的枪声／人声分类子行、调整高亮范围、拖拽到声画关联剪辑轨并自动拼接**。它使用演示识别数据，尚未接入 Python 模型；刷新页面会清空操作状态。
 
 ```sh
 python3 integrations/filmcraft/recognition-ui.prototype/serve.py
