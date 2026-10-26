@@ -14,6 +14,10 @@ python3 model_web_ui/browser.prototype/serve.py
 
 打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。页面有浏览器能力指示。
 
+上述前台命令需要终端进程保持运行。需要独立后台预览时执行 `python3 model_web_ui/browser.prototype/serve.py --background`；启动时打印 PID 和日志路径。重启电脑后仍需重新启动。只启动一个实例。
+
+模型加载会分别显示连接、已读取 MiB、WASM 初始化和当前窗口推理。模型读取连续 30 秒没有数据会报告错误并允许重试；这个限制不作用于模型初始化和推理耗时。
+
 此命令只提供静态文件，**不处理录像、不执行推理、没有上传接口**。最终可以把页面与 assets 放到 HTTPS 静态站点；网站用户不需要 Python、FFmpeg、Electron 或本地助手。本轮没有部署公网网站。
 
 当前资产路径是 `/private/tmp/apex-browser-prototype-20261026/assets`。这是用户在外接盘创建目录阻塞后明确批准的本机存储例外。临时目录可能被系统清理；换目录后使用 `--assets /绝对路径`。模型和运行库不进入 Git。

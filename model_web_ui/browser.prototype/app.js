@@ -122,7 +122,11 @@ function infer(waveform) {
   if (!worker) {
     worker = new Worker('./inference-worker.js', { type: 'module' });
     worker.onmessage = ({ data }) => {
-      if (data.type === 'status') { note(data.message); return; }
+      if (data.type === 'status') {
+        if (data.progress === null) $('progress').removeAttribute('value');
+        else if (typeof data.progress === 'number') $('progress').value = data.progress;
+        note(data.message); return;
+      }
       const request = pending.get(data.id);
       pending.delete(data.id);
       if (data.type === 'error') request?.reject(new Error(data.message));
