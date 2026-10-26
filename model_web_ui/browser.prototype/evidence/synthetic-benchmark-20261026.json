@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-26T11:23:57.115Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "backend": "onnxruntime-web 1.23.2 / WASM CPU / 1 thread",
+  "source": "localhost HTTP, no-store; fresh Worker is cold session, OS disk cache not flushed",
+  "modelBytes": 373403807,
+  "cold": [
+    {
+      "readMs": 515.1150000095367,
+      "initializeMs": 841.4799998998642,
+      "inferenceMs": 2055.4500000476837,
+      "cold": true,
+      "totalMs": 3470.1150000095367,
+      "maxAbsoluteError": 7.674098014831543e-7
+    },
+    {
+      "readMs": 156.35000002384186,
+      "initializeMs": 667.1800000667572,
+      "inferenceMs": 2131.7599999904633,
+      "cold": true,
+      "totalMs": 2982.2699999809265,
+      "maxAbsoluteError": 7.674098014831543e-7
+    },
+    {
+      "readMs": 135.15499997138977,
+      "initializeMs": 662.8600000143051,
+      "inferenceMs": 2187.420000076294,
+      "cold": true,
+      "totalMs": 3006.0449999570847,
+      "maxAbsoluteError": 7.674098014831543e-7
+    }
+  ],
+  "warm": [
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "inferenceMs": 1975.0699999332428,
+      "cold": false,
+      "totalMs": 1975.710000038147,
+      "maxAbsoluteError": 7.674098014831543e-7
+    },
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "inferenceMs": 1943.164999961853,
+      "cold": false,
+      "totalMs": 1943.5299999713898,
+      "maxAbsoluteError": 7.674098014831543e-7
+    },
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "inferenceMs": 2103.6299999952316,
+      "cold": false,
+      "totalMs": 2104.4049999713898,
+      "maxAbsoluteError": 7.674098014831543e-7
+    }
+  ],
+  "media": [
+    {
+      "mode": "cold",
+      "duration": 12,
+      "windows": 2,
+      "decodeMs": 98.48000001907349,
+      "readMs": 112.31500005722046,
+      "initializeMs": 646.9699999094009,
+      "inferenceMs": 4314.679999947548,
+      "totalMs": 5189.044999957085
+    },
+    {
+      "mode": "warm",
+      "duration": 12,
+      "windows": 2,
+      "decodeMs": 100.86000001430511,
+      "readMs": 0,
+      "initializeMs": 0,
+      "inferenceMs": 4143.7699999809265,
+      "totalMs": 4247.399999976158
+    }
+  ],
+  "export": {
+    "duration": 5,
+    "totalMs": 48.12999999523163,
+    "bytes": 179451,
+    "width": 640,
+    "height": 360
+  }
+}

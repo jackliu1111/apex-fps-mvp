@@ -23,13 +23,18 @@ function note(message) {
 }
 
 function renderState() {
+  const current = active();
+  if (current?.timings) {
+    const t = current.timings, s = (v) => ((v || 0) / 1000).toFixed(3);
+    $('analysis-timing').textContent = `${current.file.name}\n状态：${current.status}；已完成窗口：${current.windows || 0}\n模型读取 ${s(t.readMs)} 秒；初始化 ${s(t.initializeMs)} 秒\n音频解码／重采样 ${s(t.decodeMs)} 秒；模型推理 ${s(t.inferenceMs)} 秒\n完整分析耗时：${t.totalMs === undefined ? '进行中' : s(t.totalMs) + ' 秒'}`;
+  } else $('analysis-timing').textContent = '尚无分析计时';
   $('state').textContent = JSON.stringify({
     processing: busy, cancelled, backend: 'WASM / CPU · Web Worker',
     model: metadata?.model || '尚未载入', currentFile: active()?.file.name || null,
     files: files.map((f) => ({ name: f.file.name, bytes: f.file.size, status: f.status,
       videoOrigin: f.origin, duration: f.duration, selectedTrack: f.selected,
       windowsCompleted: f.windows || 0, scoreFrames: f.scores?.length / 2 || 0,
-      clips: f.clips, error: f.error || null })), exports: downloads.map(({ name, bytes, requestedDuration, measuredDuration }) => ({ name, bytes, requestedDuration, browserReadbackDuration: measuredDuration })),
+      timings: f.timings, clips: f.clips, error: f.error || null })), exports: downloads.map(({ name, bytes, requestedDuration, measuredDuration, exportMs }) => ({ name, bytes, requestedDuration, browserReadbackDuration: measuredDuration, exportMs })),
     browserReference: lastReference,
   }, null, 2);
 }
@@ -290,10 +295,12 @@ async function exportSelected() {
   for (const [i, clip] of f.clips.entries()) {
     if (!clip.selected) continue;
     checkCancelled(); note(`正在导出片段 ${i + 1}：${seconds(clip.start)}—${seconds(clip.end)}`);
+    const started = performance.now();
     const { blob, measuredDuration } = await convertClip(f, clip);
+    const exportMs = performance.now() - started;
     const name = `${f.file.name.replace(/\.[^.]+$/, '')}-track${f.selected + 1}-${String(i + 1).padStart(2, '0')}.webm`;
-    const url = URL.createObjectURL(blob); downloads.push({ name, url, bytes: blob.size, requestedDuration: clip.end - clip.start, measuredDuration });
-    const link = element('a', `下载 ${name} · 读回约 ${seconds(measuredDuration)} · ${(blob.size / 1048576).toFixed(2)} MiB`);
+    const url = URL.createObjectURL(blob); downloads.push({ name, url, bytes: blob.size, requestedDuration: clip.end - clip.start, measuredDuration, exportMs });
+    const link = element('a', `下载 ${name} · 读回约 ${seconds(measuredDuration)} · ${(blob.size / 1048576).toFixed(2)} MiB · 导出 ${(exportMs / 1000).toFixed(3)} 秒`);
     link.href = url; link.download = name; $('downloads').append(link); renderState();
   }
   note('导出完成，点击预览区的下载链接保存。');
@@ -410,6 +417,18 @@ $('demo').onclick = () => run(demo);
 $('analyze').onclick = () => run(analyzeQueue);
 $('reference').onclick = () => run(reference);
 $('benchmark').onclick = () => run(benchmark);
+$('analysis-report').onclick = () => {
+  const f = active();
+  if (!f) return;
+  const report = { date: new Date().toISOString(), userAgent: navigator.userAgent,
+    model: metadata?.model, backend: 'WASM CPU / 1 thread',
+    source: { name: f.file.name, bytes: f.file.size, width: f.video.displayWidth, height: f.video.displayHeight, duration: f.duration, selectedAudioIndex: f.selected },
+    status: f.status, windows: f.windows, scoreFrames: f.scores?.length / 2, timings: f.timings,
+    threshold: Number($('threshold').value), clips: f.clips,
+    exports: downloads.map(({ url, ...record }) => record) };
+  const link = element('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
+  link.download = 'apex-browser-analysis-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+};
 $('result-file').onchange = () => { activeId = $('result-file').value; clearPreview(); render(); };
 $('manual').onclick = () => { const f = active(); f.clips.push({ start: 0, end: Math.min(5, f.duration), selected: true, manual: true }); render(); };
 $('recompute').onclick = () => { try { active().clips = candidates(active()); clearPreview(); note('已按当前阈值重新生成候选，原手动修改已替换。'); render(); } catch (error) { note(errorText(error)); } };

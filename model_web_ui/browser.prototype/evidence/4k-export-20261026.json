@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-26T11:53:03.639Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "model": "BEATs_strong_1",
+  "backend": "WASM CPU / 1 thread",
+  "source": {
+    "name": "2026-09-11 20-32-49.mkv",
+    "bytes": 16823282156,
+    "width": 3840,
+    "height": 2160,
+    "duration": 1293.949666666,
+    "selectedAudioIndex": 0
+  },
+  "status": "完成",
+  "windows": 258,
+  "scoreFrames": 32348,
+  "timings": {
+    "decodeMs": 35774.86499977112,
+    "readMs": 214.2849999666214,
+    "initializeMs": 615.0950000286102,
+    "inferenceMs": 502823.0849993229,
+    "totalMs": 539749.1800000668
+  },
+  "threshold": 1,
+  "clips": [
+    {
+      "start": 170,
+      "end": 175,
+      "selected": true,
+      "manual": true
+    }
+  ],
+  "exports": [
+    {
+      "name": "2026-09-11 20-32-49-track1-01.webm",
+      "bytes": 2673768,
+      "requestedDuration": 5,
+      "measuredDuration": 5,
+      "exportMs": 1706.789999961853
+    }
+  ]
+}

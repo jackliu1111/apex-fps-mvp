@@ -1,0 +1,232 @@
+{
+  "date": "2026-10-26T11:52:06.874Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "model": "BEATs_strong_1",
+  "backend": "WASM CPU / 1 thread",
+  "source": {
+    "name": "2026-09-11 20-32-49.mkv",
+    "bytes": 16823282156,
+    "width": 3840,
+    "height": 2160,
+    "duration": 1293.949666666,
+    "selectedAudioIndex": 0
+  },
+  "status": "完成",
+  "windows": 258,
+  "scoreFrames": 32348,
+  "timings": {
+    "decodeMs": 35774.86499977112,
+    "readMs": 214.2849999666214,
+    "initializeMs": 615.0950000286102,
+    "inferenceMs": 502823.0849993229,
+    "totalMs": 539749.1800000668
+  },
+  "threshold": 0.2,
+  "clips": [
+    {
+      "start": 168.28,
+      "end": 179.88,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 209.56,
+      "end": 227.84,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 261,
+      "end": 271.08,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 292.6,
+      "end": 320.6,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 416.56,
+      "end": 426.76,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 434.64,
+      "end": 444.92,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 446.36,
+      "end": 459.96000000000004,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 457.64,
+      "end": 468.12,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 475,
+      "end": 502.88,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 523.5600000000001,
+      "end": 534.6,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 615,
+      "end": 625.84,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 623.72,
+      "end": 639.44,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 636.96,
+      "end": 654.24,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 654.96,
+      "end": 665.44,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 710.5600000000001,
+      "end": 721.6800000000001,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 717.4,
+      "end": 730.8000000000001,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 787.24,
+      "end": 804.6,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 800.8000000000001,
+      "end": 811.4,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 840.16,
+      "end": 853.52,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 872.76,
+      "end": 894.48,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 901.2,
+      "end": 911.64,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 956.4,
+      "end": 971.88,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 970.5600000000001,
+      "end": 980.72,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 977.4,
+      "end": 988.64,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1001.6800000000001,
+      "end": 1016.4,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1019.4000000000001,
+      "end": 1035.16,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1052.92,
+      "end": 1063.1200000000001,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1061.48,
+      "end": 1072.2,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1068.32,
+      "end": 1088.56,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1084.1200000000001,
+      "end": 1099.16,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1099.2,
+      "end": 1109.84,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1109.04,
+      "end": 1122.44,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1135.76,
+      "end": 1147.32,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "start": 1146.04,
+      "end": 1222.04,
+      "selected": true,
+      "manual": false
+    }
+  ],
+  "exports": []
+}
