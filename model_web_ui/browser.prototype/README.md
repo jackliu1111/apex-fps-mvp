@@ -65,4 +65,6 @@ env PYTHONDONTWRITEBYTECODE=1 \
 
 实测范围、结论及已知时间边界问题见 [CAPTURE.md](CAPTURE.md)。
 
+页面底部“运行合成耗时测试”可重复测量：固定 10 秒音频冷／热各 3 次，重新创建 Worker 作为冷会话；随后测 12 秒合成视频的两窗口分析和 5 秒合成片段导出。只自动确认新生成样本的第一音轨，不分析用户已导入的其他录像。结果可下载 JSON；本机资源读取速度不等于公网下载速度。
+
 上游参考：[ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/)、[Mediabunny](https://mediabunny.dev/guide/converting-media-files)。运行库许可证与静态资产一同下载。

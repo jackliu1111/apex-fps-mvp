@@ -27,5 +27,6 @@
   </div>
   <section><h2>操作导览</h2><div class="row" id="walkthroughs"><button data-guide="happy">完整链路</button><button data-guide="tracks">多音轨</button><button data-guide="cancel">取消与重试</button></div><p id="guide">导入录像 → 确认音轨 → 开始分析 → 预览候选 → 勾选导出。也可用合成样本走通操作。</p></section>
   <details open><summary>原型状态与证据</summary><pre id="state"></pre><button id="reference">验证浏览器模型与 Python 基准</button><p id="reference-status">使用固定合成噪声比对全部 250 × 447 个分数；不涉及你的录像。</p><pre id="log"></pre></details>
+<details open><summary>耗时测试</summary><p class="muted">固定合成音频冷／热各测 3 次，另测 12 秒合成视频分析及 5 秒导出，不分析你的录像。</p><button id="benchmark">运行合成耗时测试</button><pre id="benchmark-result"></pre><div id="benchmark-download"></div></details>
 </main><script type="module" src="app.js"></script>
 </body></html>

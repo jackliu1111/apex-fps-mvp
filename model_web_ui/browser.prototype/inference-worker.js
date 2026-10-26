@@ -41,19 +41,26 @@ async function readModel() {
 }
 self.onmessage = async ({ data }) => {
   try {
+    const timings = { readMs: 0, initializeMs: 0, inferenceMs: 0, cold: !session };
     if (!session) {
+      let started = performance.now();
       const bytes = await readModel();
+      timings.readMs = performance.now() - started;
       self.postMessage({ type: 'status', progress: null, message: '模型读取完成，正在初始化 WASM 推理引擎…' });
+      started = performance.now();
       session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
+      timings.initializeMs = performance.now() - started;
     }
     self.postMessage({ type: 'status', progress: null, message: '模型已就绪，正在计算当前音频窗口…' });
     const input = new ort.Tensor('float32', data.waveform, [1, 160000]);
     let output;
+    const started = performance.now();
     try { output = await session.run({ waveform: input }); }
     finally { input.dispose(); }
+    timings.inferenceMs = performance.now() - started;
     const values = new Float32Array(output.probabilities.data);
     output.probabilities.dispose();
-    self.postMessage({ id: data.id, type: 'result', values }, [values.buffer]);
+    self.postMessage({ id: data.id, type: 'result', values, timings }, [values.buffer]);
   } catch (error) {
     self.postMessage({ id: data.id, type: 'error', message: String(error.stack || error) });
   }
