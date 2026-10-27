@@ -21,7 +21,7 @@
 | R4 | 导出任务：提交时固定素材/范围/声音/设置，串行执行，取消批次独立于分析和复核 | R2, R3 | 完成；固定快照、匹配成片复用、失效与逐片部分结果通过；目录写入证据限定为测试 OPFS |
 | R5 | 两页与复核流程集成（不含导出接入）：完整时间线/局部范围、候选追加不抢焦点、保存状态 | R1, R2, R3 | 完成；批量选择、目录选择时机与独立导入修复后，真实浏览器操作和修复流程通过 |
 | R5b | 导出任务接入与完整链路：独立任务区域、固定批次提交与执行状态 | R4, R5 | 完成；提前提交、后续修改保护、排队执行及刷新后的逐片结果通过 |
-| R6 | 真实录像与浏览器行为验收、双轴代码审查、修复与工作区清理 | R5b | 验收完成；46 项 Node 测试、两类真实浏览器流程、最终三份媒体报告通过；Standards / Spec 均 0 未解决；交付时由主任务归档实施工作区 |
+| R6 | 真实录像与浏览器行为验收、双轴代码审查、修复与工作区清理 | R5b | 功能/验收完成，归档部分受应用占用保护阻挡；46 项 Node 测试、两类真实浏览器流程、最终三份媒体报告通过；Standards / Spec 均 0 未解决；1 个工作区已归档、7 个保留待归档 |
 
 R1/R2/R3 在独立分支和工作区实施，合并前同步集成分支。每项采用 TDD 垂直切片；合并由独立 merger 代理处理。审查固定比较基线与最终集成分支，不将此前音频实验算作本次新增实现。
 
@@ -37,4 +37,20 @@ R1/R2/R3 在独立分支和工作区实施，合并前同步集成分支。每�
 
 最终结果见 [验证记录](../parallel-analysis-review-validation.md)，界面见 [最终复核页截图](../../model_web_ui/browser.prototype/evidence/grill-final-review-ui-20261027.png)。并发播放器冻结已修复，历史失败和 1 MiB 中间结果保留；最终产品采用 4 MiB 有界读取。真实 44 分钟录像两轮完整分析为 215.217 / 214.999 秒，每轮 527 窗口、28 候选，分析均值较旧基线增加 1.58%；首个稳定候选均值增加约 2.24 秒，成本明确记录。每轮 40 秒同时播放及两次跳转通过，最大采样帧滞后约 16ms；最终独播首画面约 392ms，导出与播放重叠观察 20 秒也通过。
 
-5 项 Spec 与 1 项 Standards 初始发现已修复，两轴分别复审至 `08a2a09`，均为 0 项未解决。46 项 Node 测试、完整用户流程和浏览器修复流程均通过；[修复证据](../../model_web_ui/browser.prototype/evidence/grill-review-fixes-20261027.json)及三份最终媒体原始报告已保存。本地实现任务验收完成，工作区归档由主任务在合入本记录后执行。验收范围不包括所有格式/机器的性能保证、整片全程播放、分析断点续算或用户实际选择外接目录的授权流程；OPFS 目录测试不冒充外接盘保存验收。
+5 项 Spec 与 1 项 Standards 初始发现已修复，两轴分别复审至 `08a2a09`，均为 0 项未解决。46 项 Node 测试、完整用户流程和浏览器修复流程均通过；[修复证据](../../model_web_ui/browser.prototype/evidence/grill-review-fixes-20261027.json)及三份最终媒体原始报告已保存。本地实现任务功能与验收完成，工作区清理尚未全部完成，实际归档结果如下。验收范围不包括所有格式/机器的性能保证、整片全程播放、分析断点续算或用户实际选择外接目录的授权流程；OPFS 目录测试不冒充外接盘保存验收。
+
+## 工作区归档结果
+
+所有实施代码均已合入集成分支。`list_artifacts` 已确认 `/Users/jackliu/.codex/worktrees/grill-review-fixes/cormorant` 为 `archived_worktree`。
+
+以下 7 个工作区的归档请求均被应用工具拒绝，精确原因为 `Another active task still uses this worktree`；复核与播放器所有者上下文中的重试也返回相同原因。工作区原样保留，未使用手动 `git worktree remove` 或文件删除绕过应用占用保护：
+
+- `/Users/jackliu/.codex/worktrees/grill-review-state/cormorant`
+- `/Users/jackliu/.codex/worktrees/grill-player/cormorant`
+- `/Users/jackliu/.codex/worktrees/grill-analysis/cormorant`
+- `/Users/jackliu/.codex/worktrees/grill-export/cormorant`
+- `/Users/jackliu/.codex/worktrees/grill-ui/cormorant`
+- `/Users/jackliu/.codex/worktrees/grill-validation/cormorant`
+- `/Users/jackliu/.codex/worktrees/grill-player-fix/cormorant`
+
+这些工作区需在应用解除占用后通过正式归档工具重试；当前不能标记工作区清理全部完成。
