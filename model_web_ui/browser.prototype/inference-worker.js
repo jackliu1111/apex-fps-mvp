@@ -1,9 +1,11 @@
 import * as ort from '/assets/vendor/ort.wasm.min.mjs';
+import { createFrontend } from './efficientat-frontend.js';
 
 ort.env.wasm.wasmPaths = new URL('/assets/vendor/', self.location).href;
 ort.env.wasm.numThreads = 1;
 let session;
-async function readModel() {
+let frontend;
+async function readModel(url) {
   const controller = new AbortController();
   let timer;
   const resetDeadline = () => {
@@ -13,7 +15,7 @@ async function readModel() {
   resetDeadline();
   try {
     self.postMessage({ type: 'status', message: '正在连接模型文件…' });
-    const response = await fetch('/assets/beats.onnx', { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const total = Number(response.headers.get('Content-Length'));
     if (!Number.isSafeInteger(total) || total <= 0) throw new Error('模型响应缺少有效文件大小');
@@ -41,10 +43,16 @@ async function readModel() {
 }
 self.onmessage = async ({ data }) => {
   try {
-    const timings = { readMs: 0, initializeMs: 0, inferenceMs: 0, cold: !session };
+    const small = data.model === 'efficientat';
+    const timings = { readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, cold: !session };
     if (!session) {
       let started = performance.now();
-      const bytes = await readModel();
+      const bytes = await readModel(small ? '/assets/efficientat/mn04.onnx' : '/assets/beats.onnx');
+      if (small) {
+        const response = await fetch('/assets/efficientat/frontend.json');
+        if (!response.ok) throw new Error('无法读取 EfficientAT 前处理常量');
+        frontend = createFrontend(await response.json());
+      }
       timings.readMs = performance.now() - started;
       self.postMessage({ type: 'status', progress: null, message: '模型读取完成，正在初始化 WASM 推理引擎…' });
       started = performance.now();
@@ -52,10 +60,13 @@ self.onmessage = async ({ data }) => {
       timings.initializeMs = performance.now() - started;
     }
     self.postMessage({ type: 'status', progress: null, message: '模型已就绪，正在计算当前音频窗口…' });
-    const input = new ort.Tensor('float32', data.waveform, [1, 160000]);
+    const frontendStarted = performance.now();
+    const features = small ? frontend(data.waveform) : data.waveform;
+    timings.frontendMs = small ? performance.now() - frontendStarted : 0;
+    const input = new ort.Tensor('float32', features, small ? [1, 1, 128, 1000] : [1, 160000]);
     let output;
     const started = performance.now();
-    try { output = await session.run({ waveform: input }); }
+    try { output = await session.run(small ? { mel: input } : { waveform: input }); }
     finally { input.dispose(); }
     timings.inferenceMs = performance.now() - started;
     const values = new Float32Array(output.probabilities.data);

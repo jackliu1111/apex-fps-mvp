@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-27T04:13:05.727Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "backend": "onnxruntime-web 1.23.2 / WASM CPU / 1 thread",
+  "source": "localhost HTTP, no-store; fresh Worker is cold session, OS disk cache not flushed",
+  "model": "EfficientAT mn04_as",
+  "modelBytes": 3972280,
+  "cold": [
+    {
+      "readMs": 11.355000019073486,
+      "initializeMs": 107.125,
+      "frontendMs": 24.5,
+      "inferenceMs": 17.019999980926514,
+      "cold": true,
+      "totalMs": 176.68500006198883,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 9.539999961853027,
+      "initializeMs": 96.01499998569489,
+      "frontendMs": 23.979999899864197,
+      "inferenceMs": 16.449999928474426,
+      "cold": true,
+      "totalMs": 154.44000005722046,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 7.225000023841858,
+      "initializeMs": 93.36500000953674,
+      "frontendMs": 26.69000005722046,
+      "inferenceMs": 17.070000052452087,
+      "cold": true,
+      "totalMs": 153.54000008106232,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    }
+  ],
+  "warm": [
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 24.455000042915344,
+      "inferenceMs": 9.360000014305115,
+      "cold": false,
+      "totalMs": 34.03999996185303,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 19.049999952316284,
+      "inferenceMs": 9.794999957084656,
+      "cold": false,
+      "totalMs": 29.164999961853027,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 17.049999952316284,
+      "inferenceMs": 9.004999995231628,
+      "cold": false,
+      "totalMs": 26.355000019073486,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    }
+  ],
+  "media": [
+    {
+      "mode": "cold",
+      "duration": 12,
+      "windows": 2,
+      "decodeMs": 107.68999993801117,
+      "readMs": 7.205000042915344,
+      "initializeMs": 93.49500000476837,
+      "frontendMs": 44.90499997138977,
+      "inferenceMs": 25.164999961853027,
+      "totalMs": 289.20500004291534
+    },
+    {
+      "mode": "warm",
+      "duration": 12,
+      "windows": 2,
+      "decodeMs": 92.08999991416931,
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 29.84500002861023,
+      "inferenceMs": 16.575000047683716,
+      "totalMs": 139.2149999141693
+    }
+  ],
+  "export": {
+    "duration": 5,
+    "totalMs": 57.84499990940094,
+    "bytes": 179451,
+    "width": 640,
+    "height": 360
+  }
+}

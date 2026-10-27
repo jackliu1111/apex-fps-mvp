@@ -9,6 +9,16 @@ let previewUrl;
 const pending = new Map();
 const downloads = [];
 let metadata;
+const modelKey = () => $('model').value;
+const assetRoot = () => modelKey() === 'efficientat' ? '/assets/efficientat' : '/assets';
+async function loadMetadata() {
+  if (!metadata) {
+    const response = await fetch(`${assetRoot()}/model.json`);
+    if (!response.ok) throw new Error('模型清单无法读取');
+    metadata = await response.json();
+  }
+  return metadata;
+}
 let lastReference = null;
 let lastWindowTiming = null;
 const active = () => files.find((file) => file.id === activeId);
@@ -26,14 +36,14 @@ function renderState() {
   const current = active();
   if (current?.timings) {
     const t = current.timings, s = (v) => ((v || 0) / 1000).toFixed(3);
-    $('analysis-timing').textContent = `${current.file.name}\n状态：${current.status}；已完成窗口：${current.windows || 0}\n模型读取 ${s(t.readMs)} 秒；初始化 ${s(t.initializeMs)} 秒\n音频解码／重采样 ${s(t.decodeMs)} 秒；模型推理 ${s(t.inferenceMs)} 秒\n完整分析耗时：${t.totalMs === undefined ? '进行中' : s(t.totalMs) + ' 秒'}`;
+    $('analysis-timing').textContent = `${current.file.name}\n状态：${current.status}；已完成窗口：${current.windows || 0}\n模型读取 ${s(t.readMs)} 秒；初始化 ${s(t.initializeMs)} 秒\n音频解码／重采样 ${s(t.decodeMs)} 秒；特征提取 ${s(t.frontendMs)} 秒；模型推理 ${s(t.inferenceMs)} 秒\n完整分析耗时：${t.totalMs === undefined ? '进行中' : s(t.totalMs) + ' 秒'}`;
   } else $('analysis-timing').textContent = '尚无分析计时';
   $('state').textContent = JSON.stringify({
     processing: busy, cancelled, backend: 'WASM / CPU · Web Worker',
     model: metadata?.model || '尚未载入', currentFile: active()?.file.name || null,
     files: files.map((f) => ({ name: f.file.name, bytes: f.file.size, status: f.status,
       videoOrigin: f.origin, duration: f.duration, selectedTrack: f.selected,
-      windowsCompleted: f.windows || 0, scoreFrames: f.scores?.length / 2 || 0,
+      windowsCompleted: f.windows || 0, scoreFrames: f.windowScores ? null : f.scores?.length / 2 || 0, scoreWindows: f.windowScores?.length || 0,
       timings: f.timings, clips: f.clips, error: f.error || null })), exports: downloads.map(({ name, bytes, requestedDuration, measuredDuration, exportMs }) => ({ name, bytes, requestedDuration, browserReadbackDuration: measuredDuration, exportMs })),
     browserReference: lastReference,
   }, null, 2);
@@ -70,7 +80,7 @@ function render() {
     select.onchange = () => {
       if (f.id === activeId) clearPreview();
       f.selected = select.value === '' ? null : Number(select.value);
-      f.scores = null; f.clips = []; f.windows = 0; f.error = null;
+      f.scores = null; f.windowScores = null; f.timings = null; f.clips = []; f.windows = 0; f.error = null;
       f.status = f.selected === null ? '待选音轨' : '待分析';
       render();
     };
@@ -81,7 +91,7 @@ function render() {
   $('result-file').value = activeId || '';
   const f = active();
   $('clips').replaceChildren();
-  if (!f?.clips.length) $('clips').append(element('p', f?.scores ? '未发现超过阈值的枪声候选。可调阈值或添加手动范围。' : '完成识别后在这里复核，也可添加手动范围。', 'empty'));
+  if (!f?.clips.length) $('clips').append(element('p', (f?.scores || f?.windowScores) ? '未发现超过阈值的枪声候选。可调阈值或添加手动范围。' : '完成识别后在这里复核，也可添加手动范围。', 'empty'));
   for (const [index, clip] of (f?.clips || []).entries()) {
     const row = element('div', undefined, 'clip');
     const selected = element('input'); selected.type = 'checkbox'; selected.checked = clip.selected;
@@ -105,10 +115,10 @@ function render() {
     row.append(preview, remove); row.querySelectorAll('input,button').forEach((node) => { node.disabled = busy; });
     $('clips').append(row);
   }
-  for (const id of ['files', 'demo', 'analyze', 'manual', 'recompute', 'export', 'reference', 'benchmark', 'result-file', 'threshold']) $(id).disabled = busy;
+  for (const id of ['files', 'demo', 'analyze', 'manual', 'recompute', 'export', 'reference', 'benchmark', 'result-file', 'threshold', 'model']) $(id).disabled = busy;
   $('analyze').disabled = busy || !files.length || files.some((f) => f.selected === null);
   $('manual').disabled = busy || !f;
-  $('recompute').disabled = busy || !f?.scores;
+  $('recompute').disabled = busy || !(f?.scores || f?.windowScores);
   $('export').disabled = busy || !f?.clips.some((c) => c.selected) || f.selected === null;
   $('cancel').disabled = !busy;
   renderState();
@@ -146,7 +156,7 @@ function infer(waveform) {
   return new Promise((resolve, reject) => {
     const id = ++nextRequest;
     pending.set(id, { resolve, reject });
-    worker.postMessage({ id, waveform }, [waveform.buffer]);
+    worker.postMessage({ id, waveform, model: modelKey() }, [waveform.buffer]);
   });
 }
 
@@ -172,7 +182,7 @@ async function importFiles(incoming) {
 }
 
 async function audioWindow(track, start) {
-  const context = new OfflineAudioContext(1, 160000, 16000);
+  const context = new OfflineAudioContext(1, metadata.sampleRate * 10, metadata.sampleRate);
   const sink = new MB.AudioBufferSink(track);
   let samples = 0;
   for await (const { buffer, timestamp } of sink.buffers(start, start + 10)) {
@@ -191,6 +201,10 @@ async function audioWindow(track, start) {
 function candidates(f) {
   const threshold = Number($('threshold').value);
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('阈值须在 0 到 1 之间');
+  if (f.windowScores) {
+    const hits = f.windowScores.filter((w) => Math.max(...w.scores) > threshold);
+    return mergeEvents(f, hits.map((w) => ({ start: w.start, end: w.end })));
+  }
   const n = f.scores.length / 2;
   const smooth = (i, k) => [f.scores[Math.max(0, i - 1) * 2 + k], f.scores[i * 2 + k], f.scores[Math.min(n - 1, i + 1) * 2 + k]].sort((a, b) => a - b)[1];
   const events = [];
@@ -200,6 +214,10 @@ function candidates(f) {
     if (hit && start === null) start = i * 0.04;
     if (!hit && start !== null) { events.push({ start: start + f.audioOffset, end: Math.min(i * 0.04, f.audioDuration) + f.audioOffset }); start = null; }
   }
+  return mergeEvents(f, events);
+}
+
+function mergeEvents(f, events) {
   const groups = [];
   for (const event of events) {
     const last = groups.at(-1);
@@ -210,14 +228,14 @@ function candidates(f) {
 }
 
 async function analyzeQueue(targets = files) {
-  metadata ||= await (await fetch('/assets/model.json')).json();
+  await loadMetadata();
   const classIndices = ['Gunshot, gunfire', 'Machine gun'].map((name) => metadata.classes.indexOf(name));
   if (classIndices.some((i) => i < 0)) throw new Error('模型类别清单不匹配');
   for (const f of targets) {
     if (f.selected === null) throw new Error('请先确认所有音轨');
     if (f.status === '完成') continue;
-    activeId = f.id; f.status = '分析中'; f.error = null; f.scores = null; f.clips = []; f.windows = 0;
-    f.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, inferenceMs: 0 };
+    activeId = f.id; f.status = '分析中'; f.error = null; f.scores = null; f.windowScores = null; f.clips = []; f.windows = 0;
+    f.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0 };
     const analysisStarted = performance.now(); render();
     try {
       const track = f.tracks[f.selected];
@@ -227,6 +245,8 @@ async function analyzeQueue(targets = files) {
       f.audioOffset = origin - f.origin;
       const sampleCount = Math.round(f.audioDuration * 16000);
       if (sampleCount <= 0) throw new Error('音轨没有有效采样');
+      const small = metadata.scoreType === 'window';
+      const windowScores = [];
       const frames = Math.ceil(sampleCount / 640);
       const sums = new Float32Array(frames * 2), counts = new Uint16Array(frames);
       const windows = Math.ceil(Math.max(0, sampleCount - 160000) / 80000) + 1;
@@ -237,19 +257,29 @@ async function analyzeQueue(targets = files) {
         f.timings.decodeMs += performance.now() - decodeStarted;
         checkCancelled();
         const values = await infer(waveform);
-        for (const key of ['readMs', 'initializeMs', 'inferenceMs']) f.timings[key] += lastWindowTiming[key];
+        for (const key of ['readMs', 'initializeMs', 'frontendMs', 'inferenceMs']) f.timings[key] += lastWindowTiming[key];
         checkCancelled();
-        if (values.length !== 250 * 447 || values.some((v) => !Number.isFinite(v))) throw new Error('模型输出无效');
-        for (let j = 0; j < 250 && i * 125 + j < frames; j++) {
-          const frame = i * 125 + j;
-          counts[frame]++;
-          for (let k = 0; k < 2; k++) sums[frame * 2 + k] += values[j * 447 + classIndices[k]];
+        if (small) {
+          if (values.length !== metadata.classes.length || values.some((v) => !Number.isFinite(v))) throw new Error('窗口分数无效');
+          windowScores.push({ start: i * 5 + f.audioOffset, end: Math.min(i * 5 + 10, f.audioDuration) + f.audioOffset,
+            scores: classIndices.map((k) => values[k]) });
+        } else {
+          if (values.length !== 250 * 447 || values.some((v) => !Number.isFinite(v))) throw new Error('模型输出无效');
+          for (let j = 0; j < 250 && i * 125 + j < frames; j++) {
+            const frame = i * 125 + j;
+            counts[frame]++;
+            for (let k = 0; k < 2; k++) sums[frame * 2 + k] += values[j * 447 + classIndices[k]];
+          }
         }
         f.windows = i + 1; $('progress').value = (i + 1) / windows; renderState();
       }
-      if (counts.some((v) => v === 0)) throw new Error('分数时间轴有缺口');
-      for (let j = 0; j < frames; j++) for (let k = 0; k < 2; k++) sums[j * 2 + k] /= counts[j];
-      f.scores = sums; f.clips = candidates(f); f.status = '完成';
+      if (small) f.windowScores = windowScores;
+      else {
+        if (counts.some((v) => v === 0)) throw new Error('分数时间轴有缺口');
+        for (let j = 0; j < frames; j++) for (let k = 0; k < 2; k++) sums[j * 2 + k] /= counts[j];
+        f.scores = sums;
+      }
+      f.clips = candidates(f); f.status = '完成';
       f.timings.totalMs = performance.now() - analysisStarted;
     } catch (error) {
       f.status = cancelled ? '已取消' : '失败'; f.error = errorText(error);
@@ -298,8 +328,8 @@ async function exportSelected() {
     const started = performance.now();
     const { blob, measuredDuration } = await convertClip(f, clip);
     const exportMs = performance.now() - started;
-    const name = `${f.file.name.replace(/\.[^.]+$/, '')}-track${f.selected + 1}-${String(i + 1).padStart(2, '0')}.webm`;
-    const url = URL.createObjectURL(blob); downloads.push({ name, url, bytes: blob.size, requestedDuration: clip.end - clip.start, measuredDuration, exportMs });
+    const name = `${f.file.name.replace(/\.[^.]+$/, '')}-${modelKey()}-track${f.selected + 1}-${String(i + 1).padStart(2, '0')}.webm`;
+    const url = URL.createObjectURL(blob); downloads.push({ name, model: modelKey(), start: clip.start, end: clip.end, url, bytes: blob.size, requestedDuration: clip.end - clip.start, measuredDuration, exportMs });
     const link = element('a', `下载 ${name} · 读回约 ${seconds(measuredDuration)} · ${(blob.size / 1048576).toFixed(2)} MiB · 导出 ${(exportMs / 1000).toFixed(3)} 秒`);
     link.href = url; link.download = name; $('downloads').append(link); renderState();
   }
@@ -340,9 +370,9 @@ async function demo() {
 
 async function reference() {
   note('正在比较浏览器模型与固定 Python 基准…');
-  metadata ||= await (await fetch('/assets/model.json')).json();
-  const waveform = new Float32Array(await (await fetch('/assets/reference-waveform.f32')).arrayBuffer());
-  const expected = new Float32Array(await (await fetch('/assets/reference-probabilities.f32')).arrayBuffer());
+  await loadMetadata();
+  const waveform = new Float32Array(await (await fetch(`${assetRoot()}/reference-waveform.f32`)).arrayBuffer());
+  const expected = new Float32Array(await (await fetch(`${assetRoot()}/reference-probabilities.f32`)).arrayBuffer());
   const values = await infer(waveform);
   let max = 0;
   if (values.length !== expected.length) throw new Error('基准输出形状不一致');
@@ -356,12 +386,13 @@ async function reference() {
 }
 
 async function benchmark() {
+  await loadMetadata();
   const report = { date: new Date().toISOString(), userAgent: navigator.userAgent,
     backend: 'onnxruntime-web 1.23.2 / WASM CPU / 1 thread',
     source: 'localhost HTTP, no-store; fresh Worker is cold session, OS disk cache not flushed',
-    modelBytes: 373403807, cold: [], warm: [], media: [] };
-  const waveform = new Float32Array(await (await fetch('/assets/reference-waveform.f32')).arrayBuffer());
-  const expected = new Float32Array(await (await fetch('/assets/reference-probabilities.f32')).arrayBuffer());
+    model: metadata.model, modelBytes: metadata.bytes, cold: [], warm: [], media: [] };
+  const waveform = new Float32Array(await (await fetch(`${assetRoot()}/reference-waveform.f32`)).arrayBuffer());
+  const expected = new Float32Array(await (await fetch(`${assetRoot()}/reference-probabilities.f32`)).arrayBuffer());
   const restartWorker = () => { worker?.terminate(); worker = null; };
   for (const mode of ['cold', 'warm']) {
     for (let i = 0; i < 3; i++) {
@@ -398,6 +429,7 @@ async function benchmark() {
   $('benchmark-result').textContent = [
     '测试完成（模型冷／热各 3 次取中位数；视频分析及导出各单次）：',
     `模型读取：${sec(median(report.cold, 'readMs'))}`,
+    `特征提取（热）：${sec(median(report.warm, 'frontendMs'))}`,
     `WASM 初始化：${sec(median(report.cold, 'initializeMs'))}`,
     `首次 10 秒窗口推理：${sec(median(report.cold, 'inferenceMs'))}`,
     `冷启动到首个结果：${sec(median(report.cold, 'totalMs'))}`,
@@ -412,6 +444,21 @@ async function benchmark() {
   note('耗时测试完成，详见下方“耗时测试”。');
 }
 
+$('model').onchange = () => {
+  worker?.terminate(); worker = null; metadata = null; lastReference = null;
+  clearPreview();
+  for (const f of files) {
+    f.scores = null; f.windowScores = null; f.timings = null; f.clips = []; f.windows = 0; f.error = null;
+    f.status = f.selected === null ? '待选音轨' : '待分析';
+  }
+  $('reference-status').textContent = '尚未验证当前模型。';
+  $('benchmark-result').textContent = ''; $('benchmark-download').replaceChildren();
+  $('model-note').textContent = modelKey() === 'efficientat'
+    ? 'EfficientAT mn04_as：10 秒窗口、5 秒步长，窗口级粗定位。阈值 0.2 仅作试验起点，尚未校准。'
+    : 'BEATs：40 毫秒帧分数，10 秒窗口、5 秒步长。';
+  $('threshold').value = '0.2';
+  note('已切换模型，旧识别结果清空；请重新分析。'); render();
+};
 $('files').onchange = () => { const incoming = [...$('files').files]; $('files').value = ''; run(() => importFiles(incoming)); };
 $('demo').onclick = () => run(demo);
 $('analyze').onclick = () => run(analyzeQueue);
@@ -423,11 +470,12 @@ $('analysis-report').onclick = () => {
   const report = { date: new Date().toISOString(), userAgent: navigator.userAgent,
     model: metadata?.model, backend: 'WASM CPU / 1 thread',
     source: { name: f.file.name, bytes: f.file.size, width: f.video.displayWidth, height: f.video.displayHeight, duration: f.duration, selectedAudioIndex: f.selected },
-    status: f.status, windows: f.windows, scoreFrames: f.scores?.length / 2, timings: f.timings,
+    status: f.status, windows: f.windows, scoreFrames: f.scores?.length / 2, windowScores: f.windowScores, timings: f.timings,
+    browserReference: lastReference, modelSha256: metadata?.sha256,
     threshold: Number($('threshold').value), clips: f.clips,
     exports: downloads.map(({ url, ...record }) => record) };
   const link = element('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
-  link.download = 'apex-browser-analysis-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+  link.download = `apex-browser-${modelKey()}-analysis-report.json`; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 60000);
 };
 $('result-file').onchange = () => { activeId = $('result-file').value; clearPreview(); render(); };
 $('manual').onclick = () => { const f = active(); f.clips.push({ start: 0, end: Math.min(5, f.duration), selected: true, manual: true }); render(); };

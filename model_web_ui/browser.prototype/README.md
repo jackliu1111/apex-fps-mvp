@@ -1,6 +1,6 @@
 # 纯网页处理链路 · 可丢弃原型
 
-问题：不安装本地助手，现有 BEATs 枪声模型能否与浏览器媒体处理连起来？先验证链路，不优化耗时。
+问题：不安装本地助手，轻量 EfficientAT 能否快速找到交火候选？保留 BEATs 基线作对照。
 
 这是功能／状态原型，不是三个视觉方案，也不是生产重构。它沿用本项目已确认音轨、真实模型分数、5/5/5 候选的业务流程。因为需要真实 WASM 模型和 WebCodecs，使用静态 HTTP 页面，而非双击 HTML 的模拟演示。原型不接入现有 Python 业务服务，不改动其协议或入口。
 
@@ -26,10 +26,10 @@ python3 model_web_ui/browser.prototype/serve.py
 
 1. 导入一份或多份本地录像；也可点击“生成 12 秒合成样本”。合成视频含脉冲和 440 Hz 两条音轨，不是实际枪声素材。
 2. 每份录像必须明确选择游戏音轨。更换音轨会清除该文件的旧分数和候选。
-3. 开始分析：按 10 秒窗口、5 秒步长读取音频，浏览器 Web Audio 转成 16 kHz 单声道；Worker 内 ONNX Runtime WASM 执行前处理和 BEATs。
-4. 两个枪声类的概率按重叠窗口取均值，3 帧中值平滑，再按阈值生成事件与 5/5/5 候选。可调阈值重算（会替换手动编辑）、勾选、修改起止、移除或添加手动范围。
+3. 默认选择 EfficientAT mn04_as，也可切回 BEATs。切换模型会清空旧识别结果。按 10 秒窗口、5 秒步长读取音频；EfficientAT 转成 32 kHz 单声道，Worker 内 JS FFT / Mel 前处理，再用 ONNX Runtime WASM 执行模型。BEATs 保留 16 kHz 路线。
+4. EfficientAT 按两个枪声类的窗口概率筛选，事件间隔 ≤5 秒合并，前后各留 5 秒；它是窗口级粗定位，0.2 阈值未经质量校准。BEATs 仍按重叠窗口取均值、3 帧中值平滑，再生成 5/5/5 候选。可调阈值重算（会替换手动编辑）、勾选、修改起止、移除或添加手动范围。
 5. 预览与导出都在浏览器内转成最高 720p 的 VP8 + Opus WebM，只包含选中的音轨。点击下载链接才保存文件。
-6. “原型状态与证据”可查看状态和日志。“验证浏览器模型与 Python 基准”使用固定合成噪声，比较完整 250×447 输出。
+6. “原型状态与证据”可查看状态和日志。“验证浏览器模型与 Python 基准”使用固定合成噪声，比较当前模型完整输出（EfficientAT 527 类、BEATs 250×447 帧分数）。
 
 可随时取消活动任务。推理 Worker 会终止；重试重新加载模型并从该文件开头分析。已完成文件和下载链接保留。项目仅在页面内存中，刷新清空，不写 IndexedDB / OPFS / localStorage。
 
@@ -52,7 +52,7 @@ env PYTHONDONTWRITEBYTECODE=1 \
 
 其他环境须替换绝对路径。资产输出预计约 370 MiB；重建前遵守用户的大文件存储规则，不把本次例外当成永久许可。
 
-导出器将 Kaldi fbank 改写为固定窗口的实数 DFT 矩阵计算，并将 496→250 的 adaptive average pooling 表达成等价固定矩阵。仅支持 `[1,160000]` 波形输入和 `[1,250,447]` 概率输出，短音频补零；不做量化、蒸馏或模型替换。`model.json` 包含参数、类别、模型哈希和 Python 对照误差；vendor 清单包含来源、版本、字节数与 SHA-256。
+导出器将 Kaldi fbank 改写为固定窗口的实数 DFT 矩阵计算，并将 496→250 的 adaptive average pooling 表达成等价固定矩阵。仅支持 `[1,160000]` 波形输入和 `[1,250,447]` 概率输出，短音频补零；该 BEATs 导出器不做量化或蒸馏。`model.json` 包含参数、类别、模型哈希和 Python 对照误差；vendor 清单包含来源、版本、字节数与 SHA-256。
 
 ## 范围与限制
 
@@ -68,3 +68,24 @@ env PYTHONDONTWRITEBYTECODE=1 \
 页面底部“运行合成耗时测试”可重复测量：固定 10 秒音频冷／热各 3 次，重新创建 Worker 作为冷会话；随后测 12 秒合成视频的两窗口分析和 5 秒合成片段导出。只自动确认新生成样本的第一音轨，不分析用户已导入的其他录像。结果可下载 JSON；本机资源读取速度不等于公网下载速度。
 
 上游参考：[ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/)、[Mediabunny](https://mediabunny.dev/guide/converting-media-files)。运行库许可证与静态资产一同下载。
+
+
+## EfficientAT mn04_as 重建
+
+本轮选用作者现成的 Transformer-to-CNN 蒸馏权重，未自行训练、量化或剪枝。源码固定为 `a425fdce92572e602a1d5634799bd9f1f2efa806`。模型计算图 3,972,280 字节；前处理常量、基准数据与来源信息位于 assets/efficientat。沿用用户批准的原型本机存储。
+
+```sh
+git clone --depth 1 --filter=blob:none --sparse https://github.com/fschmid56/EfficientAT.git /private/tmp/apex-browser-prototype-20261026/EfficientAT
+git -C /private/tmp/apex-browser-prototype-20261026/EfficientAT sparse-checkout set models helpers metadata
+git -C /private/tmp/apex-browser-prototype-20261026/EfficientAT fetch --depth 1 origin a425fdce92572e602a1d5634799bd9f1f2efa806
+git -C /private/tmp/apex-browser-prototype-20261026/EfficientAT checkout a425fdce92572e602a1d5634799bd9f1f2efa806
+curl -fL https://github.com/fschmid56/EfficientAT/releases/download/v0.0.1/mn04_as_mAP_432.pt -o /private/tmp/apex-browser-prototype-20261026/mn04_as_mAP_432.pt
+
+# 既有 Python 为 torch/torchaudio 2.8.0；只在隔离 deps 中补充开发依赖。
+/Users/jackliu/apex-voice-detect/.venv-pretrainedsed/bin/python -m pip install --no-deps --no-cache-dir --target /private/tmp/apex-browser-prototype-20261026/deps torchvision==0.23.0 pillow==11.3.0
+PYTHONPATH=/private/tmp/apex-browser-prototype-20261026/deps /Users/jackliu/apex-voice-detect/.venv-pretrainedsed/bin/python model_web_ui/browser.prototype/export_efficientat.py --source /private/tmp/apex-browser-prototype-20261026/EfficientAT --checkpoint /private/tmp/apex-browser-prototype-20261026/mn04_as_mAP_432.pt --output /private/tmp/apex-browser-prototype-20261026/assets/efficientat
+```
+
+不要覆盖已存在的 checkout 或重新安装无关依赖。上面的下载权重 SHA-256 应为 `899a8c6217063f6941793102a2780b3dd788ab11fce468d9cf5f0577c453321c`。导出器严格加载全部权重，检查 ONNX，并对照原 PyTorch；前处理固定为作者 eval 的 32 kHz / 128 Mel / 1024 FFT / 800 Hann / 320 hop。前端数值与分类分数都需验证，不能只验证 CNN。
+
+作者仓库 MIT 许可证复制在 `assets/efficientat/EfficientAT-LICENSE`，具体 checkpoint 来源与哈希在 model.json；本轮仅本机实验，未发布第三方模型。原始权重仍保留，不提交 Git。
