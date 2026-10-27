@@ -1,0 +1,84 @@
+{
+  "date": "2026-10-27T14:37:20.447Z",
+  "source": "/Volumes/EXTERNALUSB/共享/2026-10-11 08-43-38.mkv",
+  "browser": "156.0.8078.48",
+  "baseline": "86f7ef7",
+  "previews": [
+    {
+      "start": 300,
+      "conversionMs": 2011.5249999761581,
+      "firstFrameMs": 2017.1949999332428,
+      "bytes": 2609095
+    },
+    {
+      "start": 2100,
+      "conversionMs": 2000.054999947548,
+      "firstFrameMs": 2001.5149999856949,
+      "bytes": 2698837
+    },
+    {
+      "start": 300,
+      "conversionMs": 1320.1399999856949,
+      "firstFrameMs": 1321.1100000143051,
+      "bytes": 2609095
+    }
+  ],
+  "analysis": [
+    {
+      "status": "完成",
+      "duration": 2639.449666666,
+      "windows": 527,
+      "clips": 28,
+      "timings": {
+        "decodeMs": 211932.6650004387,
+        "readMs": 7.625,
+        "initializeMs": 93.25,
+        "frontendMs": 7721.645000338554,
+        "inferenceMs": 4301.4099987745285,
+        "audioSetupMs": 3.5149999856948853,
+        "audioWaitMs": 199700.0399993658,
+        "inferenceRoundTripMs": 12223.18000125885,
+        "postprocessAndRenderMs": 178.19499909877777,
+        "progressUiMs": 13.865000486373901,
+        "timingVersion": 2,
+        "decoderPasses": 1,
+        "sourceDecodeWaitMs": 211103.12000322342,
+        "pcmAssemblyMs": 138.37999761104584,
+        "resampleMs": 564.2550020217896,
+        "windowAssemblyMs": 68.16999936103821,
+        "maxSourceBufferSeconds": 5.120000000000008,
+        "maxMonoBufferSamples": 640000,
+        "firstReviewableMs": 12102.389999985695,
+        "totalMs": 212119.75999999046
+      }
+    },
+    {
+      "status": "完成",
+      "duration": 2639.449666666,
+      "windows": 527,
+      "clips": 28,
+      "timings": {
+        "decodeMs": 211056.30999934673,
+        "readMs": 0,
+        "initializeMs": 0,
+        "frontendMs": 7446.534998655319,
+        "inferenceMs": 4142.669999837875,
+        "audioSetupMs": 185.5549999475479,
+        "audioWaitMs": 199353.59999907017,
+        "inferenceRoundTripMs": 11675.755000710487,
+        "postprocessAndRenderMs": 167.48500084877014,
+        "progressUiMs": 13.554998993873596,
+        "timingVersion": 2,
+        "decoderPasses": 1,
+        "sourceDecodeWaitMs": 210213.83000147343,
+        "pcmAssemblyMs": 142.4899994134903,
+        "resampleMs": 579.2299997806549,
+        "windowAssemblyMs": 65.79000055789948,
+        "maxSourceBufferSeconds": 5.120000000000008,
+        "maxMonoBufferSamples": 640000,
+        "firstReviewableMs": 12577.694999933243,
+        "totalMs": 211397.21000003815
+      }
+    }
+  ]
+}
