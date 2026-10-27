@@ -1,0 +1,295 @@
+{
+  "date": "2026-10-27T14:45:02.431Z",
+  "browser": "156.0.8078.48",
+  "seeks": [
+    {
+      "target": 2100,
+      "firstFrameMs": 595.7450000047684,
+      "state": {
+        "status": "paused",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2100,
+        "actual": 2100,
+        "playing": false,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 2,
+          "seeks": 2,
+          "lastSeekMs": 595.6599999666214,
+          "maxFrameLagMs": 0
+        }
+      }
+    },
+    {
+      "target": 300,
+      "firstFrameMs": 429.04499995708466,
+      "state": {
+        "status": "paused",
+        "duration": 2639.449666666,
+        "target": 300,
+        "position": 300,
+        "actual": 300,
+        "playing": false,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 3,
+          "seeks": 3,
+          "lastSeekMs": 428.9650000333786,
+          "maxFrameLagMs": 0
+        }
+      }
+    },
+    {
+      "target": 2100,
+      "firstFrameMs": 753.3799999952316,
+      "state": {
+        "status": "paused",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2100,
+        "actual": 2100,
+        "playing": false,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 4,
+          "seeks": 4,
+          "lastSeekMs": 753.2699999809265,
+          "maxFrameLagMs": 0
+        }
+      }
+    }
+  ],
+  "open": {
+    "firstFrameMs": 406.0499999523163,
+    "state": {
+      "status": "paused",
+      "duration": 2639.449666666,
+      "target": 300,
+      "position": 300,
+      "actual": 300,
+      "playing": false,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 1,
+        "seeks": 1,
+        "lastSeekMs": 403.460000038147,
+        "maxFrameLagMs": 0
+      }
+    }
+  },
+  "rapid": {
+    "status": "paused",
+    "duration": 2639.449666666,
+    "target": 2100,
+    "position": 2100,
+    "actual": 2100,
+    "playing": false,
+    "error": null,
+    "audioPolicy": "source-primary",
+    "metrics": {
+      "framesDisplayed": 5,
+      "seeks": 7,
+      "lastSeekMs": 235.4650000333786,
+      "maxFrameLagMs": 0
+    }
+  },
+  "playback": [
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2101.0026666666668,
+      "actual": 2101,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 66,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 7.666666666409583
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2102.0053333333335,
+      "actual": 2102,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 126,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 7.666666666409583
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2103.0026666666668,
+      "actual": 2103,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 186,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2104.0053333333335,
+      "actual": 2104,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 246,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2105.0026666666668,
+      "actual": 2105,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 306,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2106.021333333333,
+      "actual": 2106.017,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 367,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2107.018666666667,
+      "actual": 2107.017,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 427,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2108.021333333333,
+      "actual": 2108.017,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 487,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2109.024,
+      "actual": 2109.017,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 547,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    },
+    {
+      "status": "playing",
+      "duration": 2639.449666666,
+      "target": 2100,
+      "position": 2110.021333333333,
+      "actual": 2110.017,
+      "playing": true,
+      "error": null,
+      "audioPolicy": "source-primary",
+      "metrics": {
+        "framesDisplayed": 607,
+        "seeks": 8,
+        "lastSeekMs": 238.01500010490417,
+        "maxFrameLagMs": 8.333333333212067
+      }
+    }
+  ],
+  "paused": {
+    "status": "paused",
+    "duration": 2639.449666666,
+    "target": 2110.037333333333,
+    "position": 2110.037333333333,
+    "actual": 2110.033,
+    "playing": false,
+    "error": null,
+    "audioPolicy": "source-primary",
+    "metrics": {
+      "framesDisplayed": 608,
+      "seeks": 8,
+      "lastSeekMs": 238.01500010490417,
+      "maxFrameLagMs": 8.333333333212067
+    }
+  },
+  "afterPause": {
+    "status": "paused",
+    "duration": 2639.449666666,
+    "target": 2110.037333333333,
+    "position": 2110.037333333333,
+    "actual": 2110.033,
+    "playing": false,
+    "error": null,
+    "audioPolicy": "source-primary",
+    "metrics": {
+      "framesDisplayed": 608,
+      "seeks": 8,
+      "lastSeekMs": 238.01500010490417,
+      "maxFrameLagMs": 8.333333333212067
+    }
+  }
+}
