@@ -1,0 +1,145 @@
+{
+  "protocol": "Fresh Chrome; same 44-minute File; analysis plus 40-second playback; seek 300 -> 2100 -> 900; alternate 1a,2a,4a,1b,4b,1c,4c; only READ_CHUNK_BYTES changed",
+  "runs": [
+    {
+      "reportPath": "/tmp/cormorant-player-chunk-1-a.json",
+      "chunkMiB": 1,
+      "passed": true,
+      "firstReviewableMs": 16808.37999999523,
+      "playerReadyMs": 2075.774999976158,
+      "processedUntil": 535,
+      "maxLagMs": 13.666666666665606,
+      "seeks": [
+        {
+          "target": 2100,
+          "elapsedMs": 945
+        },
+        {
+          "target": 900,
+          "elapsedMs": 1282
+        }
+      ]
+    },
+    {
+      "reportPath": "/tmp/cormorant-player-chunk-1-b.json",
+      "chunkMiB": 1,
+      "passed": true,
+      "firstReviewableMs": 16874.43999993801,
+      "playerReadyMs": 2203.304999947548,
+      "processedUntil": 550,
+      "maxLagMs": 15.666666666675155,
+      "seeks": [
+        {
+          "target": 2100,
+          "elapsedMs": 915
+        },
+        {
+          "target": 900,
+          "elapsedMs": 1261
+        }
+      ]
+    },
+    {
+      "reportPath": "/tmp/cormorant-player-chunk-1-c.json",
+      "chunkMiB": 1,
+      "passed": true,
+      "firstReviewableMs": 16841.80999994278,
+      "playerReadyMs": 2000.6600000858307,
+      "processedUntil": 555,
+      "maxLagMs": 16.66666666665151,
+      "seeks": [
+        {
+          "target": 2100,
+          "elapsedMs": 1239
+        },
+        {
+          "target": 900,
+          "elapsedMs": 785
+        }
+      ]
+    },
+    {
+      "reportPath": "/tmp/cormorant-player-chunk-2-a.json",
+      "chunkMiB": 2,
+      "passed": true,
+      "firstReviewableMs": 16440.420000076294,
+      "playerReadyMs": 1880.445000052452,
+      "processedUntil": 575,
+      "maxLagMs": 16.666666666765195,
+      "seeks": [
+        {
+          "target": 2100,
+          "elapsedMs": 1147
+        },
+        {
+          "target": 900,
+          "elapsedMs": 1162
+        }
+      ]
+    },
+    {
+      "reportPath": "/tmp/cormorant-player-chunk-4-a.json",
+      "chunkMiB": 4,
+      "passed": true,
+      "firstReviewableMs": 15269.804999947548,
+      "playerReadyMs": 2047.6749999523163,
+      "processedUntil": 590,
+      "maxLagMs": 16.666666666765195,
+      "seeks": [
+        {
+          "target": 2100,
+          "elapsedMs": 925
+        },
+        {
+          "target": 900,
+          "elapsedMs": 1017
+        }
+      ]
+    },
+    {
+      "reportPath": "/tmp/cormorant-player-chunk-4-b.json",
+      "chunkMiB": 4,
+      "passed": true,
+      "firstReviewableMs": 15436.689999938011,
+      "playerReadyMs": 1784.9700000286102,
+      "processedUntil": 590,
+      "maxLagMs": 16.666666666765195,
+      "seeks": [
+        {
+          "target": 2100,
+          "elapsedMs": 987
+        },
+        {
+          "target": 900,
+          "elapsedMs": 870
+        }
+      ]
+    },
+    {
+      "reportPath": "/tmp/cormorant-player-chunk-4-c.json",
+      "chunkMiB": 4,
+      "passed": true,
+      "firstReviewableMs": 15202.730000019073,
+      "playerReadyMs": 1817.5049999952316,
+      "processedUntil": 590,
+      "maxLagMs": 16.666666666878882,
+      "seeks": [
+        {
+          "target": 2100,
+          "elapsedMs": 854
+        },
+        {
+          "target": 900,
+          "elapsedMs": 942
+        }
+      ]
+    }
+  ],
+  "firstReviewableMeansMs": {
+    "1MiB": 16841.543333292007,
+    "4MiB": 15303.07499996821
+  },
+  "reductionMs": 1538.4683333237972,
+  "reductionPercent": 9.134960513283753,
+  "fullAnalysisThroughputMeasured": false
+}
