@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-27",
+  "base": "ba56c21c9595a468dad32243e0029ca25f8580ad",
+  "scope": "Five Spec findings and shared export-policy maintenance finding",
+  "redObservations": {
+    "healthyImportAfterFingerprintFailure": "Expected 2 runtime records, got 1",
+    "freezeBeforeDirectoryPicker": "Expected frozen submitted ranges, got undefined",
+    "matchingOutputReuse": "Expected completed while encoder unavailable, got failed",
+    "bulkControls": "retain-all locator absent",
+    "partialExportOutcomes": "Expected completed/failed/not-started; outcome metadata absent or unchanged"
+  },
+  "unitTests": { "command": "node --test model_web_ui/browser.prototype/tests/*.test.mjs", "passed": 46, "failed": 0 },
+  "browserFlow": {
+    "script": "tests/verify-review-browser.cjs",
+    "automaticImportAndReview": "passed",
+    "trimAndRefresh": "passed",
+    "navigation": "passed",
+    "identityDedup": "passed",
+    "earlyFixedExport": "passed",
+    "focusedEdit": "passed",
+    "relinkIdentity": "passed"
+  },
+  "browserFaultRegression": {
+    "script": "tests/verify-review-fixes.cjs",
+    "isolatedImportFailures": "passed",
+    "readyImportIndependence": "passed",
+    "frozenBeforePicker": "passed",
+    "bulkSelection": "passed",
+    "partialExportAndRestore": "passed",
+    "media": "Small generated dual-track WebM; actual Chrome WebCodecs and EfficientAT",
+    "faults": "File read failure/delay and directory-picker/quota boundary failures",
+    "storage": "Actual IndexedDB reload and temporary OPFS output directory; generated fixture directory removed"
+  },
+  "limits": "These functional checks do not replace real long-recording throughput or concurrent-playback acceptance. R6 remains pending parent validation and re-review."
+}

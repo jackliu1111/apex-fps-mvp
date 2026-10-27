@@ -197,3 +197,57 @@ test('a failed initial restore cannot overwrite existing saved work and can be r
   assert.equal(await workspace.retrySave(), true);
   assert.deepEqual(workspace.getSource(source.id).clips.map(({ start, end }) => [start, end]), [[8, 16]]);
 });
+
+test('bulk choices preserve existing decisions, skip provisional suggestions and never duplicate retained ranges', () => {
+  const workspace = setup();
+  const manual = workspace.addManual(source.id, { start: 10, end: 20 });
+  assert.equal(workspace.addManual(source.id, { start: 10, end: 20 }), manual, 'Adding an identical human range selects the existing range');
+  workspace.publishCandidates(source.id, [{ key: 'exclude', start: 30, end: 40 }, { key: 'normal', start: 50, end: 60 }, { key: 'pending', start: 70, end: 80, provisional: true }]);
+  workspace.choose(source.id, 'auto:exclude', false);
+  workspace.publishCandidates(source.id, [{ key: 'overlap', start: 28, end: 42 }, { key: 'normal', start: 50, end: 60 }, { key: 'pending', start: 70, end: 80, provisional: true }]);
+  workspace.chooseAll(source.id, true);
+  workspace.chooseAll(source.id, true);
+  const retained = workspace.getSource(source.id);
+  assert.deepEqual(retained.clips.filter((clip) => clip.manual).map(({ start, end }) => [start, end]), [[10, 20], [28, 42], [50, 60]]);
+  assert.ok(retained.decisions.some((decision) => decision.kind === 'exclude' && decision.range.start === 30));
+  assert.equal(retained.decisions.some((decision) => decision.range.start === 70), false);
+  workspace.chooseAll(source.id, false);
+  assert.equal(workspace.getSource(source.id).clips.filter((clip) => clip.selected && !clip.provisional).length, 0);
+  workspace.publishCandidates(source.id, [{ start: 8, end: 22 }, { start: 48, end: 62 }]);
+  assert.ok(workspace.getSource(source.id).clips.every((clip) => clip.supplemental && !clip.selected));
+});
+
+import { createExportQueue } from '../export-queue.mjs';
+
+test('partial export outcomes persist through restore while expired download URLs stay unavailable', async () => {
+  const storage = memoryStorage(), workspace = setup({ storage });
+  for (const start of [10, 20, 30]) workspace.addManual(source.id, { start, end: start + 5 });
+  const batch = workspace.submitBatch(source.id);
+  const queue = createExportQueue({
+    onChange: ({ id, waitingReason, ...patch }) => workspace.updateBatch(id, patch),
+    convert: async ({ clip }) => {
+      if (clip.start === 20) throw new Error('unsupported frame');
+      return { blob: new Blob(['video']), start: clip.start, end: clip.end, name: 'completed.webm' };
+    },
+  });
+  queue.enqueue(batch, { file: new Blob(['source']) }); await queue.whenIdle();
+  await workspace.flush();
+  const reopened = createReviewWorkspace({ storage }); await reopened.restore();
+  const restored = reopened.view().batches[0];
+  assert.deepEqual(restored.clipResults.map((clip) => clip.status), ['completed', 'failed', 'not-started']);
+  assert.equal(restored.clipResults[1].error, 'unsupported frame');
+  assert.equal(restored.outputs[0].available, false);
+  assert.equal(restored.outputs[0].url, undefined);
+  await queue.dispose(); await workspace.flush();
+});
+
+test('restore marks an active clip interrupted without claiming that it completed or never started', async () => {
+  const storage = memoryStorage(), workspace = setup({ storage });
+  for (const start of [10, 20]) workspace.addManual(source.id, { start, end: start + 5 });
+  const batch = workspace.submitBatch(source.id);
+  const clipResults = batch.clips.map((clip, index) => ({ ...clip, status: index ? 'not-started' : 'running', error: null }));
+  workspace.updateBatch(batch.id, { status: 'running', clipResults }); await workspace.flush();
+  const reopened = createReviewWorkspace({ storage }); await reopened.restore();
+  assert.equal(reopened.view().batches[0].status, 'interrupted');
+  assert.deepEqual(reopened.view().batches[0].clipResults.map((clip) => clip.status), ['interrupted', 'not-started']);
+});

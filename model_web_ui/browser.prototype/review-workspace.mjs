@@ -84,6 +84,16 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
     // continually push a user's save into the future.
     if (storage && !saving && saveTimer === null) saveTimer = setTimeout(flush, saveDelayMs);
   };
+  function setChoice(source, clip, selected) {
+    let decision = source.decisions.find((item) => item.id === clip.id || sameRange(item.range, clip));
+    if (decision) decision.kind = selected ? 'retain' : 'exclude';
+    else {
+      decision = { id: `manual:${++sequence}`, kind: selected ? 'retain' : 'exclude', range: { start: clip.start, end: clip.end }, originRange: { start: clip.start, end: clip.end } };
+      source.decisions.push(decision);
+    }
+    if (source.review.selectedClipId === clip.id) source.review.selectedClipId = selected ? decision.id : null;
+    return decision.id;
+  }
   const workspace = {
     getSource,
     view,
@@ -104,9 +114,19 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
 
           }
           for (const batch of loadedBatches) {
-            if (['queued', 'running'].includes(batch.status)) batch.status = 'interrupted';
+            const wasActive = ['awaiting-destination', 'queued', 'running'].includes(batch.status);
+            // Older records have output metadata but no per-clip outcomes.
+            batch.clipResults ||= batch.clips.map((clip, index) => {
+              const completedCount = batch.outputs?.length || 0;
+              let status = 'not-started', error = null;
+              if (index < completedCount) status = 'completed';
+              else if (index === completedCount && batch.status === 'failed') { status = 'failed'; error = batch.error; }
+              else if (index === completedCount && batch.status === 'running') status = 'interrupted';
+              return { ...clip, status, error };
+            });
+            batch.clipResults = batch.clipResults.map((result) => result.status === 'running' ? { ...result, status: 'interrupted', error: '页面关闭前尚未确认完成' } : result);
+            if (wasActive) batch.status = 'interrupted';
             batch.outputs = (batch.outputs || []).map(({ url, ...output }) => ({ ...output, available: false }));
-
           }
           for (const entry of loadedSources) sources.set(entry.id, entry);
           batches.push(...loadedBatches);
@@ -161,7 +181,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       const source = requireSource(id);
       const clips = selectedClips(source).map(({ id, start, end }) => ({ id, start, end }));
       if (!clips.length) throw new Error('没有范围已确定且已选中的片段');
-      const batch = { id: `batch:${++sequence}`, sourceId: id, source: copy(source.identity), clips, audio: copy(audio), output: copy(output), status: 'queued', createdAt: new Date().toISOString(), progress: 0, outputs: [] };
+      const batch = { id: `batch:${++sequence}`, sourceId: id, source: copy(source.identity), clips, audio: copy(audio), output: copy(output), status: 'queued', createdAt: new Date().toISOString(), progress: 0, outputs: [], clipResults: clips.map((clip) => ({ ...clip, status: 'not-started', error: null })) };
       batches.push(batch);
       source.lastSubmittedSelection = signature(clips);
       changed();
@@ -170,10 +190,11 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
     updateBatch(id, patch) {
       const batch = batches.find((item) => item.id === id);
       if (!batch) throw new Error('找不到导出批次');
-      if (Object.keys(patch).some((key) => !['status', 'outputs', 'error', 'progress'].includes(key))) throw new Error('已提交批次的范围和设置不可更改');
-      const statuses = ['queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted'];
+      if (Object.keys(patch).some((key) => !['status', 'outputs', 'error', 'progress', 'clipResults'].includes(key))) throw new Error('已提交批次的范围和设置不可更改');
+      const statuses = ['awaiting-destination', 'queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted'];
       if (patch.status && !statuses.includes(patch.status)) throw new Error('导出状态无效');
       if (patch.progress !== undefined && (!Number.isFinite(patch.progress) || patch.progress < 0 || patch.progress > 1)) throw new Error('导出进度无效');
+      if (patch.clipResults && (!Array.isArray(patch.clipResults) || patch.clipResults.length !== batch.clips.length || patch.clipResults.some((result, index) => !sameRange(result, batch.clips[index]) || !['not-started', 'running', 'completed', 'failed', 'cancelled', 'interrupted'].includes(result.status)))) throw new Error('片段导出状态与已提交范围不一致');
       Object.assign(batch, copy(patch));
       changed();
     },
@@ -181,19 +202,25 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       const source = requireSource(id);
       const clip = clipsFor(source).find((item) => item.id === clipId);
       if (!clip || clip.provisional) throw new Error('只能处理范围已确定的选片');
-      let decision = source.decisions.find((item) => item.id === clipId);
-      if (decision) decision.kind = selected ? 'retain' : 'exclude';
-      else {
-        decision = { id: `manual:${++sequence}`, kind: selected ? 'retain' : 'exclude', range: { start: clip.start, end: clip.end }, originRange: { start: clip.start, end: clip.end } };
-        source.decisions.push(decision);
-      }
-      if (source.review.selectedClipId === clipId) source.review.selectedClipId = selected ? decision.id : null;
+      const decisionId = setChoice(source, clip, selected);
       changed();
-      return decision.id;
+      return decisionId;
+    },
+    chooseAll(id, selected) {
+      const source = requireSource(id);
+      const clips = clipsFor(source).filter((clip) => !clip.provisional);
+      if (!clips.length) return;
+      for (const clip of clips) setChoice(source, clip, selected);
+      changed();
     },
     addManual(id, range) {
       const source = requireSource(id);
       const valid = validRange(source, range);
+      const existing = source.decisions.find((decision) => sameRange(decision.range, valid));
+      if (existing) {
+        if (existing.kind !== 'retain') { existing.kind = 'retain'; changed(); }
+        return existing.id;
+      }
       const decision = { id: `manual:${++sequence}`, kind: 'retain', range: valid, originRange: valid };
       source.decisions.push(decision);
       changed();

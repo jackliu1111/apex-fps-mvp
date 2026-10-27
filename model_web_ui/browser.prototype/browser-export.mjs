@@ -1,4 +1,4 @@
-const MEMORY_LIMIT = 64 * 1024 * 1024;
+import { MAX_EXPORT_MEMORY_BYTES, exportSettings } from './export-policy.mjs';
 const abortError = () => new DOMException('本批导出已取消', 'AbortError');
 
 /** Position-addressed memory writer; bounds actual encoded bytes, including metadata rewrites. */
@@ -40,10 +40,10 @@ async function newOutputFile(directory, proposedName) {
 /** Each conversion owns its input/encoder; cancelling export cannot cancel analysis or preview. */
 export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() }) {
   return async function convert({ batch, clip, source, index = 0, signal = new AbortController().signal,
-    onProgress = () => {}, memoryBudgetBytes = MEMORY_LIMIT }) {
+    onProgress = () => {}, memoryBudgetBytes = MAX_EXPORT_MEMORY_BYTES }) {
     signal.throwIfAborted();
     if (!source?.file) throw new Error('原录像暂不可用，请重新关联');
-    const limit = Math.floor(Math.min(MEMORY_LIMIT, memoryBudgetBytes));
+    const limit = Math.floor(Math.min(MAX_EXPORT_MEMORY_BYTES, memoryBudgetBytes));
     if (!(limit > 0) && !source.directoryHandle) throw new Error('下载缓存没有可用空间，请选择输出目录');
     let name = `${source.file.name.replace(/\.[^.]+$/, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100)}-${String(index + 1).padStart(2, '0')}-${makeId()}.webm`;
     const input = new MB.Input({ source: new MB.BlobSource(source.file), formats: MB.ALL_FORMATS });
@@ -76,11 +76,11 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() 
       const target = new MB.StreamTarget(writable, { chunked: true, chunkSize: 256 * 1024 });
       target.onwrite = (_start, end) => { if (!diskWriter && end > limit) throw new Error('成片超出下载缓存预算，请选择输出目录后重新提交'); };
       const output = new MB.Output({ format: new MB.WebMOutputFormat(), target });
-      const settings = batch.output || {}, origin = source.origin || 0;
+      const settings = exportSettings(batch.output), origin = source.origin || 0;
       conversion = await MB.Conversion.init({ input, output, trim: { start: origin + clip.start, end: origin + clip.end },
-        video: (track) => track === video ? { codec: 'vp8', width: Math.min(1280, settings.width || 1280, track.displayWidth),
-          height: Math.min(720, settings.height || 720, track.displayHeight), fit: 'contain', bitrate: settings.videoBitrate || 2000000, forceTranscode: true } : { discard: true },
-        audio: (track) => track === audio ? { codec: 'opus', bitrate: settings.audioBitrate || 96000, forceTranscode: true } : { discard: true },
+        video: (track) => track === video ? { codec: settings.videoCodec, width: Math.min(settings.width, track.displayWidth),
+          height: Math.min(settings.height, track.displayHeight), fit: 'contain', bitrate: settings.videoBitrate, forceTranscode: true } : { discard: true },
+        audio: (track) => track === audio ? { codec: settings.audioCodec, bitrate: settings.audioBitrate, forceTranscode: true } : { discard: true },
       });
       if (!conversion.isValid || conversion.discardedTracks.some((entry) => entry.track === video || entry.track === audio)) throw new Error('浏览器无法完整导出提交的声画轨');
       conversion.onProgress = onProgress;
@@ -105,7 +105,7 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() 
       catch (error) { verificationError = error.message || String(error); }
       finally { probe.dispose(); }
       signal.throwIfAborted(); completed = true;
-      return { name, ...(blob ? { blob } : {}), bytes: resultFile.size, start: clip.start, end: clip.end,
+      return { name, ...(blob ? { blob } : { artifact: { fileHandle: diskFile.handle, size: resultFile.size, lastModified: resultFile.lastModified } }), bytes: resultFile.size, start: clip.start, end: clip.end,
         requestedDuration: clip.end - clip.start, measuredDuration, verificationError, actualRange: null, saved: diskClosed };
     } catch (error) {
       try { await (cancelWork || conversion?.cancel()); } catch {}
