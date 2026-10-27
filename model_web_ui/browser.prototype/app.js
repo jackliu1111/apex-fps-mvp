@@ -5,6 +5,7 @@ import { createBrowserAnalysis } from './browser-analysis.mjs';
 import { createSourcePlayer } from './source-player.mjs';
 import { createExportQueue, estimateExportBytes } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
+import { DEFAULT_EXPORT_SETTINGS, MAX_EXPORT_MEMORY_BYTES } from './export-policy.mjs';
 
 const $ = (id) => document.getElementById(id);
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Set();
@@ -60,46 +61,63 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
   renderPlayer();
 } });
 
-const outputSettings = { format: 'webm', videoCodec: 'vp8', audioCodec: 'opus', width: 1280, height: 720, videoBitrate: 2000000, audioBitrate: 96000 };
+const outputSettings = DEFAULT_EXPORT_SETTINGS;
 exportQueue = createExportQueue({
   convert: createBrowserConverter({ MB }),
   canRun: () => !queue.records.some((record) => ['preparing', 'queued', 'analyzing'].includes(record.status)),
-  onChange({ id, status, outputs, error, progress }) { workspace.updateBatch(id, { status, outputs, error, progress }); },
+  onChange({ id, status, outputs, error, progress, clipResults }) { workspace.updateBatch(id, { status, outputs, error, progress, clipResults }); },
 });
 async function chooseOutputDirectory() {
   if (!window.showDirectoryPicker) throw new Error('此浏览器不支持直接选择输出目录，请使用较小批次的下载链接。');
   directoryHandle = await window.showDirectoryPicker({ id: 'apex-clip-exports', mode: 'readwrite' });
   $('output-directory').textContent = `输出目录：${directoryHandle.name}`;
   $('clear-directory').hidden = false;
+  return directoryHandle;
 }
 async function submitExport() {
   const saved = source(), record = bindings.get(activeSourceId);
   if (!saved || !record) throw new Error('请先关联原录像，已有选片保持不变。');
   const clips = saved.clips.filter((clip) => clip.selected && !clip.provisional);
   if (!clips.length) throw new Error('没有范围已确定且已选中的片段。');
-  if (estimateExportBytes({ clips, output: outputSettings }) > 64 * 1024 * 1024 && !directoryHandle) await chooseOutputDirectory();
   const batch = workspace.submitBatch(saved.id, { audio: { trackIndex: record.outputAudioTrackIndex, policy: 'source-primary' }, output: { ...outputSettings, model: record.model } });
-  try { exportQueue.enqueue(batch, { file: record.file, origin: record.origin, directoryHandle }); }
-  catch (error) { workspace.updateBatch(batch.id, { status: 'failed', error: errorText(error) }); throw error; }
+  let destination = directoryHandle;
+  try {
+    if (estimateExportBytes(batch) > MAX_EXPORT_MEMORY_BYTES && !destination) {
+      workspace.updateBatch(batch.id, { status: 'awaiting-destination' });
+      destination = await chooseOutputDirectory();
+    }
+    exportQueue.enqueue(batch, { file: record.file, origin: record.origin, directoryHandle: destination });
+  } catch (error) {
+    const cancelled = error.name === 'AbortError';
+    workspace.updateBatch(batch.id, { status: cancelled ? 'cancelled' : 'failed', error: cancelled ? '已取消输出目录选择，本批未开始导出。' : errorText(error) });
+    if (!cancelled) throw error;
+    note('已取消本批导出，选片和之后的编辑仍然保留。'); return;
+  }
   note('本批范围已固定。可以继续复核，后续修改用于下一批。');
 }
 
 async function importFiles(files) {
   await ready;
   if (!restoreReady) throw new Error('请先重试恢复已有记录，再导入录像');
-  const incoming = [];
-  for (const file of files) {
-    const identity = await identifyFile(file);
-    identified.set(file, identity);
-    if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(`${file.name} 已在当前工作区中。`); continue; }
-    pendingImports.add(identity.id); incoming.push({ file, identity });
-  }
-  try {
-    if (incoming.length) {
-      note(`正在准备 ${incoming.length} 份录像；准备就绪后自动分析。`);
-      await queue.importFiles(incoming.map((entry) => entry.file), { model: $('model').value, threshold: 0.2 });
+  const options = { model: $('model').value, threshold: 0.2 };
+  const failures = [];
+  note(`正在准备 ${files.length} 份录像；每份就绪后独立进入分析。`);
+  await Promise.all([...files].map(async (file) => {
+    let reservedId;
+    try {
+      const identity = await identifyFile(file);
+      identified.set(file, identity);
+      if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(`${file.name} 已在当前工作区中。`); return; }
+      reservedId = identity.id; pendingImports.add(reservedId);
+      await queue.importFiles([file], options);
+    } catch (error) {
+      failures.push(`${file.name}：${errorText(error)}`);
+    } finally {
+      if (reservedId) pendingImports.delete(reservedId);
+      render();
     }
-  } finally { incoming.forEach(({ identity }) => pendingImports.delete(identity.id)); render(); }
+  }));
+  if (failures.length) note(`以下录像未能导入，可重新选择重试：${failures.join('；')}。其他就绪录像继续分析。`);
 }
 async function openReview(id) {
   if (!view.sources.some((item) => item.id === id)) return;
@@ -263,10 +281,11 @@ function renderReview() {
   $('export').disabled = !record || !selected.length;
   $('recompute').disabled = !(record?.scores || record?.windowScores);
   $('reset-decisions').disabled = !saved.decisions.length;
+  $('retain-all').disabled = $('exclude-all').disabled = !saved.clips.some((clip) => !clip.provisional);
   renderClips(saved); renderMarkers(saved); renderRange(saved); renderPlayer();
 }
 function renderExports() {
-  const statuses = { queued: '排队中', running: '正在导出', completed: '成片已生成', cancelled: '已取消', failed: '导出失败', interrupted: '已中断，尚未继续执行' };
+  const statuses = { 'awaiting-destination': '等待输出目录', queued: '排队中', running: '正在导出', completed: '成片已生成', cancelled: '已取消', failed: '导出失败', interrupted: '已中断，尚未继续执行' };
   $('export-batches').querySelector('.empty-batches')?.remove();
   if (!view.batches.length && !$('export-batches').children.length) $('export-batches').append(element('p', '尚无导出任务。', 'muted empty-batches'));
   for (const batch of view.batches) {
@@ -274,26 +293,32 @@ function renderExports() {
     if (!row) {
       row = element('article', undefined, 'export-batch'); row.dataset.batchId = batch.id;
       const title = element('strong', undefined, 'batch-title'), state = element('p', undefined, 'batch-state');
-      const ranges = element('p', undefined, 'muted batch-ranges'), outputs = element('div', undefined, 'batch-outputs');
+      const ranges = element('p', undefined, 'muted batch-ranges'), outcomes = element('ol', undefined, 'clip-outcomes'), outputs = element('div', undefined, 'batch-outputs');
       const cancel = button('取消本批', () => exportQueue.cancel(batch.id)); cancel.className = 'batch-cancel';
       const review = button('返回选片', () => openReview(batch.sourceId)); review.className = 'batch-review';
       const actions = element('div', undefined, 'row'); actions.append(cancel, review);
-      row.append(title, state, ranges, outputs, actions); batchRows.set(batch.id, row); $('export-batches').append(row);
+      row.append(title, state, ranges, outcomes, outputs, actions); batchRows.set(batch.id, row); $('export-batches').append(row);
     }
     const live = exportQueue.getBatch(batch.id);
     row.querySelector('.batch-title').textContent = `${batch.source.name} · ${batch.clips.length} 段 · ${new Date(batch.createdAt).toLocaleTimeString()}`;
     row.querySelector('.batch-state').textContent = `${statuses[batch.status] || batch.status}${batch.status === 'running' ? ` · ${Math.round(batch.progress * 100)}%` : ''}${live?.waitingReason ? ` · ${live.waitingReason}` : ''}${batch.error ? ` · ${batch.error}` : ''}`;
     row.querySelector('.batch-state').classList.toggle('error', batch.status === 'failed');
-    row.querySelector('.batch-ranges').textContent = `固定请求范围：${batch.clips.map((clip) => `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} 秒`).join('；')} · WebM / VP8 + Opus · 原片默认声音`;
+    row.querySelector('.batch-ranges').textContent = `固定请求范围：${batch.clips.map((clip) => `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} 秒`).join('；')} · ${(batch.output.format || outputSettings.format).toUpperCase()} / ${(batch.output.videoCodec || outputSettings.videoCodec).toUpperCase()} + ${batch.output.audioCodec || outputSettings.audioCodec} · 原片默认声音`;
     row.querySelector('.batch-cancel').hidden = !live || !['queued', 'running'].includes(batch.status);
+    const resultKey = JSON.stringify(batch.clipResults || []);
+    if (row.resultKey !== resultKey) {
+      row.resultKey = resultKey;
+      const labels = { 'not-started': '未开始', running: '正在导出', completed: '已完成', failed: '失败', cancelled: '已取消', interrupted: '已中断，完成情况未确认' };
+      row.querySelector('.clip-outcomes').replaceChildren(...(batch.clipResults || []).map((result) => element('li', `${result.start.toFixed(2)}—${result.end.toFixed(2)} 秒 · ${labels[result.status]}${result.error ? `：${result.error}` : ''}`, 'clip-outcome')));
+    }
     const outputKey = JSON.stringify(batch.outputs || []);
     if (row.outputKey !== outputKey) {
       row.outputKey = outputKey; const outputList = row.querySelector('.batch-outputs'); outputList.replaceChildren();
       for (const output of batch.outputs || []) {
         const item = element('div', undefined, 'output-item');
         if (output.url && output.available) { const link = element('a', `下载 ${output.name}`); link.href = output.url; link.download = output.name; item.append(link); }
-        else item.append(element('span', `${output.name} · ${output.saved ? '已保存至所选目录' : '下载缓存已释放，需要重新提交导出'}`));
-        item.append(element('small', `${(output.bytes / 1048576).toFixed(2)} MiB · 请求时长 ${output.requestedDuration.toFixed(2)} 秒${Number.isFinite(output.measuredDuration) ? ` · 读回时长 ${output.measuredDuration.toFixed(3)} 秒` : ' · 时长读回未完成'} · 实际起止未校验`, 'muted'));
+        else item.append(element('span', `${output.name} · ${output.saved ? output.available ? '已保存至所选目录' : '此前已保存至所选目录；当前未验证文件可用性' : '下载缓存已释放，需要重新提交导出'}`));
+        item.append(element('small', `${output.reused ? '复用已有成片 · ' : ''}${(output.bytes / 1048576).toFixed(2)} MiB · 请求时长 ${output.requestedDuration.toFixed(2)} 秒${Number.isFinite(output.measuredDuration) ? ` · 读回时长 ${output.measuredDuration.toFixed(3)} 秒` : ' · 时长读回未完成'} · 实际起止未校验`, 'muted'));
         outputList.append(item);
       }
     }
@@ -363,8 +388,12 @@ for (const key of ['start', 'end']) {
 }
 $('fit-selection').onclick = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
 $('recompute').onclick = () => safely(() => { const record = bindings.get(activeSourceId); queue.recompute(record.id, Number($('threshold').value)); note('已用已有分数调整筛选，人工裁边和排除决定保留。'); });
+$('retain-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, true));
+$('exclude-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, false));
 $('reset-decisions').onclick = () => { const saved = source(); if (confirm(`重置“${saved.identity.name}”的人工选片？将清除裁边、手动范围与排除记录；已提交导出批次保留。`)) safely(() => workspace.resetDecisions(saved.id)); };
 $('analysis-report').onclick = () => { const record = bindings.get(activeSourceId) || queue.records.find((item) => item.status === 'analyzing') || queue.records.at(-1); if (!record) return; const report = { date: new Date().toISOString(), source: { name: record.file.name, bytes: record.file.size, duration: record.duration }, model: record.modelInfo, audioPolicy: record.audioPolicy, status: record.status, windows: record.windows, timings: record.timings, candidates: record.candidates }; const link = element('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })); link.download = 'apex-analysis-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); };
+$('output-format').textContent = `最高 ${outputSettings.height}p ${outputSettings.format.toUpperCase()}（${outputSettings.videoCodec.toUpperCase()} + ${outputSettings.audioCodec}）`;
+$('export-budget').textContent = `${MAX_EXPORT_MEMORY_BYTES / 1048576} MiB`;
 $('capabilities').textContent = `音频解码 ${typeof AudioDecoder !== 'undefined' ? '✓' : '✗'} · 视频解码 ${typeof VideoDecoder !== 'undefined' ? '✓' : '✗'} · 隔离上下文 ${crossOriginIsolated ? '✓' : '✗'}`;
 window.addEventListener('pagehide', () => { player.pause(); void workspace.flush(); });
 const ready = (async () => {
