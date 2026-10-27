@@ -1,4 +1,4 @@
-const READ_CHUNK_BYTES = 1024 * 1024;
+const READ_CHUNK_BYTES = 4 * 1024 * 1024;
 const schedulers = new WeakMap();
 
 function schedulerFor(file) {
@@ -33,7 +33,7 @@ function schedulerFor(file) {
 /**
  * Analysis and review share bounded reads of the same File, with fair preview priority.
  * Independent open-ended Blob readers can stall preview for seconds during a sequential
- * scan. One outstanding 1 MiB file read bounds this contention; every four preview chunks
+ * scan. One outstanding 4 MiB file read bounds this contention; every four preview chunks
  * an awaiting analysis chunk gets a turn. Navigation never stops the analysis task.
  * Each Input still owns an 8 MiB parser cache and its own disposal/cancellation lifetime.
  */
