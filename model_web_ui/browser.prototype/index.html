@@ -1,34 +1,32 @@
 <!doctype html>
 <html lang="zh-CN">
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Apex · 纯网页链路原型</title><link rel="stylesheet" href="style.css">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Apex · 本地选片工作区</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<header><span class="brand">APEX / LOCAL CUT</span><span class="badge">可丢弃原型 · 本机处理</span></header>
+<header><span class="brand">APEX / LOCAL CUT</span><span class="badge">录像留在本机</span><span id="save-state" role="status">正在恢复复核记录…</span><button id="retry-save" hidden>重试保存</button></header>
 <main>
-  <h1>从录像到交火片段，<br>留在你的浏览器里。</h1>
-  <p class="intro">验证问题：能否边分析边复核，并用顺序解码缩短等待？支持 EfficientAT / BEATs；刷新即清空项目。</p>
-  <div class="steps"><span>01 导入</span><span>02 确认游戏音轨</span><span>03 本地识别</span><span>04 复核与导出</span></div>
-  <section>
-    <div class="row"><h2>录像队列</h2><label class="button">导入本地录像<input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden></label><button id="demo">生成 12 秒合成样本</button></div>
-    <p class="muted">只读取你选择的文件，不上传。合成样本用于验证操作链路，不代表枪声素材。</p>
-    <div class="row"><label>识别模型 <select id="model"><option value="efficientat">EfficientAT mn04_as · 小模型试验</option><option value="beats">BEATs · 原始基线</option></select></label></div><p id="model-note" class="muted">EfficientAT mn04_as：10 秒窗口、5 秒步长，窗口级粗定位。阈值 0.2 仅作试验起点，尚未校准。</p>
-    <div id="queue" class="queue"><p class="empty">选择一份或多份录像开始。</p></div>
-    <div class="row"><button id="analyze" class="primary">开始分析队列</button><button id="cancel" disabled>取消当前任务</button><span id="capabilities" class="muted"></span></div>
-    <progress id="progress" max="1" value="0"></progress><p id="status" role="status">正在检查浏览器能力…</p>
-  </section>
-  <div class="workspace">
-    <section class="preview"><div class="row"><h2>片段预览</h2><span id="preview-label" class="muted">导出后复核画面与所选音轨</span></div><video id="player" controls playsinline></video><p class="muted">预览会在浏览器生成当前范围的 720p WebM；只包含确认的音轨。原文件保持不变。</p><div id="downloads"></div></section>
-    <section><div class="row"><h2>候选片段</h2><select id="result-file" aria-label="当前录像"></select></div>
-      <div class="row"><label>枪声阈值 <input id="threshold" type="number" value="0.2" min="0" max="1" step="0.01"></label><button id="recompute">重新生成候选</button></div>
-      <p class="muted">事件间隔 ≤5 秒合并，前后各留 5 秒。“处理中”范围仍可能延长；“可复核”后可编辑、移除、预览，后续分析保留修改。批量导出须等分析结束。候选不代表本人开枪、命中或击杀。</p>
-      <div id="clips"><p class="empty">完成识别后在这里复核。</p></div>
-      <div class="row"><button id="manual">添加手动范围</button><button id="export" class="primary">导出勾选片段</button></div>
-      <p class="muted">原型统一重编码为最高 720p 的 WebM（VP8 + Opus）；帧边界可能令成片时长略有差异，链接显示浏览器读回的近似时长。没有候选时可添加手动范围验证导出。</p>
-    </section>
+  <nav class="row navigation" aria-label="工作区"><button id="nav-analysis" aria-current="page">01 分析队列</button><button id="nav-review" disabled>02 片段复核</button></nav>
+  <p id="status" role="status" aria-live="polite">正在恢复复核记录…</p>
+  <div id="analysis-page">
+    <h1>后面继续分析，<br>前面开始选片。</h1>
+    <p class="intro">导入录像后自动分析。候选逐步出现，你可以随时进入整片复核；人工选片和观看位置自动保存。</p>
+    <section><div class="row"><h2>录像队列</h2><label class="button primary">导入本地录像<input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden></label><button id="demo">生成 12 秒合成样本</button></div><p class="muted">只读取你选择的原录像。合成样本用于验证操作，不代表真实枪声素材。</p><div id="queue" class="queue"></div></section>
+    <details><summary>高级设置与分析记录</summary><div class="row settings"><label>新任务模型 <select id="model"><option value="efficientat">EfficientAT mn04_as</option><option value="beats">BEATs</option></select></label><span id="capabilities" class="muted"></span></div><p class="muted">默认按事件间隔不超过 5 秒分组，前后各留 5 秒。检测自动使用默认且可解码的音轨；系统不判断该音轨是否包含游戏声音。预览和导出沿用原片默认声音。</p><p class="muted">模型按任务固定，更改这里只影响新任务。关闭页面会中断浏览器分析；刷新恢复选片，不恢复分析进程。</p><pre id="analysis-timing"></pre><button id="analysis-report" disabled>下载当前录像分析报告</button></details>
   </div>
-  <section><h2>操作导览</h2><div class="row" id="walkthroughs"><button data-guide="happy">完整链路</button><button data-guide="tracks">多音轨</button><button data-guide="cancel">取消与重试</button></div><p id="guide">导入录像 → 确认音轨 → 开始分析 → 预览候选 → 勾选导出。也可用合成样本走通操作。</p></section>
-  <details open><summary>原型状态与证据</summary><pre id="state"></pre><button id="reference">验证浏览器模型与 Python 基准</button><p id="reference-status">使用固定合成噪声比对当前模型全部分数；不涉及你的录像。</p><pre id="log"></pre></details>
-<details open><summary>耗时测试</summary><pre id="analysis-timing">尚无分析计时</pre><button id="analysis-report">下载当前录像分析报告</button><p class="muted">固定合成音频冷／热各测 3 次，另测 12 秒合成视频分析及 5 秒导出，不分析你的录像。</p><button id="benchmark">运行合成耗时测试</button><button id="decode-reference">对照当前录像的新旧解码</button><p class="muted">顺序读完整音轨，检查相邻窗口复用；仅首两窗、中间窗和末窗与旧解码及模型分数对照，不修改候选。</p><pre id="decode-result"></pre><div id="decode-download"></div><pre id="benchmark-result"></pre><div id="benchmark-download"></div></details>
-<details><summary>读取方式实验（本次实测更慢，默认关闭）</summary><label><input id="sparse-audio" type="checkbox">分析 MKV / WebM 时跳过视频负载</label><p>44 分钟录像实测 233.18 秒，原路径 208.54 秒。预览和导出使用原读取方式。</p></details>
+  <div id="review-page" hidden>
+    <div class="row review-heading"><button id="back-analysis">← 分析队列</button><h1>片段复核</h1><select id="source-select" aria-label="正在复核的录像"></select></div>
+    <p id="review-progress" class="muted"></p>
+    <div id="missing-source" class="notice" hidden><span>选片已恢复。重新关联原录像后即可播放与导出。</span><button id="relink-current">关联原录像</button></div>
+    <div class="workspace">
+      <section class="preview"><div class="player-frame"><canvas id="source-canvas" width="1280" height="720" aria-label="原录像画面"></canvas><p id="player-status" role="status">选择录像开始复核</p></div>
+        <div class="row player-controls"><button id="play-pause" disabled>播放</button><label>定位到 <input id="seek-time" type="number" step="0.01" min="0" value="0"> 秒</label><span id="playback-time" class="muted"></span><button id="next-candidate">下一候选</button></div>
+        <div class="timeline"><div class="row"><strong>全片概览</strong><span id="overview-label" class="muted"></span></div><div id="overview-markers" class="markers" aria-label="原片上的候选范围"></div><input id="overview" aria-label="原录像播放位置" type="range" min="0" max="1" step="0.01" value="0"><div class="row timeline-caption"><span>00:00</span><span id="duration-label"></span></div></div>
+        <p class="muted">连续播放原片，不在候选终点跳转。尚未分析的区域也可浏览；画面按当前位置准备。</p>
+        <div id="range-editor"><div class="row"><h2>当前请求范围</h2><span id="range-label" class="muted">选择候选或添加手动范围</span></div><div class="row settings"><label>起点 <input id="range-start" type="number" min="0" step="0.01"> 秒</label><label>终点 <input id="range-end" type="number" min="0" step="0.01"> 秒</label></div><div class="row"><label>局部视野起点 <input id="zoom-start" type="number" min="0" step="1"></label><label>终点 <input id="zoom-end" type="number" min="0" step="1"></label><button id="fit-selection">放大至选片</button></div><div class="local-range"><label>调整选片起点<input id="range-start-handle" aria-label="调整选片起点" type="range" step="0.01"></label><label>调整选片终点<input id="range-end-handle" aria-label="调整选片终点" type="range" step="0.01"></label></div><p class="muted">范围调整只修改请求范围，不自动移动播放位置。实际导出边界可能受编码和包边界影响。</p></div>
+      </section>
+      <section class="review-list"><div class="row"><h2>候选与人工选片</h2><span id="new-candidates" class="badge" aria-live="polite"></span></div><p class="muted">普通候选默认选中；勾选代表加入导出，不代表已经看过或确认精彩。补充建议默认不选。</p><div class="row"><label>枪声阈值 <input id="threshold" type="number" min="0" max="1" step="0.01" value="0.2"></label><button id="recompute">调整筛选</button></div><div id="clips"></div><p id="candidate-tail" class="muted"></p><div class="row"><button id="manual">在当前位置添加范围</button><button id="reset-decisions" class="quiet">重置人工选片</button></div><hr><p id="selection-summary"></p><button id="export" class="primary" disabled>提交选片导出</button><p id="export-note" class="muted">导出提交时固定本批范围，后续修改用于下一批。</p></section>
+    </div>
+  </div>
+  <section id="exports-section"><div class="row"><h2>导出任务</h2></div><p class="muted">每段独立导出为最高 720p WebM，声音沿用原片默认音轨。提交后排队，分析释放资源后执行；复核仍可继续。</p><div class="row"><button id="choose-directory">选择输出目录</button><button id="clear-directory" hidden>改用下载链接</button><span id="output-directory" class="muted">小批次生成下载链接；大批次直接写入所选目录。</span></div><p class="muted">下载缓存最多 64 MiB。大批次请选择已挂载且空间充足的外接盘目录；浏览器不能验证挂载身份。生成下载链接不表示文件已保存。</p><div id="export-batches"></div></section>
+  <input id="relink-file" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" hidden>
 </main><script type="module" src="app.js"></script>
 </body></html>
