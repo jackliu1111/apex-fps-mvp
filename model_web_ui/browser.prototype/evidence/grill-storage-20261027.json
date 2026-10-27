@@ -1,0 +1,272 @@
+{
+  "date": "2026-10-27T14:52:10.750Z",
+  "browser": "156.0.8078.48",
+  "passed": true,
+  "before": {
+    "view": {
+      "sources": [
+        {
+          "id": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+          "identity": {
+            "id": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+            "name": "same-name.webm",
+            "size": 9,
+            "lastModified": 1,
+            "fingerprint": "49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+            "fingerprintVersion": "metadata-and-three-samples-v1"
+          },
+          "duration": 2640,
+          "candidates": [
+            {
+              "id": "auto:trim",
+              "start": 600,
+              "end": 630,
+              "provisional": false
+            },
+            {
+              "id": "auto:exclude",
+              "start": 1200,
+              "end": 1220,
+              "provisional": false
+            },
+            {
+              "id": "auto:tail",
+              "start": 2600,
+              "end": 2640,
+              "provisional": true
+            }
+          ],
+          "decisions": [
+            {
+              "id": "manual:1",
+              "kind": "retain",
+              "range": {
+                "start": 605,
+                "end": 621
+              },
+              "originRange": {
+                "start": 600,
+                "end": 630
+              }
+            },
+            {
+              "id": "manual:2",
+              "kind": "exclude",
+              "range": {
+                "start": 1200,
+                "end": 1220
+              },
+              "originRange": {
+                "start": 1200,
+                "end": 1220
+              }
+            }
+          ],
+          "review": {
+            "position": 2100,
+            "selectedClipId": "manual:1",
+            "zoomStart": 590,
+            "zoomEnd": 640
+          },
+          "analysis": {
+            "status": "analyzing",
+            "processedUntil": 900,
+            "error": null
+          },
+          "lastSubmittedSelection": "[[604,622]]",
+          "clips": [
+            {
+              "id": "manual:1",
+              "start": 605,
+              "end": 621,
+              "selected": true,
+              "manual": true,
+              "supplemental": false,
+              "provisional": false
+            },
+            {
+              "id": "auto:tail",
+              "start": 2600,
+              "end": 2640,
+              "provisional": true,
+              "selected": true,
+              "manual": false,
+              "supplemental": false
+            }
+          ],
+          "hasUnexportedChanges": true
+        }
+      ],
+      "batches": [
+        {
+          "id": "batch:3",
+          "sourceId": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+          "source": {
+            "id": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+            "name": "same-name.webm",
+            "size": 9,
+            "lastModified": 1,
+            "fingerprint": "49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+            "fingerprintVersion": "metadata-and-three-samples-v1"
+          },
+          "clips": [
+            {
+              "id": "manual:1",
+              "start": 604,
+              "end": 622
+            }
+          ],
+          "audio": {
+            "policy": "source-primary"
+          },
+          "output": {
+            "videoBitrate": 2000000
+          },
+          "status": "queued",
+          "createdAt": "2026-10-27T14:52:10.715Z",
+          "progress": 0,
+          "outputs": []
+        }
+      ],
+      "save": {
+        "status": "saved",
+        "revision": 8,
+        "savedRevision": 8,
+        "error": null
+      }
+    },
+    "otherId": "source:815df90de127a78c6c5ee31b2159274c2f490daad01b8682606c0b81fe4442a3"
+  },
+  "after": {
+    "sources": [
+      {
+        "id": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+        "identity": {
+          "id": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+          "name": "same-name.webm",
+          "size": 9,
+          "lastModified": 1,
+          "fingerprint": "49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+          "fingerprintVersion": "metadata-and-three-samples-v1"
+        },
+        "duration": 2640,
+        "candidates": [
+          {
+            "id": "auto:trim",
+            "start": 600,
+            "end": 630,
+            "provisional": false
+          },
+          {
+            "id": "auto:exclude",
+            "start": 1200,
+            "end": 1220,
+            "provisional": false
+          },
+          {
+            "id": "auto:tail",
+            "start": 2600,
+            "end": 2640,
+            "provisional": true
+          }
+        ],
+        "decisions": [
+          {
+            "id": "manual:1",
+            "kind": "retain",
+            "range": {
+              "start": 605,
+              "end": 621
+            },
+            "originRange": {
+              "start": 600,
+              "end": 630
+            }
+          },
+          {
+            "id": "manual:2",
+            "kind": "exclude",
+            "range": {
+              "start": 1200,
+              "end": 1220
+            },
+            "originRange": {
+              "start": 1200,
+              "end": 1220
+            }
+          }
+        ],
+        "review": {
+          "position": 2100,
+          "selectedClipId": "manual:1",
+          "zoomStart": 590,
+          "zoomEnd": 640
+        },
+        "analysis": {
+          "status": "interrupted",
+          "processedUntil": 900,
+          "error": null
+        },
+        "lastSubmittedSelection": "[[604,622]]",
+        "clips": [
+          {
+            "id": "manual:1",
+            "start": 605,
+            "end": 621,
+            "selected": true,
+            "manual": true,
+            "supplemental": false,
+            "provisional": false
+          },
+          {
+            "id": "auto:tail",
+            "start": 2600,
+            "end": 2640,
+            "provisional": true,
+            "selected": true,
+            "manual": false,
+            "supplemental": false
+          }
+        ],
+        "hasUnexportedChanges": true
+      }
+    ],
+    "batches": [
+      {
+        "id": "batch:3",
+        "sourceId": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+        "source": {
+          "id": "source:49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+          "name": "same-name.webm",
+          "size": 9,
+          "lastModified": 1,
+          "fingerprint": "49c060a46207260519aa93c560a2bb67fc89aa0b8030a1eb7104c1c24b55aae4",
+          "fingerprintVersion": "metadata-and-three-samples-v1"
+        },
+        "clips": [
+          {
+            "id": "manual:1",
+            "start": 604,
+            "end": 622
+          }
+        ],
+        "audio": {
+          "policy": "source-primary"
+        },
+        "output": {
+          "videoBitrate": 2000000
+        },
+        "status": "interrupted",
+        "createdAt": "2026-10-27T14:52:10.715Z",
+        "progress": 0,
+        "outputs": []
+      }
+    ],
+    "save": {
+      "status": "saved",
+      "revision": 8,
+      "savedRevision": 8,
+      "error": null
+    }
+  }
+}
