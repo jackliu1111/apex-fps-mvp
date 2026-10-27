@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-27",
+  "sourceProbe": {
+    "path": "/Volumes/EXTERNALUSB/共享/2026-10-11 08-43-38.mkv",
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 3840,
+        "height": 2160,
+        "tags": {}
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "sample_rate": "48000",
+        "channels": 2,
+        "tags": {
+          "title": "simple_aac_recording0"
+        }
+      }
+    ],
+    "format": {
+      "duration": "2639.450000",
+      "size": "30258792852"
+    }
+  },
+  "hardware": {
+    "cpu": "Apple M6",
+    "memoryBytes": 17179869184,
+    "os": "macOS 27.0.1 (26A434)"
+  },
+  "storage": {
+    "mount": "/Volumes/EXTERNALUSB",
+    "device": "disk6s2",
+    "protocol": "USB",
+    "filesystem": "ExFAT",
+    "location": "External",
+    "solidStateReportedByDiskutil": "Info not available"
+  },
+  "scoreMaxDifferenceBetweenRuns": 0.0,
+  "candidatesEqual": true,
+  "coldDefinition": "new browser tab, Worker and model session; no OS cache flush",
+  "warmDefinition": "same File/Input and model session; selected track reset and reconfirmed",
+  "measurementScope": "browser File + Mediabunny + Web Audio + ORT WASM; no backend media or inference API"
+}

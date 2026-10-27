@@ -1,0 +1,25 @@
+{
+  "file": {
+    "name": "2026-10-11 08-43-38.mkv",
+    "size": 30258792852
+  },
+  "seconds": 2640,
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "results": [
+    {
+      "mode": "4",
+      "totalMs": 330860.0149999857,
+      "count": 123723,
+      "audioBytes": 64476602,
+      "hash": 1124496990,
+      "metadataHash": 1969901601,
+      "readBytes": 757148052,
+      "readCalls": 184851,
+      "maxActiveReads": 4,
+      "clusters": 5957,
+      "fallback": 0,
+      "maxTasks": 4,
+      "maxRetainedBytes": 386384
+    }
+  ]
+}

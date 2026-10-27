@@ -1,0 +1,12 @@
+[
+  {
+    "path": "/Users/jackliu/Downloads/apex-read-diagnostic (1).json",
+    "bytes": 35311704,
+    "sha256": "de5619b911a0773a520b398f12b63466fa1687a9fcdf2418a655a8b58e596976"
+  },
+  {
+    "path": "/private/tmp/apex-browser-prototype-20261026/assets/vendor/mediabunny.mjs",
+    "bytes": 879229,
+    "sha256": "160db974a539ca6303bb614545f2017953be2f5a92bc04464243b0b4cbc0be27"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "windows": 527,
+  "windowScoresExactlyEqual": true,
+  "clipsExactlyEqual": true,
+  "clipCount": 28,
+  "baselineMs": 208537.99000000954,
+  "sparseMs": 233176.30499994755,
+  "readBytes": 709314964,
+  "rangeReadCalls": 173173,
+  "slowdownPercent": 11.814784922371647,
+  "patchedRuntimeSha256": "1c7c2b0a682e343829410b1c966a4fe2de082932a66a6d7b37d0ef219327158b"
+}

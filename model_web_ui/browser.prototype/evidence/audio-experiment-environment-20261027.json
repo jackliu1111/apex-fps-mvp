@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-27",
+  "source": {
+    "path": "/Volumes/EXTERNALUSB/共享/2026-10-11 08-43-38.mkv",
+    "bytes": 30258792852,
+    "mtimeNs": 1791682055830000000
+  },
+  "hardware": {
+    "cpu": "Apple M6",
+    "memoryBytes": 17179869184,
+    "platform": "macOS-27.0.1-arm64-arm-64bit"
+  },
+  "storage": {
+    "mount": "/Volumes/EXTERNALUSB",
+    "device": "disk6s2",
+    "protocol": "USB",
+    "filesystem": "ExFAT",
+    "location": "External",
+    "verifiedMounted": true,
+    "verifiedWritable": true,
+    "freeBytesAtStart": 1792565051392
+  },
+  "outputDirectory": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914",
+  "browser": "Codex in-app browser Chromium 156; historical product baseline Chrome 155",
+  "conditions": {
+    "osCacheFlushed": false,
+    "otherApplicationsIsolated": false,
+    "benchmarkDiskTasksOverlapped": false,
+    "firstModelSessionMeans": "new Worker and ORT session; does not mean cold disk cache"
+  },
+  "notes": [
+    "Static-only server on 127.0.0.1:8792; model/audio decoding and inference in browser, FFmpeg only diagnostic extraction.",
+    "Original source is never copied or modified; no full PCM artifact generated.",
+    "Node and FFmpeg extraction timings are not browser extraction timings."
+  ]
+}

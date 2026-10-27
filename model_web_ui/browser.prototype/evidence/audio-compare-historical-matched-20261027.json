@@ -1,0 +1,303 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/evidence/external-44m-cold-20261027.json",
+    "bytes": 77714,
+    "sha256": "4f16426a3ffa7d5a8d2b9c78d1fd0bf66c3972ecc1ce10cdd52ce30eb850fc4a"
+  },
+  "baselineRound": 1,
+  "tolerances": {
+    "scoreAbsolute": 0,
+    "timeAbsoluteSeconds": 0
+  },
+  "notes": [
+    "This verifies saved predictions and candidate state, not AAC payload identity or source-file identity.",
+    "Historical reports may omit sample rate/origin/shift; unverifiedSettings lists those omissions.",
+    "Audio track indices may change after streamcopy; selectedAudioIndex is informational.",
+    "User-agent differences are reported but do not invalidate numerical parity; performance claims require a same-environment control."
+  ],
+  "comparisons": [
+    {
+      "pass": true,
+      "baselineRound": 1,
+      "candidateRound": 1,
+      "modelSha256Matches": true,
+      "modelSha256": {
+        "baseline": "f4291a6d768ce431694b852fa5d0c5d60171ce9ad8a1dbad28bfc144b322ba03",
+        "candidate": "f4291a6d768ce431694b852fa5d0c5d60171ce9ad8a1dbad28bfc144b322ba03"
+      },
+      "settings": {
+        "threshold": {
+          "baseline": 0.2,
+          "candidate": 0.2,
+          "matches": true
+        },
+        "videoDuration": {
+          "baseline": 2639.449666666,
+          "candidate": 2639.449666666,
+          "matches": true
+        },
+        "analysisDuration": {
+          "baseline": 2639.402,
+          "candidate": 2639.402,
+          "matches": true
+        }
+      },
+      "unverifiedSettings": [
+        "sampleRate",
+        "videoOrigin",
+        "timestampShift"
+      ],
+      "settingProvenance": {
+        "baseline": {
+          "threshold": 0.2,
+          "videoDuration": 2639.449666666,
+          "analysisDuration": 2639.402,
+          "sampleRate": null,
+          "videoOrigin": null,
+          "timestampShift": null,
+          "analysisDurationSource": "last window end minus first window start",
+          "selectedAudioIndex": 0,
+          "durationOverride": null
+        },
+        "candidate": {
+          "threshold": 0.2,
+          "videoDuration": 2639.449666666,
+          "analysisDuration": 2639.402,
+          "sampleRate": 32000,
+          "videoOrigin": 0,
+          "timestampShift": 0,
+          "analysisDurationSource": "audio metadata",
+          "selectedAudioIndex": 0,
+          "durationOverride": 2639.402
+        }
+      },
+      "windows": {
+        "baseline": 527,
+        "candidate": 527,
+        "exactBoundaries": true,
+        "maxBoundaryAbsDifferenceSeconds": 0.0,
+        "mismatches": []
+      },
+      "scores": {
+        "exact": true,
+        "maxAbsDifference": 0.0,
+        "mismatchCount": 0,
+        "mismatches": []
+      },
+      "candidates": {
+        "baseline": 28,
+        "candidate": 28,
+        "exact": true,
+        "mismatches": []
+      },
+      "environment": {
+        "baselineUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+        "candidateUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sameUserAgent": false
+      },
+      "timings": {
+        "baseline": {
+          "decodeMs": 208410.189999938,
+          "readMs": 20.735000014305115,
+          "initializeMs": 109.50499999523163,
+          "frontendMs": 8052.974999904633,
+          "inferenceMs": 4439.74499976635,
+          "audioSetupMs": 3.424999952316284,
+          "audioWaitMs": 195506.56500041485,
+          "inferenceRoundTripMs": 12748.670001506805,
+          "postprocessAndRenderMs": 257.49999952316284,
+          "progressUiMs": 20.524998664855957,
+          "timingVersion": 2,
+          "decoderPasses": 1,
+          "sourceDecodeWaitMs": 206400.9200000763,
+          "pcmAssemblyMs": 180.72500157356262,
+          "resampleMs": 1664.6449996232986,
+          "windowAssemblyMs": 83.02499783039093,
+          "maxSourceBufferSeconds": 5.120000000000008,
+          "maxMonoBufferSamples": 640000,
+          "firstReviewableMs": 12424.939999938011,
+          "totalMs": 208537.99000000954
+        },
+        "candidate": {
+          "decodeMs": 3862.8449996709824,
+          "readMs": 13.570000052452087,
+          "initializeMs": 113.10000002384186,
+          "frontendMs": 8402.305000066757,
+          "inferenceMs": 4409.02500140667,
+          "audioSetupMs": 4.100000023841858,
+          "audioWaitMs": 33.0950003862381,
+          "inferenceRoundTripMs": 13063.144999980927,
+          "postprocessAndRenderMs": 19.834999322891235,
+          "progressUiMs": 12.254999160766602,
+          "readBytes": 65608387,
+          "readCalls": 38,
+          "decodedBuffers": 123722,
+          "decodedSamplesPerChannel": 126691328,
+          "timingVersion": 3,
+          "importMs": 6.889999985694885,
+          "decoderPasses": 1,
+          "sourceDecodeWaitMs": 2904.3699971437454,
+          "pcmAssemblyMs": 138.07500076293945,
+          "resampleMs": 671.140000462532,
+          "windowAssemblyMs": 90.7749992609024,
+          "maxSourceBufferSeconds": 5.120000000000008,
+          "maxMonoBufferSamples": 640000,
+          "firstPcmMs": 13.31499993801117,
+          "firstWindowMs": 35.34500002861023,
+          "firstScoreMs": 205.15499997138977,
+          "firstReviewableMs": 899.9900000095367,
+          "totalMs": 13135.314999938011,
+          "elapsedIncludingImportAndCleanupMs": 13142.34500002861
+        }
+      },
+      "sourceReport": {
+        "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/evidence/audio-analysis-ffmpeg-mka-matched-20261027.json",
+        "bytes": 192885,
+        "sha256": "3b3f8ec2ec60b19200718ce4687b64cfc566abce210fbc05fca4e4a8389492bf"
+      }
+    },
+    {
+      "pass": true,
+      "baselineRound": 1,
+      "candidateRound": 2,
+      "modelSha256Matches": true,
+      "modelSha256": {
+        "baseline": "f4291a6d768ce431694b852fa5d0c5d60171ce9ad8a1dbad28bfc144b322ba03",
+        "candidate": "f4291a6d768ce431694b852fa5d0c5d60171ce9ad8a1dbad28bfc144b322ba03"
+      },
+      "settings": {
+        "threshold": {
+          "baseline": 0.2,
+          "candidate": 0.2,
+          "matches": true
+        },
+        "videoDuration": {
+          "baseline": 2639.449666666,
+          "candidate": 2639.449666666,
+          "matches": true
+        },
+        "analysisDuration": {
+          "baseline": 2639.402,
+          "candidate": 2639.402,
+          "matches": true
+        }
+      },
+      "unverifiedSettings": [
+        "sampleRate",
+        "videoOrigin",
+        "timestampShift"
+      ],
+      "settingProvenance": {
+        "baseline": {
+          "threshold": 0.2,
+          "videoDuration": 2639.449666666,
+          "analysisDuration": 2639.402,
+          "sampleRate": null,
+          "videoOrigin": null,
+          "timestampShift": null,
+          "analysisDurationSource": "last window end minus first window start",
+          "selectedAudioIndex": 0,
+          "durationOverride": null
+        },
+        "candidate": {
+          "threshold": 0.2,
+          "videoDuration": 2639.449666666,
+          "analysisDuration": 2639.402,
+          "sampleRate": 32000,
+          "videoOrigin": 0,
+          "timestampShift": 0,
+          "analysisDurationSource": "audio metadata",
+          "selectedAudioIndex": 0,
+          "durationOverride": 2639.402
+        }
+      },
+      "windows": {
+        "baseline": 527,
+        "candidate": 527,
+        "exactBoundaries": true,
+        "maxBoundaryAbsDifferenceSeconds": 0.0,
+        "mismatches": []
+      },
+      "scores": {
+        "exact": true,
+        "maxAbsDifference": 0.0,
+        "mismatchCount": 0,
+        "mismatches": []
+      },
+      "candidates": {
+        "baseline": 28,
+        "candidate": 28,
+        "exact": true,
+        "mismatches": []
+      },
+      "environment": {
+        "baselineUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+        "candidateUserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+        "sameUserAgent": false
+      },
+      "timings": {
+        "baseline": {
+          "decodeMs": 208410.189999938,
+          "readMs": 20.735000014305115,
+          "initializeMs": 109.50499999523163,
+          "frontendMs": 8052.974999904633,
+          "inferenceMs": 4439.74499976635,
+          "audioSetupMs": 3.424999952316284,
+          "audioWaitMs": 195506.56500041485,
+          "inferenceRoundTripMs": 12748.670001506805,
+          "postprocessAndRenderMs": 257.49999952316284,
+          "progressUiMs": 20.524998664855957,
+          "timingVersion": 2,
+          "decoderPasses": 1,
+          "sourceDecodeWaitMs": 206400.9200000763,
+          "pcmAssemblyMs": 180.72500157356262,
+          "resampleMs": 1664.6449996232986,
+          "windowAssemblyMs": 83.02499783039093,
+          "maxSourceBufferSeconds": 5.120000000000008,
+          "maxMonoBufferSamples": 640000,
+          "firstReviewableMs": 12424.939999938011,
+          "totalMs": 208537.99000000954
+        },
+        "candidate": {
+          "decodeMs": 3618.5400000810623,
+          "readMs": 0,
+          "initializeMs": 0,
+          "frontendMs": 7894.919999718666,
+          "inferenceMs": 4157.915000796318,
+          "audioSetupMs": 7.509999990463257,
+          "audioWaitMs": 20.524999737739563,
+          "inferenceRoundTripMs": 12197.999999284744,
+          "postprocessAndRenderMs": 18.83999991416931,
+          "progressUiMs": 10.910000443458557,
+          "readBytes": 65608387,
+          "readCalls": 40,
+          "decodedBuffers": 123722,
+          "decodedSamplesPerChannel": 126691328,
+          "timingVersion": 3,
+          "importMs": 41.985000014305115,
+          "decoderPasses": 1,
+          "sourceDecodeWaitMs": 2715.9450014829636,
+          "pcmAssemblyMs": 123.03500199317932,
+          "resampleMs": 639.4399987459183,
+          "windowAssemblyMs": 86.76999914646149,
+          "maxSourceBufferSeconds": 5.120000000000008,
+          "maxMonoBufferSamples": 640000,
+          "firstPcmMs": 8.56499993801117,
+          "firstWindowMs": 22.764999985694885,
+          "firstScoreMs": 44.580000042915344,
+          "firstReviewableMs": 694.8849999904633,
+          "totalMs": 12257.789999961853,
+          "elapsedIncludingImportAndCleanupMs": 12299.870000004768
+        }
+      },
+      "sourceReport": {
+        "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/evidence/audio-analysis-ffmpeg-mka-matched-20261027.json",
+        "bytes": 192885,
+        "sha256": "3b3f8ec2ec60b19200718ce4687b64cfc566abce210fbc05fca4e4a8389492bf"
+      }
+    }
+  ],
+  "allPassed": true,
+  "invalidInput": false
+}

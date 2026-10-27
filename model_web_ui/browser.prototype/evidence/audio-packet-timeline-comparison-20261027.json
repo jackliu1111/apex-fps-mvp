@@ -1,0 +1,100 @@
+{
+  "timelineRecordBytes": 24,
+  "sourceCount": 123723,
+  "comparisons": [
+    {
+      "output": "ffmpeg",
+      "count": 123723,
+      "ptsDifferent": 0,
+      "ptsDifferenceMin": 0.0,
+      "ptsDifferenceMax": 0.0,
+      "durationDifferent": 6452,
+      "durationMaxAbsDifference": 0.022,
+      "payloadLengthAndKeyTypeEqual": true
+    },
+    {
+      "output": "m4a",
+      "count": 123723,
+      "ptsDifferent": 123723,
+      "ptsDifferenceMin": -0.021166666666886158,
+      "ptsDifferenceMax": -0.020499999999628926,
+      "durationDifferent": 123723,
+      "durationMaxAbsDifference": 0.021333333333333333,
+      "payloadLengthAndKeyTypeEqual": true
+    },
+    {
+      "output": "mediabunny",
+      "count": 123723,
+      "ptsDifferent": 0,
+      "ptsDifferenceMin": 0.0,
+      "ptsDifferenceMax": 0.0,
+      "durationDifferent": 8333,
+      "durationMaxAbsDifference": 0.022,
+      "payloadLengthAndKeyTypeEqual": true
+    }
+  ],
+  "boundedHeaderInspectionBytesPerFile": 262144,
+  "headerTrackFields": {
+    "2026-10-11 08-43-38.mkv": [
+      {
+        "element": "trackNumber",
+        "value": 1,
+        "offset": 312
+      },
+      {
+        "element": "trackType",
+        "value": 1,
+        "offset": 356
+      },
+      {
+        "element": "trackNumber",
+        "value": 2,
+        "offset": 493
+      },
+      {
+        "element": "codecDelayNanoseconds",
+        "value": 21333333,
+        "offset": 551
+      },
+      {
+        "element": "trackType",
+        "value": 2,
+        "offset": 558
+      }
+    ],
+    "ffmpeg-copyts.mka": [
+      {
+        "element": "trackNumber",
+        "value": 1,
+        "offset": 311
+      },
+      {
+        "element": "codecDelayNanoseconds",
+        "value": 21333333,
+        "offset": 369
+      },
+      {
+        "element": "trackType",
+        "value": 2,
+        "offset": 376
+      }
+    ],
+    "mediabunny.mka": [
+      {
+        "element": "trackNumber",
+        "value": 1,
+        "offset": 189
+      },
+      {
+        "element": "trackType",
+        "value": 2,
+        "offset": 196
+      },
+      {
+        "element": "codecDelayNanoseconds",
+        "value": 0,
+        "offset": 216
+      }
+    ]
+  }
+}

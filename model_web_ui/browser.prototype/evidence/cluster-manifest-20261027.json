@@ -1,0 +1,57 @@
+[
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/diagnostics/cluster-benchmark.mjs",
+    "bytes": 3125,
+    "sha256": "c4836ea32296c46770dc76d8af2959125ed660b0ea4c2560ff455417ce4cf216"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/diagnostics/cluster-prefetch.js",
+    "bytes": 4030,
+    "sha256": "b961cfb9359767148001f8dfa9dec75689373909aebd27fe6d21da57879b404f"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/diagnostics/cluster-parity.mjs",
+    "bytes": 3847,
+    "sha256": "e32b6fb9a364ab93654cf0adf400634a73215d90e0331f025b2a3ce6c4bb1536"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/diagnostics/cluster-browser.js",
+    "bytes": 3375,
+    "sha256": "ac43ca249daa1a48c874f0d6dbc903131a5cf2d93a7d96354fa0e749a90cdccc"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/diagnostics/cluster-browser.html",
+    "bytes": 580,
+    "sha256": "1f2b6d81a4ac7e590ebde16d296dcbfe652b574c2672d95d265bbaf9eb3f7e66"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/diagnostics/build_concurrent_runtime.py",
+    "bytes": 1074,
+    "sha256": "759fa8b15d5e553400ecc2ea9d7415f9778056b84f16c1c25d3f9460f213dfd8"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/evidence/cluster-short-20261027.json",
+    "bytes": 2936,
+    "sha256": "a512fa6e4649910721b897931d53b6f0fb918614b96d52081007a5fa4406a60c"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/evidence/cluster-comparison-20261027.json",
+    "bytes": 302,
+    "sha256": "dc2e02777b4c4a85086d2360c3ff0a90edd7814b7637565cd792c4314d707a8d"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/evidence/cluster-browser-20261027.json",
+    "bytes": 620,
+    "sha256": "ec715d1660a05b0f13c0cc3e4356da548ee876f187a56bbd154c46cc453813ae"
+  },
+  {
+    "path": "/Users/jackliu/orca/workspaces/apex-fps-mvp/cormorant/model_web_ui/browser.prototype/evidence/cluster-full-20261027.json",
+    "bytes": 2596,
+    "sha256": "36a6cdb423367cf65850e5364530313d2e067c932fb94f4401217913684a6e36"
+  },
+  {
+    "path": "/private/tmp/apex-browser-prototype-20261026/assets/vendor/mediabunny-concurrent.mjs",
+    "bytes": 881696,
+    "sha256": "2e219831ac4136cb69c295793dd3b4fbaf318e8beb019e4fb0544fdf4050dd52"
+  }
+]

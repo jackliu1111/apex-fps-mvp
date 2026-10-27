@@ -1,0 +1,74 @@
+{
+  "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/ffmpeg-from-mka.m4a",
+  "bytes": 64973268,
+  "audioTrackCount": 1,
+  "videoTrackCount": 0,
+  "audioIndex": 0,
+  "codec": "aac",
+  "sampleRate": 48000,
+  "numberOfChannels": 2,
+  "reportedEndTimestamp": 2639.4025,
+  "count": 123723,
+  "audioBytes": 64476602,
+  "firstTimestamp": -0.021,
+  "lastTimestamp": 2639.3815,
+  "lastEnd": 2639.4025,
+  "backwards": 0,
+  "maxAbsoluteCadenceDeviationSeconds": 0.00016666666666666913,
+  "hash": "fff9e835ab41b5f0dac2a18d4b929740555f0bb22b4b7da4450481c5fe43ca28",
+  "packetHash": "2da39e91689198d5bce7ea14af8eca2c5223e812e1ea132d95a85ef6396e9efc",
+  "ptsHash": "43b3104783c1fc752429cdccfb6520db88e771f9fceb3221ed1fe2e2974b65c9",
+  "durationHistogram": {
+    "0.021333333333333333": 123721,
+    "0.021166666666666667": 1,
+    "0.021": 1
+  },
+  "timestampHash": "c63b0680584b969ce5422f4fca12ce79f856aa466e1bf9cb8ba36badc5b4d36c",
+  "firstPackets": [
+    [
+      -0.021,
+      0.021333333333333333,
+      "key",
+      452
+    ],
+    [
+      0.0003333333333333333,
+      0.021166666666666667,
+      "key",
+      534
+    ],
+    [
+      0.0215,
+      0.021333333333333333,
+      "key",
+      489
+    ]
+  ],
+  "lastPackets": [
+    [
+      2639.3388333333332,
+      0.021333333333333333,
+      "key",
+      578
+    ],
+    [
+      2639.360166666667,
+      0.021333333333333333,
+      "key",
+      427
+    ],
+    [
+      2639.3815,
+      0.021,
+      "key",
+      627
+    ]
+  ],
+  "totalMs": 543.3469580000001,
+  "timeline": {
+    "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/m4a-packets.bin",
+    "bytes": 2969352,
+    "recordBytes": 24,
+    "encoding": "LE float64 timestamp, float64 duration, uint32 payloadBytes, uint32 isKey"
+  }
+}

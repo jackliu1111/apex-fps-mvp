@@ -1,0 +1,22 @@
+{
+  "path": "/Volumes/EXTERNALUSB/\u5171\u4eab/2026-10-11 08-43-38.mkv",
+  "size": 30258792852,
+  "seconds": 2640,
+  "profile": "sparse",
+  "cacheMiB": 8,
+  "runtime": "v24.21.0",
+  "importMs": 3.6802080000000004,
+  "totalMs": 210462.394083,
+  "count": 123723,
+  "lastTimestamp": 2639.402,
+  "audioBytes": 64476602,
+  "hash": "fff9e835ab41b5f0dac2a18d4b929740555f0bb22b4b7da4450481c5fe43ca28",
+  "readBytes": 3510016010,
+  "readAmplification": 54.43860099823499,
+  "readMs": 204845.35933700335,
+  "readCount": 214927,
+  "requestCount": 717706,
+  "rawTracePath": "/private/tmp/apex-sparse-full.json",
+  "rawTraceBytes": 67793444,
+  "rawTraceSha256": "bb3da76cdf53df8560127ebfdd28d0b1c4e78e706eea385f2606c3826ee35481"
+}

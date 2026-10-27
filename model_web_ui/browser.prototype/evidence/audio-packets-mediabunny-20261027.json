@@ -1,0 +1,74 @@
+{
+  "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/mediabunny.mka",
+  "bytes": 65689632,
+  "audioTrackCount": 1,
+  "videoTrackCount": 0,
+  "audioIndex": 0,
+  "codec": "aac",
+  "sampleRate": 48000,
+  "numberOfChannels": 2,
+  "reportedEndTimestamp": 2639.402,
+  "count": 123723,
+  "audioBytes": 64476602,
+  "firstTimestamp": 0,
+  "lastTimestamp": 2639.402,
+  "lastEnd": 2639.402,
+  "backwards": 0,
+  "maxAbsoluteCadenceDeviationSeconds": 0.0006666666670559311,
+  "hash": "fff9e835ab41b5f0dac2a18d4b929740555f0bb22b4b7da4450481c5fe43ca28",
+  "packetHash": "ad3e05e1bcb2ef90aefaad05f2f9429e96a7bc725b55395338a90cc1adec33d0",
+  "ptsHash": "5c084b32d23a671f923156e9868efe80b033718d3d611d5bed498b91c846c4ab",
+  "durationHistogram": {
+    "0": 2633,
+    "0.021": 80727,
+    "0.022": 40363
+  },
+  "timestampHash": "06979e0e728c5325a121d7c47172171264f7ecf14c6e4ab40de223f179627e0f",
+  "firstPackets": [
+    [
+      0,
+      0.021,
+      "key",
+      452
+    ],
+    [
+      0.021,
+      0.021,
+      "key",
+      534
+    ],
+    [
+      0.042,
+      0.022,
+      "key",
+      489
+    ]
+  ],
+  "lastPackets": [
+    [
+      2639.36,
+      0.021,
+      "key",
+      578
+    ],
+    [
+      2639.381,
+      0.021,
+      "key",
+      427
+    ],
+    [
+      2639.402,
+      0,
+      "key",
+      627
+    ]
+  ],
+  "totalMs": 1541.423,
+  "timeline": {
+    "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/mediabunny-packets.bin",
+    "bytes": 2969352,
+    "recordBytes": 24,
+    "encoding": "LE float64 timestamp, float64 duration, uint32 payloadBytes, uint32 isKey"
+  }
+}

@@ -29,5 +29,6 @@
   <section><h2>操作导览</h2><div class="row" id="walkthroughs"><button data-guide="happy">完整链路</button><button data-guide="tracks">多音轨</button><button data-guide="cancel">取消与重试</button></div><p id="guide">导入录像 → 确认音轨 → 开始分析 → 预览候选 → 勾选导出。也可用合成样本走通操作。</p></section>
   <details open><summary>原型状态与证据</summary><pre id="state"></pre><button id="reference">验证浏览器模型与 Python 基准</button><p id="reference-status">使用固定合成噪声比对当前模型全部分数；不涉及你的录像。</p><pre id="log"></pre></details>
 <details open><summary>耗时测试</summary><pre id="analysis-timing">尚无分析计时</pre><button id="analysis-report">下载当前录像分析报告</button><p class="muted">固定合成音频冷／热各测 3 次，另测 12 秒合成视频分析及 5 秒导出，不分析你的录像。</p><button id="benchmark">运行合成耗时测试</button><button id="decode-reference">对照当前录像的新旧解码</button><p class="muted">顺序读完整音轨，检查相邻窗口复用；仅首两窗、中间窗和末窗与旧解码及模型分数对照，不修改候选。</p><pre id="decode-result"></pre><div id="decode-download"></div><pre id="benchmark-result"></pre><div id="benchmark-download"></div></details>
+<details><summary>读取方式实验（本次实测更慢，默认关闭）</summary><label><input id="sparse-audio" type="checkbox">分析 MKV / WebM 时跳过视频负载</label><p>44 分钟录像实测 233.18 秒，原路径 208.54 秒。预览和导出使用原读取方式。</p></details>
 </main><script type="module" src="app.js"></script>
 </body></html>

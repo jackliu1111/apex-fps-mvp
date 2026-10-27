@@ -1,0 +1,38 @@
+{
+  "path": "/Users/jackliu/Downloads/2026-10-11 08-43-38-efficientat-track1-01.webm",
+  "bytes": 49194775,
+  "probe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "vp8",
+        "codec_type": "video",
+        "width": 1280,
+        "height": 720
+      },
+      {
+        "codec_name": "opus",
+        "codec_type": "audio",
+        "sample_rate": "48000",
+        "channels": 2
+      }
+    ],
+    "format": {
+      "duration": "90.020000",
+      "size": "49194775"
+    }
+  },
+  "fullDecodeExitCode": 0,
+  "fullDecodeErrors": "",
+  "export": {
+    "name": "2026-10-11 08-43-38-efficientat-track1-01.webm",
+    "model": "efficientat",
+    "start": 0,
+    "end": 90,
+    "bytes": 49194775,
+    "requestedDuration": 90,
+    "measuredDuration": 90,
+    "exportMs": 16065.930000066757
+  }
+}

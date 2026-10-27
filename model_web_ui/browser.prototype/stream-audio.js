@@ -5,6 +5,7 @@ export function sequentialAudio(MB, track, origin, duration, rate, check, metric
   const hop = rate * 5, halo = Math.round(rate * 0.04);
   let blocks = [], done = false, closed = false, index = 0, previous;
   metrics.decoderPasses = 1;
+  metrics.sourceDecodeWaitMs = 0; metrics.pcmAssemblyMs = 0; metrics.resampleMs = 0; metrics.windowAssemblyMs = 0;
   metrics.maxSourceBufferSeconds = 0;
   metrics.maxMonoBufferSamples = 0;
   async function chunk(part) {
@@ -15,13 +16,15 @@ export function sequentialAudio(MB, track, origin, duration, rate, check, metric
     const from = Math.max(0, begin - halo / rate), to = Math.min(duration, end + halo / rate);
     while (!done && (!blocks.length || blocks.at(-1).timestamp + blocks.at(-1).buffer.duration < origin + to)) {
       check();
+      const readStarted = performance.now();
       const result = await iterator.next();
+      metrics.sourceDecodeWaitMs += performance.now() - readStarted;
       check();
       done = result.done;
       if (!done) blocks.push(result.value);
     }
     metrics.maxSourceBufferSeconds = Math.max(metrics.maxSourceBufferSeconds, blocks.reduce((n, b) => n + b.buffer.duration, 0));
-    const rendered = await renderContinuous(blocks, origin + from, to - from, rate);
+    const rendered = await renderContinuous(blocks, origin + from, to - from, rate, metrics);
     check();
     const offset = Math.round((begin - from) * rate);
     output.set(rendered.subarray(offset, offset + Math.min(hop, Math.round((end - begin) * rate))));
@@ -35,9 +38,11 @@ export function sequentialAudio(MB, track, origin, duration, rate, check, metric
       if (closed) throw new Error('解码流已关闭');
       if (!previous) previous = await chunk(0);
       const following = await chunk(index + 1);
+      const assemblyStarted = performance.now();
       const waveform = new Float32Array(hop * 2);
       waveform.set(previous); waveform.set(following, hop);
       previous = following; index++;
+      metrics.windowAssemblyMs += performance.now() - assemblyStarted;
       metrics.maxMonoBufferSamples = Math.max(metrics.maxMonoBufferSamples, hop * 4);
       metrics.decodeMs += performance.now() - started;
       return waveform;
@@ -52,7 +57,8 @@ export function sequentialAudio(MB, track, origin, duration, rate, check, metric
 
 // Place decoded packets on their native sample grid before resampling once.
 // Separate AudioBufferSource nodes reset interpolation at every packet boundary.
-export async function renderContinuous(blocks, start, duration, rate) {
+export async function renderContinuous(blocks, start, duration, rate, metrics) {
+  const assemblyStarted = performance.now();
   const first = blocks[0]?.buffer;
   if (!first) throw new Error('音轨未解码出音频');
   const nativeRate = first.sampleRate;
@@ -66,8 +72,12 @@ export async function renderContinuous(blocks, start, duration, rate) {
     if (length <= 0) continue;
     for (let channel = 0; channel < channels; channel++) joined.getChannelData(channel).set(buffer.getChannelData(channel).subarray(offset, offset + length), target);
   }
+  if (metrics) metrics.pcmAssemblyMs += performance.now() - assemblyStarted;
+  const renderStarted = performance.now();
   const context = new OfflineAudioContext(1, Math.ceil(duration * rate), rate);
   const source = context.createBufferSource(); source.buffer = joined;
   source.connect(context.destination); source.start(0);
-  return (await context.startRendering()).getChannelData(0);
+  const result = (await context.startRendering()).getChannelData(0);
+  if (metrics) metrics.resampleMs += performance.now() - renderStarted;
+  return result;
 }

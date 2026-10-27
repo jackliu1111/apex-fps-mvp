@@ -1,0 +1,67 @@
+{
+  "mode": "mediabunny-original-node-streamcopy-mka",
+  "status": "complete",
+  "sourcePath": "/Volumes/EXTERNALUSB/共享/2026-10-11 08-43-38.mkv",
+  "outputPath": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/mediabunny.mka",
+  "audioIndex": 0,
+  "runtime": "v24.21.0",
+  "mediabunny": {
+    "version": "1.25.0",
+    "path": "/private/tmp/apex-browser-prototype-20261026/assets/vendor/mediabunny.mjs",
+    "sha256": "160db974a539ca6303bb614545f2017953be2f5a92bc04464243b0b4cbc0be27"
+  },
+  "cacheCleared": false,
+  "timestampShiftSeconds": 0,
+  "scope": "Node fs range reads + pinned demuxer + Matroska mux + writes + close; excludes module load and report write; no fsync",
+  "readBytes": 30259417896,
+  "readCalls": 5960,
+  "readMs": 201008.0058189998,
+  "maxActiveReads": 1,
+  "writeBytes": 65690027,
+  "writeCalls": 127,
+  "writeMs": 15382.022711000107,
+  "maxWriteChunkBytes": 1048576,
+  "source": {
+    "size": 30258792852,
+    "mtimeMs": 1791682055830,
+    "track": {
+      "id": 2,
+      "codec": "aac",
+      "name": "simple_aac_recording0",
+      "sampleRate": 48000,
+      "numberOfChannels": 2,
+      "firstTimestamp": 0,
+      "endTimestamp": 2639.402
+    },
+    "video": {
+      "firstTimestamp": 0,
+      "endTimestamp": 2639.449666666
+    }
+  },
+  "metadataMs": 237.73245799999998,
+  "packetLoopEndedMs": 211156.198041,
+  "finalizeAndOutputCloseMs": 69.10516700000153,
+  "timeline": {
+    "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/source-packets.bin",
+    "bytes": 2969352,
+    "recordBytes": 24,
+    "encoding": "LE float64 timestamp, float64 duration, uint32 payloadBytes, uint32 isKey"
+  },
+  "totalMs": 211227.49862499998,
+  "count": 123723,
+  "audioBytes": 64476602,
+  "firstTimestamp": 0,
+  "lastTimestamp": 2639.402,
+  "lastEnd": 2639.402,
+  "hash": "fff9e835ab41b5f0dac2a18d4b929740555f0bb22b4b7da4450481c5fe43ca28",
+  "packetHash": "b5e0be6995353018a9513e21a23a64d8e3767748d84c139fd42b362fd2d5cbf8",
+  "ptsHash": "5c084b32d23a671f923156e9868efe80b033718d3d611d5bed498b91c846c4ab",
+  "durationHistogram": {
+    "0": 5954,
+    "0.021": 78649,
+    "0.022": 39120
+  },
+  "backwards": 0,
+  "maxAbsoluteCadenceDeviationSeconds": 0.0006666666670559311,
+  "outputBytes": 65689632
+}

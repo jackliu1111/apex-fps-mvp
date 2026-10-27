@@ -99,3 +99,12 @@ EfficientAT 使用下一窗口起点作为未来事件边界；BEATs 仅发布�
 页面“对照当前录像的新旧解码”顺序读取整轨，核对全部重叠区逐采样相等；首两窗、中间窗、末窗与旧随机解码及模型输出比较，首两窗另与连续 20 秒渲染对照。该操作不更改候选。解码策略变化并不保证与旧随机解码分数相等，已记录阈值附近候选变化；见 CAPTURE 最新节。
 
 耗时面板显示首个可复核候选时间。解码与推理并行，因此分项累计不能相加成完整分析耗时。当前仍为单文件顺序队列，无多文件并行、持久化或公网部署。
+
+
+### 阶段计时口径（timingVersion 2）
+
+实验跳读入口见页面底部“读取方式实验”，默认关闭：本次 44 分钟实测减少字节但更慢（233.18 秒 vs 208.54 秒）。首次试验需先运行 `python3 model_web_ui/browser.prototype/diagnostics/build_sparse_runtime.py`，它校验固定原版 SHA-256 后生成独立 `mediabunny-sparse.mjs`，不覆盖原库。实验路径仅用于分析，预览／导出仍用原 Input；失败会显示错误，不自动更换算法。结构一致性验证命令为 `node model_web_ui/browser.prototype/diagnostics/sparse-parity.mjs`。这不是通用 MKV 实现或默认性能优化，完整结论见 CAPTURE。
+
+报告新增 `source.importMs`（文件对象交给读取器到轨道／时长就绪）与细分阶段。`sourceDecodeWaitMs` 是等待 `AudioBufferSink` 交付源音频包的累计墙钟时间，合并了文件访问、解封装、解码与浏览器调度，不是纯磁盘 I/O 或解码 CPU 时间。`pcmAssemblyMs` 为原采样网格拼接，`resampleMs` 为 OfflineAudioContext 的混音／重采样与完成等待，`windowAssemblyMs` 为相邻块拼成推理窗口。
+
+`audioSetupMs`、`audioWaitMs`、`inferenceRoundTripMs`、`postprocessAndRenderMs`、`progressUiMs` 是主流程上依次计时的区间，可用于分析等待来源；前两组内部阶段与 Worker 的 `frontendMs`、`inferenceMs` 则可能重叠，不能全部相加。`postprocessAndRenderMs` 含分数整理、候选合并与同步 DOM 更新，不含浏览器异步绘制。`totalMs` 沿用原口径：逐文件分析开始至最后候选发布，不含文件选择、导入、模型清单查询、人工操作、导出及迭代器最终清理。两轮复测不主动清理操作系统文件缓存；“冷”仅表示新 Worker／模型会话。

@@ -1,0 +1,111 @@
+{
+  "mountRequired": "/Volumes/EXTERNALUSB",
+  "directory": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914",
+  "totalBytes": 273300118,
+  "mediaBytes": 261389942,
+  "files": [
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._ffmpeg-4m.mka",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._ffmpeg-copyts.mka",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._ffmpeg-from-mka.m4a",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._ffmpeg-packets.bin",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._m4a-packets.bin",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._mediabunny-packets.bin",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._mediabunny.mka",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/._source-packets.bin",
+      "bytes": 4096,
+      "sha256": "d823e333fd15d344c2accd679fcf4fa82f62ac5890f104f4339c43876fa8baff",
+      "kind": "macOS metadata sidecar"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/ffmpeg-4m.mka",
+      "bytes": 65363521,
+      "sha256": "dcd356e99eb32ea3a4a8f73110a246373379da837ef748f071eed3f117c5f7b6",
+      "kind": "compressed audio"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/ffmpeg-copyts.mka",
+      "bytes": 65363521,
+      "sha256": "73077b722dd30abb0223c847e8d8130690b99e34f78901bb93ea7c61885ed5be",
+      "kind": "compressed audio"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/ffmpeg-from-mka.m4a",
+      "bytes": 64973268,
+      "sha256": "0155654c63bc3805be1ee6617bf56a556b55aeb60418fcb788975cf10f7290bd",
+      "kind": "compressed audio"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/ffmpeg-packets.bin",
+      "bytes": 2969352,
+      "sha256": "ca13827dbd8813bbc20971c5e54342f28dc231f4c085a821a2ddfd981aa6e66c",
+      "kind": "packet timeline"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/m4a-packets.bin",
+      "bytes": 2969352,
+      "sha256": "23c3c5930a7d2efab5ceba4618da2e52deb2da45c8cbe1e8339064e7c58bac15",
+      "kind": "packet timeline"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/mediabunny-packets.bin",
+      "bytes": 2969352,
+      "sha256": "628001480d959822502054d8b970ec26e73067c4a6f1011732b08f4707ab436f",
+      "kind": "packet timeline"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/mediabunny.mka",
+      "bytes": 65689632,
+      "sha256": "2bce9cbdb5aae48f90faba9793bf500fd46356c7267db74b1c1493bc808a36a7",
+      "kind": "compressed audio"
+    },
+    {
+      "path": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914/source-packets.bin",
+      "bytes": 2969352,
+      "sha256": "ca379b3b9ecdc5c94d8e9f7bdf2b88095399c88672b3619f76db8cc9253b18cf",
+      "kind": "packet timeline"
+    }
+  ],
+  "sourceMediaCopied": false,
+  "fullPcmWritten": false,
+  "modelAssetsReused": "/private/tmp/apex-browser-prototype-20261026/assets",
+  "mediaAndTimelinesVerifiedBy": "packet content hashes, raw PTS comparison, browser score/candidate comparisons; see summary limitations",
+  "timelineBytes": 11877408,
+  "osMetadataBytes": 32768,
+  "dataBytes": 273267350
+}

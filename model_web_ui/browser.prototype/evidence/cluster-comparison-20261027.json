@@ -1,0 +1,9 @@
+{
+  "nodeAllPacketHashesEqual": true,
+  "browserContentFNV32MatchesHistoricalBaseline": true,
+  "browserBaselineMs": 206463.68000006676,
+  "browserConcurrent4Ms": 330860.0149999857,
+  "browserObservedSlowdownPercent": 60.25095309735771,
+  "fullModelAnalysisRun": false,
+  "defaultPathChanged": false
+}

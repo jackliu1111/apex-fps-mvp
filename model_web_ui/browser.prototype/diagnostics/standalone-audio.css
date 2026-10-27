@@ -1,0 +1,9 @@
+body { font: 15px/1.6 system-ui, sans-serif; margin: 32px auto; padding: 0 24px; max-width: 1050px; color: #18302d; background: #f4f7f5; }
+h1 { font-size: 26px; }
+section { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; margin: 16px 0; }
+label { display: block; }
+input, select, button { font: inherit; padding: 7px; }
+input[type=number] { display: block; width: 240px; }
+button { margin: 12px 10px 12px 0; }
+progress { display: block; width: 100%; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: white; padding: 20px; }

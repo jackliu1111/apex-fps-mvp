@@ -1,5 +1,6 @@
 import * as MB from '/assets/vendor/mediabunny.mjs';
 import { sequentialAudio, renderContinuous } from './stream-audio.js';
+import { openSparseAudio } from './sparse-audio.prototype.js';
 
 // Throwaway functional prototype: real media and real model, no backend API.
 const $ = (id) => document.getElementById(id);
@@ -38,7 +39,8 @@ function renderState() {
   const current = active();
   if (current?.timings) {
     const t = current.timings, s = (v) => ((v || 0) / 1000).toFixed(3);
-    $('analysis-timing').textContent = `${current.file.name}\n状态：${current.status}；已完成窗口：${current.windows || 0}\n模型读取 ${s(t.readMs)} 秒；初始化 ${s(t.initializeMs)} 秒\n音频解码／重采样 ${s(t.decodeMs)} 秒；特征提取 ${s(t.frontendMs)} 秒；模型推理 ${s(t.inferenceMs)} 秒\n完整分析耗时：${t.totalMs === undefined ? (current.status === '分析中' ? '进行中' : '未完成') : s(t.totalMs) + ' 秒'}\n首个可复核候选：${t.firstReviewableMs === undefined ? '尚无' : s(t.firstReviewableMs) + ' 秒'}；解码与推理并行，分项耗时不可相加`;
+    $('analysis-timing').textContent = `${current.file.name}\n状态：${current.status}；已完成窗口：${current.windows || 0}\n模型读取 ${s(t.readMs)} 秒；初始化 ${s(t.initializeMs)} 秒\n音频解码／重采样 ${s(t.decodeMs)} 秒；特征提取 ${s(t.frontendMs)} 秒；模型推理 ${s(t.inferenceMs)} 秒\n完整分析耗时：${t.totalMs === undefined ? (current.status === '分析中' ? '进行中' : '未完成') : s(t.totalMs) + ' 秒'}\n首个可复核候选：${t.firstReviewableMs === undefined ? '尚无' : s(t.firstReviewableMs) + ' 秒'}；解码与推理并行，分项耗时不可相加\n读取／解码等待 ${s(t.sourceDecodeWaitMs)} 秒；PCM 拼接 ${s(t.pcmAssemblyMs)} 秒；混音／重采样 ${s(t.resampleMs)} 秒\n音轨准备 ${s(t.audioSetupMs)} 秒；候选与页面更新 ${s(t.postprocessAndRenderMs)} 秒\n主流程等待音频 ${s(t.audioWaitMs)} 秒；模型调用往返 ${s(t.inferenceRoundTripMs)} 秒`;
+    if (t.audioReader) $('analysis-timing').textContent += `\n实验跳读：${(t.sparseReadBytes / 1e6).toFixed(1)} MB / ${t.sparseReadCalls} 次范围读取`;
   } else $('analysis-timing').textContent = '尚无分析计时';
   $('state').textContent = JSON.stringify({
     processing: busy, cancelled, backend: 'WASM / CPU · Web Worker',
@@ -93,7 +95,7 @@ function render() {
   $('result-file').value = activeId || '';
   const f = active();
   renderClips(f);
-  for (const id of ['files', 'demo', 'analyze', 'manual', 'recompute', 'export', 'reference', 'benchmark', 'result-file', 'threshold', 'model', 'decode-reference']) $(id).disabled = busy || reviewBusy;
+  for (const id of ['files', 'demo', 'analyze', 'manual', 'recompute', 'export', 'reference', 'benchmark', 'result-file', 'threshold', 'model', 'decode-reference', 'sparse-audio']) $(id).disabled = busy || reviewBusy;
   $('analyze').disabled = busy || reviewBusy || !files.length || files.some((f) => f.selected === null);
   $('manual').disabled = (busy && !analyzing) || reviewBusy || !f;
   $('result-file').disabled = (busy && !analyzing) || reviewBusy;
@@ -190,6 +192,7 @@ async function importFiles(incoming) {
   for (const file of incoming) {
     checkCancelled();
     note(`正在读取 ${file.name} 的轨道信息…`);
+    const importStarted = performance.now();
     const input = new MB.Input({ source: new MB.BlobSource(file), formats: MB.ALL_FORMATS });
     try {
       const video = await input.getPrimaryVideoTrack();
@@ -199,7 +202,7 @@ async function importFiles(incoming) {
       const duration = (await video.computeDuration()) - origin;
       if (!(duration > 0)) throw new Error('无法确定有效视频时长');
       const id = crypto.randomUUID();
-      files.push({ id, file, input, video, tracks, origin, duration, selected: null, status: '待选音轨', clips: [] });
+      files.push({ id, file, input, video, tracks, origin, duration, selected: null, status: '待选音轨', clips: [], importMs: performance.now() - importStarted });
       activeId = id; clearPreview();
     } catch (error) { input.dispose(); note(`${file.name}：${errorText(error)}`); }
   }
@@ -274,11 +277,17 @@ async function analyzeQueue(targets = files) {
     if (f.selected === null) throw new Error('请先确认所有音轨');
     if (f.status === '完成') continue;
     activeId = f.id; if (!reviewBusy) clearPreview(); f.status = '分析中'; f.error = null; f.scores = null; f.windowScores = null; f.clips = []; f.windows = 0; f.removed = new Set(); f.frontier = -Infinity;
-    f.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0 };
+    f.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, audioSetupMs: 0, audioWaitMs: 0, inferenceRoundTripMs: 0, postprocessAndRenderMs: 0, progressUiMs: 0, timingVersion: 2 };
     const analysisStarted = performance.now(); f.analysisStarted = analysisStarted; render();
-    let stream, ahead;
+    let stream, ahead, sparse;
     try {
-      const track = f.tracks[f.selected];
+      const setupStarted = performance.now();
+      let track = f.tracks[f.selected], audioMB = MB;
+      if ($('sparse-audio').checked && /\.(mkv|webm)$/i.test(f.file.name)) {
+        sparse = await openSparseAudio(f.file, track.id, f.timings);
+        track = sparse.track; audioMB = sparse.MB;
+        f.timings.audioReader = 'experimental-sparse-mkv';
+      }
       if (!await track.canDecode()) throw new Error(`浏览器无法解码 ${track.codec} 音轨`);
       const origin = Math.max(0, await track.getFirstTimestamp());
       f.audioDuration = (await track.computeDuration()) - origin;
@@ -290,18 +299,26 @@ async function analyzeQueue(targets = files) {
       const frames = Math.ceil(sampleCount / 640);
       const sums = new Float32Array(frames * 2), counts = new Uint16Array(frames);
       const windows = Math.ceil(Math.max(0, sampleCount - 160000) / 80000) + 1;
-      stream = sequentialAudio(MB, track, origin, f.audioDuration, metadata.sampleRate, checkCancelled, f.timings);
+      stream = sequentialAudio(audioMB, track, origin, f.audioDuration, metadata.sampleRate, checkCancelled, f.timings);
       // At most one future window overlaps the current model invocation.
       const prefetch = () => stream.next().then((value) => ({ value }), (error) => ({ error }));
+      f.timings.audioSetupMs = performance.now() - setupStarted;
       ahead = prefetch();
       for (let i = 0; i < windows; i++) {
+        const progressStarted = performance.now();
         checkCancelled(); note(`${f.file.name}：解码并识别第 ${i + 1} / ${windows} 个窗口`);
+        f.timings.progressUiMs += performance.now() - progressStarted;
+        const audioWaitStarted = performance.now();
         const decoded = await ahead;
+        f.timings.audioWaitMs += performance.now() - audioWaitStarted;
         if (decoded.error) throw decoded.error;
         checkCancelled();
+        const inferenceStarted = performance.now();
         const inference = infer(decoded.value);
         ahead = i + 1 < windows ? prefetch() : null;
         const values = await inference;
+        f.timings.inferenceRoundTripMs += performance.now() - inferenceStarted;
+        const postprocessStarted = performance.now();
         for (const key of ['readMs', 'initializeMs', 'frontendMs', 'inferenceMs']) f.timings[key] += lastWindowTiming[key];
         checkCancelled();
         if (small) {
@@ -328,7 +345,9 @@ async function analyzeQueue(targets = files) {
         }
         const frontier = complete ? Infinity : (small ? (i + 1) * 5 : (f.scores.length / 2 - 1) * 0.04) + f.audioOffset;
         publishCandidates(f, frontier);
+        f.timings.postprocessAndRenderMs += performance.now() - postprocessStarted;
       }
+      const finalizeStarted = performance.now();
       if (small) f.windowScores = windowScores;
       else {
         if (counts.some((v) => v === 0)) throw new Error('分数时间轴有缺口');
@@ -336,6 +355,7 @@ async function analyzeQueue(targets = files) {
         f.scores = sums;
       }
       publishCandidates(f, Infinity); f.status = '完成';
+      f.timings.postprocessAndRenderMs += performance.now() - finalizeStarted;
       f.timings.totalMs = performance.now() - analysisStarted;
     } catch (error) {
       f.status = cancelled ? '已取消' : '失败'; f.error = errorText(error);
@@ -343,7 +363,7 @@ async function analyzeQueue(targets = files) {
       note(`${f.file.name}：${f.error}`);
     } finally {
       await ahead; // Settle the sole prefetched decode before releasing its iterator.
-      await stream?.close();
+      try { await stream?.close(); } finally { sparse?.close(); }
     }
     render();
   }
@@ -577,7 +597,7 @@ $('analysis-report').onclick = () => {
   if (!f) return;
   const report = { date: new Date().toISOString(), userAgent: navigator.userAgent,
     model: metadata?.model, backend: 'WASM CPU / 1 thread',
-    source: { name: f.file.name, bytes: f.file.size, width: f.video.displayWidth, height: f.video.displayHeight, duration: f.duration, selectedAudioIndex: f.selected },
+    source: { name: f.file.name, bytes: f.file.size, width: f.video.displayWidth, height: f.video.displayHeight, duration: f.duration, selectedAudioIndex: f.selected, importMs: f.importMs },
     status: f.status, windows: f.windows, finalizedBefore: Number.isFinite(f.frontier) ? f.frontier : null, removedCandidateKeys: [...(f.removed || [])], scoreFrames: f.scores?.length / 2, windowScores: f.windowScores, timings: f.timings,
     browserReference: lastReference, modelSha256: metadata?.sha256,
     threshold: Number($('threshold').value), clips: f.clips,

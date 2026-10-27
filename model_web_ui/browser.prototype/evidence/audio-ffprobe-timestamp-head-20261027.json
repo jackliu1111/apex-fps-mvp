@@ -1,0 +1,230 @@
+{
+  "ffmpeg-copyts.mka": {
+    "packets": [
+      {
+        "pts": -21,
+        "pts_time": "-0.021000",
+        "dts": -21,
+        "dts_time": "-0.021000",
+        "duration": 21,
+        "duration_time": "0.021000",
+        "size": "452",
+        "side_data_list": [
+          {
+            "side_data_type": "Skip Samples",
+            "skip_samples": 1024,
+            "discard_padding": 0,
+            "skip_reason": 0,
+            "discard_reason": 0
+          }
+        ]
+      },
+      {
+        "pts": 0,
+        "pts_time": "0.000000",
+        "dts": 0,
+        "dts_time": "0.000000",
+        "duration": 21,
+        "duration_time": "0.021000",
+        "size": "534"
+      },
+      {
+        "pts": 21,
+        "pts_time": "0.021000",
+        "dts": 21,
+        "dts_time": "0.021000",
+        "duration": 21,
+        "duration_time": "0.021000",
+        "size": "489"
+      },
+      {
+        "pts": 43,
+        "pts_time": "0.043000",
+        "dts": 43,
+        "dts_time": "0.043000",
+        "duration": 21,
+        "duration_time": "0.021000",
+        "size": "543"
+      },
+      {
+        "pts": 64,
+        "pts_time": "0.064000",
+        "dts": 64,
+        "dts_time": "0.064000",
+        "duration": 21,
+        "duration_time": "0.021000",
+        "size": "560"
+      }
+    ],
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "aac",
+        "time_base": "1/1000",
+        "start_time": "0.000000",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "title": "simple_aac_recording0",
+          "DURATION": "00:43:59.423000000"
+        }
+      }
+    ]
+  },
+  "ffmpeg-from-mka.m4a": {
+    "packets": [
+      {
+        "pts": -1008,
+        "pts_time": "-0.021000",
+        "dts": -1008,
+        "dts_time": "-0.021000",
+        "duration": 1024,
+        "duration_time": "0.021333",
+        "size": "452",
+        "side_data_list": [
+          {
+            "side_data_type": "Skip Samples",
+            "skip_samples": 1008,
+            "discard_padding": 0,
+            "skip_reason": 0,
+            "discard_reason": 0
+          }
+        ]
+      },
+      {
+        "pts": 16,
+        "pts_time": "0.000333",
+        "dts": 16,
+        "dts_time": "0.000333",
+        "duration": 1016,
+        "duration_time": "0.021167",
+        "size": "534"
+      },
+      {
+        "pts": 1032,
+        "pts_time": "0.021500",
+        "dts": 1032,
+        "dts_time": "0.021500",
+        "duration": 1024,
+        "duration_time": "0.021333",
+        "size": "489"
+      },
+      {
+        "pts": 2056,
+        "pts_time": "0.042833",
+        "dts": 2056,
+        "dts_time": "0.042833",
+        "duration": 1024,
+        "duration_time": "0.021333",
+        "size": "543"
+      },
+      {
+        "pts": 3080,
+        "pts_time": "0.064167",
+        "dts": 3080,
+        "dts_time": "0.064167",
+        "duration": 1024,
+        "duration_time": "0.021333",
+        "size": "560"
+      }
+    ],
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "aac",
+        "time_base": "1/48000",
+        "start_time": "0.000000",
+        "duration": "2639.403000",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler"
+        }
+      }
+    ]
+  },
+  "original.mkv": {
+    "packets": [
+      {
+        "pts_time": "-0.021000",
+        "dts_time": "-0.021000",
+        "duration_time": "0.021000",
+        "size": "452",
+        "side_data_list": [
+          {
+            "side_data_type": "Skip Samples",
+            "skip_samples": 1024,
+            "discard_padding": 0,
+            "skip_reason": 0,
+            "discard_reason": 0
+          }
+        ]
+      },
+      {
+        "pts_time": "0.000000",
+        "dts_time": "0.000000",
+        "duration_time": "0.021000",
+        "size": "534"
+      },
+      {
+        "pts_time": "0.021000",
+        "dts_time": "0.021000",
+        "duration_time": "0.021000",
+        "size": "489"
+      },
+      {
+        "pts_time": "0.043000",
+        "dts_time": "0.043000",
+        "duration_time": "0.021000",
+        "size": "543"
+      },
+      {
+        "pts_time": "0.064000",
+        "dts_time": "0.064000",
+        "duration_time": "0.021000",
+        "size": "560"
+      }
+    ]
+  }
+}

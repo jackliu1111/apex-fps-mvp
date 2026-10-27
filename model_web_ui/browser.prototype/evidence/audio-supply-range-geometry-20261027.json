@@ -1,0 +1,182 @@
+{
+  "analysisVersion": 1,
+  "percentileMethod": "linear interpolation at (n - 1) * p",
+  "sourceTrace": "/private/tmp/apex-sparse-full.json",
+  "sourceTraceSHA256": "bb3da76cdf53df8560127ebfdd28d0b1c4e78e706eea385f2606c3826ee35481",
+  "sourceTraceBytes": 67793444,
+  "sourceFileBytes": 30258792852,
+  "traceVariant": "First sparse Node experiment with implicit 128 KiB source read gap merging; prior task full scan. Predates later no-gap/browser/concurrent paths.",
+  "logicalRequestCount": 717706,
+  "requiredUnionRanges": 158368,
+  "requiredUnionBytes": 68005303,
+  "gapPercentilesBytes": {
+    "0.1": 28365.2,
+    "0.25": 111092.5,
+    "0.5": 186631.0,
+    "0.75": 266133.0,
+    "0.9": 337336.4,
+    "0.99": 489272.11999999976
+  },
+  "omniscientCoalescingCurve": [
+    {
+      "gapBytes": 0,
+      "ranges": 158368,
+      "bytes": 68005303,
+      "maxRangeBytes": 15465,
+      "sourceFraction": 0.0022474559157935835
+    },
+    {
+      "gapBytes": 4096,
+      "ranges": 155135,
+      "bytes": 73502402,
+      "maxRangeBytes": 623548,
+      "sourceFraction": 0.0024291253904116586
+    },
+    {
+      "gapBytes": 16384,
+      "ranges": 148728,
+      "bytes": 147104721,
+      "maxRangeBytes": 3215715,
+      "sourceFraction": 0.004861552862320378
+    },
+    {
+      "gapBytes": 32768,
+      "ranges": 141332,
+      "bytes": 317971028,
+      "maxRangeBytes": 4591096,
+      "sourceFraction": 0.010508384440689385
+    },
+    {
+      "gapBytes": 65536,
+      "ranges": 130645,
+      "bytes": 824133312,
+      "maxRangeBytes": 9066525,
+      "sourceFraction": 0.027236159619154394
+    },
+    {
+      "gapBytes": 131072,
+      "ranges": 110212,
+      "bytes": 2933779107,
+      "maxRangeBytes": 20637571,
+      "sourceFraction": 0.09695625074501568
+    },
+    {
+      "gapBytes": 196608,
+      "ranges": 73707,
+      "bytes": 8920978806,
+      "maxRangeBytes": 31023974,
+      "sourceFraction": 0.2948226933451628
+    },
+    {
+      "gapBytes": 262144,
+      "ranges": 41356,
+      "bytes": 16306543870,
+      "maxRangeBytes": 57761170,
+      "sourceFraction": 0.538902657146886
+    },
+    {
+      "gapBytes": 524288,
+      "ranges": 1026,
+      "bytes": 29630254236,
+      "maxRangeBytes": 302240112,
+      "sourceFraction": 0.9792279018176875
+    },
+    {
+      "gapBytes": 1048576,
+      "ranges": 5,
+      "bytes": 30254130502,
+      "maxRangeBytes": 27841540923,
+      "sourceFraction": 0.9998459175148591
+    }
+  ],
+  "alignedPageCoverage": [
+    {
+      "pageBytes": 4096,
+      "uniquePages": 173070,
+      "bytes": 708893076
+    },
+    {
+      "pageBytes": 16384,
+      "uniquePages": 157697,
+      "bytes": 2583693716
+    },
+    {
+      "pageBytes": 65536,
+      "uniquePages": 143229,
+      "bytes": 9386625428
+    },
+    {
+      "pageBytes": 262144,
+      "uniquePages": 103554,
+      "bytes": 27145832852
+    },
+    {
+      "pageBytes": 1048576,
+      "uniquePages": 28858,
+      "bytes": 30258792852
+    },
+    {
+      "pageBytes": 4194304,
+      "uniquePages": 7215,
+      "bytes": 30258792852
+    }
+  ],
+  "priorTraceReadLatencyDistribution": [
+    {
+      "group": "all",
+      "count": 214927,
+      "bytes": 3510016010,
+      "sumReadMs": 204845.35933700335,
+      "meanMs": 0.9530927214217076,
+      "p50Ms": 0.7732920000053127,
+      "p90Ms": 2.2857090000034077,
+      "p99Ms": 4.30007607998383,
+      "greater1ms": 89305,
+      "greater5ms": 1457
+    },
+    {
+      "group": "up_to_4KiB",
+      "count": 176399,
+      "bytes": 722528660,
+      "sumReadMs": 186266.00879900117,
+      "meanMs": 1.055935741126657,
+      "p50Ms": 0.9753330000094138,
+      "p90Ms": 2.426999999996042,
+      "p99Ms": 4.03762916002597,
+      "greater1ms": 86503,
+      "greater5ms": 635
+    },
+    {
+      "group": "4KiB_to_64KiB",
+      "count": 18094,
+      "bytes": 677449078,
+      "sumReadMs": 4897.662191001048,
+      "meanMs": 0.2706787991047335,
+      "p50Ms": 0.011041999998269603,
+      "p90Ms": 0.41633299999666634,
+      "p99Ms": 6.279176120016331,
+      "greater1ms": 869,
+      "greater5ms": 356
+    },
+    {
+      "group": "above_64KiB",
+      "count": 20434,
+      "bytes": 2110038272,
+      "sumReadMs": 13681.688347001138,
+      "meanMs": 0.6695550722815473,
+      "p50Ms": 0.5748124999954598,
+      "p90Ms": 0.9135329999975518,
+      "p99Ms": 7.046235749995161,
+      "greater1ms": 1933,
+      "greater5ms": 466
+    }
+  ],
+  "notes": [
+    "OFFLINE analysis only; this program never opens the media file or performs a benchmark.",
+    "Future ranges are assumed known. This is not an implementable online algorithm or timing result.",
+    "Large coalesced ranges can exceed bounded memory limits and must be streamed or split.",
+    "Logical requests, source range reads, stream chunks, filesystem calls, and physical disk I/O differ.",
+    "Historical latency includes buffer allocation and the async read elapsed time, plus OS cache effects.",
+    "Read size groups are observational, not randomized treatments; do not infer causality from their means."
+  ]
+}

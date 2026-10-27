@@ -1,0 +1,262 @@
+{
+  "date": "2026-10-27",
+  "conclusion": "Existing standalone audio takes 12-14 seconds; extracting an existing MKV first still takes about 211-213 seconds and sequential stage sums about 225-226 seconds.",
+  "extractions": [
+    {
+      "variant": "ffmpeg-mka",
+      "totalMs": 212813.338583,
+      "outputBytes": 65363521,
+      "report": "audio-extract-ffmpeg-mka-20261027.json"
+    },
+    {
+      "variant": "ffmpeg-4m",
+      "totalMs": 213069.78270799998,
+      "outputBytes": 65363521,
+      "report": "audio-extract-ffmpeg-4m-20261027.json"
+    },
+    {
+      "variant": "mediabunny",
+      "totalMs": 211227.49862499998,
+      "outputBytes": 65689632,
+      "report": "audio-extract-mediabunny-20261027.json"
+    }
+  ],
+  "analyses": [
+    {
+      "variant": "original-mkv",
+      "round": 1,
+      "modelSession": "new Worker/session; OS cache not flushed",
+      "source": {
+        "name": "2026-10-11 08-43-38.mkv",
+        "bytes": 30258792852,
+        "lastModified": 1791682055830
+      },
+      "totalMs": 209061.24000000954,
+      "elapsedIncludingImportAndCleanupMs": 209098.27499997616,
+      "metadataReadMs": 8.504999995231628,
+      "firstReviewableMs": 12313.490000009537,
+      "audioWaitMs": 196437.53999853134,
+      "frontendPlusInferenceMs": 12176.385000705719,
+      "readBytes": 30259417896,
+      "deliveredStreamChunks": 414596,
+      "decodedBuffers": 123722,
+      "audio": {
+        "trackId": 2,
+        "index": 0,
+        "codec": "aac",
+        "origin": 0,
+        "endTimestamp": 2639.402,
+        "naturalDuration": 2639.402,
+        "analysisDuration": 2639.402,
+        "durationOverride": null,
+        "duration": 2639.402,
+        "mappedVideoOffset": 0
+      },
+      "windows": 527,
+      "candidateCount": 28,
+      "candidateSeconds": 1510
+    },
+    {
+      "variant": "ffmpeg-mka-matched",
+      "round": 1,
+      "modelSession": "new Worker/session; OS cache not flushed",
+      "source": {
+        "name": "ffmpeg-copyts.mka",
+        "bytes": 65363521,
+        "lastModified": 1793099872840
+      },
+      "totalMs": 13135.314999938011,
+      "elapsedIncludingImportAndCleanupMs": 13142.34500002861,
+      "metadataReadMs": 15.975000023841858,
+      "firstReviewableMs": 899.9900000095367,
+      "audioWaitMs": 33.0950003862381,
+      "frontendPlusInferenceMs": 12811.330001473427,
+      "readBytes": 65608387,
+      "deliveredStreamChunks": 38,
+      "decodedBuffers": 123722,
+      "audio": {
+        "trackId": 1,
+        "index": 0,
+        "codec": "aac",
+        "origin": 0,
+        "endTimestamp": 2639.423333333,
+        "naturalDuration": 2639.423333333,
+        "analysisDuration": 2639.402,
+        "durationOverride": 2639.402,
+        "duration": 2639.402,
+        "mappedVideoOffset": 0
+      },
+      "windows": 527,
+      "candidateCount": 28,
+      "candidateSeconds": 1510
+    },
+    {
+      "variant": "ffmpeg-mka-matched",
+      "round": 2,
+      "modelSession": "reused Worker/session; new Input; OS cache not flushed",
+      "source": {
+        "name": "ffmpeg-copyts.mka",
+        "bytes": 65363521,
+        "lastModified": 1793099872840
+      },
+      "totalMs": 12257.789999961853,
+      "elapsedIncludingImportAndCleanupMs": 12299.870000004768,
+      "metadataReadMs": 15.975000023841858,
+      "firstReviewableMs": 694.8849999904633,
+      "audioWaitMs": 20.524999737739563,
+      "frontendPlusInferenceMs": 12052.835000514984,
+      "readBytes": 65608387,
+      "deliveredStreamChunks": 40,
+      "decodedBuffers": 123722,
+      "audio": {
+        "trackId": 1,
+        "index": 0,
+        "codec": "aac",
+        "origin": 0,
+        "endTimestamp": 2639.423333333,
+        "naturalDuration": 2639.423333333,
+        "analysisDuration": 2639.402,
+        "durationOverride": 2639.402,
+        "duration": 2639.402,
+        "mappedVideoOffset": 0
+      },
+      "windows": 527,
+      "candidateCount": 28,
+      "candidateSeconds": 1510
+    },
+    {
+      "variant": "ffmpeg-mka-natural",
+      "round": 1,
+      "modelSession": "new Worker/session; OS cache not flushed",
+      "source": {
+        "name": "ffmpeg-copyts.mka",
+        "bytes": 65363521,
+        "lastModified": 1793099872840
+      },
+      "totalMs": 12522.56500005722,
+      "elapsedIncludingImportAndCleanupMs": 12564.665000081062,
+      "metadataReadMs": 13.97000002861023,
+      "firstReviewableMs": 911.4099999666214,
+      "audioWaitMs": 30.915000081062317,
+      "frontendPlusInferenceMs": 12224.940002083778,
+      "readBytes": 65608387,
+      "deliveredStreamChunks": 39,
+      "decodedBuffers": 123723,
+      "audio": {
+        "trackId": 1,
+        "index": 0,
+        "codec": "aac",
+        "origin": 0,
+        "endTimestamp": 2639.423333333,
+        "naturalDuration": 2639.423333333,
+        "analysisDuration": 2639.423333333,
+        "durationOverride": null,
+        "duration": 2639.423333333,
+        "mappedVideoOffset": 0
+      },
+      "windows": 527,
+      "candidateCount": 28,
+      "candidateSeconds": 1510
+    },
+    {
+      "variant": "m4a-natural",
+      "round": 1,
+      "modelSession": "new Worker/session; OS cache not flushed",
+      "source": {
+        "name": "ffmpeg-from-mka.m4a",
+        "bytes": 64973268,
+        "lastModified": 1793100227620
+      },
+      "totalMs": 12391.534999966621,
+      "elapsedIncludingImportAndCleanupMs": 12452.679999947548,
+      "metadataReadMs": 7.825000047683716,
+      "firstReviewableMs": 881.0749999284744,
+      "audioWaitMs": 20.78499948978424,
+      "frontendPlusInferenceMs": 12102.229999423027,
+      "readBytes": 65590184,
+      "deliveredStreamChunks": 43,
+      "decodedBuffers": 123723,
+      "audio": {
+        "trackId": 1,
+        "index": 0,
+        "codec": "aac",
+        "origin": 0,
+        "endTimestamp": 2639.4025,
+        "naturalDuration": 2639.4025,
+        "analysisDuration": 2639.4025,
+        "durationOverride": null,
+        "duration": 2639.4025,
+        "mappedVideoOffset": 0
+      },
+      "windows": 527,
+      "candidateCount": 25,
+      "candidateSeconds": 1525
+    },
+    {
+      "variant": "mediabunny-mka",
+      "round": 1,
+      "modelSession": "new Worker/session; OS cache not flushed",
+      "source": {
+        "name": "mediabunny.mka",
+        "bytes": 65689632,
+        "lastModified": 1793100808570
+      },
+      "totalMs": 13888.490000009537,
+      "elapsedIncludingImportAndCleanupMs": 13919.695000052452,
+      "metadataReadMs": 8.209999918937683,
+      "firstReviewableMs": 900.4000000953674,
+      "audioWaitMs": 32.899999380111694,
+      "frontendPlusInferenceMs": 13567.444998979568,
+      "readBytes": 65843264,
+      "deliveredStreamChunks": 36,
+      "decodedBuffers": 123722,
+      "audio": {
+        "trackId": 1,
+        "index": 0,
+        "codec": "aac",
+        "origin": 0,
+        "endTimestamp": 2639.402,
+        "naturalDuration": 2639.402,
+        "analysisDuration": 2639.402,
+        "durationOverride": null,
+        "duration": 2639.402,
+        "mappedVideoOffset": 0
+      },
+      "windows": 527,
+      "candidateCount": 28,
+      "candidateSeconds": 1510
+    }
+  ],
+  "serialStageSumEstimatesMs": {
+    "ffmpegDefaultThenMatchedAnalysis": 225971.65858305246,
+    "mediabunnyThenAnalysis": 225155.40362497137
+  },
+  "serialFirstCandidateEstimateMs": 213713.32858300954,
+  "validated": {
+    "sameBrowserMatchedScoresAndCandidates": true,
+    "mediabunnyScoresAndCandidates": true,
+    "sourceRefreshedMatchesHistorical": true,
+    "packetContentSHA256": "fff9e835ab41b5f0dac2a18d4b929740555f0bb22b4b7da4450481c5fe43ca28",
+    "mediabunnyRawPtsHash": "5c084b32d23a671f923156e9868efe80b033718d3d611d5bed498b91c846c4ab"
+  },
+  "limitations": [
+    "OS cache not cleared; no physical cold-I/O claim; other applications not isolated.",
+    "Single source and machine, isolated diagnostic UI, not preview/export/cache-product validation.",
+    "Stage sums omit human file-selection time and are not continuous end-to-end wall measurements.",
+    "MKA numerical equivalence is for the current reader; Matroska CodecDelay ignored and MB muxer writes zero.",
+    "FFmpeg MKA natural audio includes final packet; original/MB-derived MKA analysis domain excludes it.",
+    "M4A retains payload but not timeline/score equivalence; candidate counts cannot establish quality."
+  ],
+  "artifactsMount": "/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/independent-audio-20261027-1914",
+  "sequence": [
+    "FFmpeg default extraction",
+    "FFmpeg MKA matched analysis rounds 1,2",
+    "FFmpeg 4MiB extraction",
+    "FFmpeg MKA natural analysis",
+    "MKA to M4A remux and inspect",
+    "M4A natural analysis",
+    "Original MKV same-browser analysis",
+    "Mediabunny extraction",
+    "Mediabunny MKA analysis"
+  ]
+}
