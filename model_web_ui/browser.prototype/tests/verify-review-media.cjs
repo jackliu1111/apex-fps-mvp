@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const mode = process.argv[2] || 'player';
-const modes = new Set(['player', 'concurrent', 'storage', 'export', 'legacy-baseline']);
+const modes = new Set(['player', 'concurrent', 'storage', 'export', 'export-overlap', 'legacy-baseline']);
 if (!modes.has(mode)) throw new Error(`Unknown mode: ${mode}`);
 const resultPath = process.env.RESULT_PATH;
 if (!resultPath) throw new Error('Set RESULT_PATH to a new JSON output path');
@@ -245,6 +245,47 @@ async function exportRun(page) {
   assert.ok(Math.abs(result.disk.measuredDuration - 3) < 0.12);
 }
 
+async function exportOverlapRun(page) {
+  report.media = await fixtureFile(page);
+  const [start, position] = targetsFor(report.media.duration);
+  const end = Math.min(start + 60, report.media.duration);
+  report.overlap = { position, clip: { start, end }, samples: [] };
+  await createPlayer(page);
+  await page.evaluate(async ({ position, start, end }) => {
+    const { createBrowserConverter } = await import('/browser-export.mjs');
+    await reviewTestPlayer.load({ file: reviewTestFile, ...reviewTestMedia, position });
+    await reviewTestPlayer.play();
+    window.reviewTestExportAbort = new AbortController(); window.reviewTestExportResult = null;
+    window.reviewTestExportWork = createBrowserConverter({ MB: reviewTestMB })({
+      batch: { audio: { policy: 'source-primary' }, output: {} }, clip: { start, end },
+      source: { file: reviewTestFile, origin: reviewTestMedia.origin },
+      signal: reviewTestExportAbort.signal, memoryBudgetBytes: 64 * 1024 * 1024,
+    }).then((result) => { reviewTestExportResult = { bytes: result.bytes, measuredDuration: result.measuredDuration }; },
+      (error) => { reviewTestExportResult = { error: error.message }; });
+  }, { position, start, end });
+  try {
+    for (let index = 0; index < 80; index++) {
+      await page.waitForTimeout(250);
+      report.overlap.samples.push(await page.evaluate(() => ({ player: reviewTestPlayer.state, output: reviewTestExportResult })));
+    }
+    assertPlaybackHealthy(report.overlap.samples);
+    assert.ok(report.overlap.samples.some((sample) => sample.output === null), 'No overlapping conversion work was observed');
+    const completed = report.overlap.samples.at(-1).output;
+    if (completed) {
+      assert.ok(!completed.error, completed.error);
+      assert.ok(Math.abs(completed.measuredDuration - (end - start)) < 0.15);
+    }
+    report.overlap.conversionCompletedDuringObservation = !!completed;
+  } finally {
+    report.overlap.final = await page.evaluate(async () => {
+      const completedBeforeCleanup = reviewTestExportResult !== null;
+      reviewTestExportAbort.abort(); reviewTestPlayer.pause();
+      await reviewTestExportWork; await reviewTestPlayer.dispose();
+      return { completedBeforeCleanup, output: reviewTestExportResult };
+    });
+  }
+}
+
 async function baselineRun(page) {
   report.media = await fixtureFile(page);
   const [start, far] = targetsFor(report.media.duration);
@@ -286,7 +327,8 @@ async function baselineRun(page) {
       const files = mode === 'legacy-baseline' ? ['app.js', 'stream-audio.js', 'inference-worker.js']
         : mode === 'storage' ? ['review-workspace.mjs', 'review-storage.mjs']
         : mode === 'export' ? ['browser-export.mjs', 'export-queue.mjs']
-        : ['source-player.mjs', 'browser-analysis.mjs', 'analysis-queue.mjs', 'stream-audio.js'];
+        : mode === 'export-overlap' ? ['browser-export.mjs', 'source-player.mjs', 'media-read-source.mjs']
+        : ['source-player.mjs', 'browser-analysis.mjs', 'analysis-queue.mjs', 'stream-audio.js', 'media-read-source.mjs'];
       return Object.fromEntries(await Promise.all(files.map(async (name) => {
         const response = await fetch(`/${name}`);
         if (!response.ok) throw new Error(`Missing module ${name}`);
@@ -294,7 +336,7 @@ async function baselineRun(page) {
         return [name, [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join('')];
       })));
     }, mode);
-    await ({ player: playerRun, concurrent: concurrentRun, storage: storageRun, export: exportRun, 'legacy-baseline': baselineRun })[mode](page);
+    await ({ player: playerRun, concurrent: concurrentRun, storage: storageRun, export: exportRun, 'export-overlap': exportOverlapRun, 'legacy-baseline': baselineRun })[mode](page);
     report.passed = true;
   } catch (error) { report.failure = error.stack || String(error); throw error; }
   finally {
