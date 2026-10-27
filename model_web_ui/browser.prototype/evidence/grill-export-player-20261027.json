@@ -1,0 +1,1625 @@
+{
+  "date": "2026-10-27T15:16:25.672Z",
+  "samples": [
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2100.2453333333333,
+        "actual": 2100.233,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 16,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 15.333333333273913
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2100.496,
+        "actual": 2100.483,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 31,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 15.666666666675155
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2100.7626666666665,
+        "actual": 2100.75,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 47,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 15.666666666675155
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2101.0133333333333,
+        "actual": 2101,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 62,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 15.666666666675155
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2101.269333333333,
+        "actual": 2101.267,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 78,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2101.5146666666665,
+        "actual": 2101.5,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 92,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2101.7813333333334,
+        "actual": 2101.767,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 108,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2102.0266666666666,
+        "actual": 2102.017,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 123,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2102.2773333333334,
+        "actual": 2102.267,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 138,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2102.528,
+        "actual": 2102.517,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 153,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2102.8,
+        "actual": 2102.8,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 170,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2103.0453333333335,
+        "actual": 2103.033,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 184,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2103.296,
+        "actual": 2103.283,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 199,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2103.5466666666666,
+        "actual": 2103.533,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 214,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2103.8133333333335,
+        "actual": 2103.8,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 230,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2104.064,
+        "actual": 2104.05,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 245,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2104.3146666666667,
+        "actual": 2104.3,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 260,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2104.597333333333,
+        "actual": 2104.583,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 277,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2104.864,
+        "actual": 2104.85,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 293,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2105.1306666666665,
+        "actual": 2105.117,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 309,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2105.3813333333333,
+        "actual": 2105.367,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 324,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2105.6266666666666,
+        "actual": 2105.617,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 339,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2105.8773333333334,
+        "actual": 2105.867,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 354,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2106.128,
+        "actual": 2106.117,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 369,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2106.3946666666666,
+        "actual": 2106.383,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 385,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2106.6453333333334,
+        "actual": 2106.633,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 400,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2106.896,
+        "actual": 2106.883,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 415,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2107.1466666666665,
+        "actual": 2107.133,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 430,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2107.3973333333333,
+        "actual": 2107.383,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 445,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2107.664,
+        "actual": 2107.65,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 461,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2107.9146666666666,
+        "actual": 2107.9,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 476,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2108.16,
+        "actual": 2108.15,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 491,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2108.4106666666667,
+        "actual": 2108.4,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 506,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2108.6613333333335,
+        "actual": 2108.65,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 521,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2108.912,
+        "actual": 2108.9,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 536,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2109.1786666666667,
+        "actual": 2109.167,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 552,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2109.4293333333335,
+        "actual": 2109.417,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 567,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2109.68,
+        "actual": 2109.667,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 582,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2109.9306666666666,
+        "actual": 2109.917,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 597,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2110.1973333333335,
+        "actual": 2110.183,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 613,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2110.448,
+        "actual": 2110.433,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 628,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2110.693333333333,
+        "actual": 2110.683,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 643,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2110.944,
+        "actual": 2110.933,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 658,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2111.1946666666668,
+        "actual": 2111.183,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 673,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2111.461333333333,
+        "actual": 2111.45,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 689,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2111.712,
+        "actual": 2111.7,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 704,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2111.962666666667,
+        "actual": 2111.95,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 719,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": null
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2112.213333333333,
+        "actual": 2112.2,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 734,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2112.464,
+        "actual": 2112.45,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 749,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2112.730666666667,
+        "actual": 2112.717,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 765,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2112.981333333333,
+        "actual": 2112.967,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 780,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2113.232,
+        "actual": 2113.217,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 795,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2113.4773333333333,
+        "actual": 2113.467,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 810,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2113.728,
+        "actual": 2113.717,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 825,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2113.9946666666665,
+        "actual": 2113.983,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 841,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2114.2453333333333,
+        "actual": 2114.233,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 856,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2114.496,
+        "actual": 2114.483,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 871,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2114.7626666666665,
+        "actual": 2114.75,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 887,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2115.0133333333333,
+        "actual": 2115,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 902,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2115.264,
+        "actual": 2115.25,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 917,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2115.5146666666665,
+        "actual": 2115.5,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 932,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2115.7813333333334,
+        "actual": 2115.767,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 948,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2116.032,
+        "actual": 2116.017,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 963,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2116.2773333333334,
+        "actual": 2116.267,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 978,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2116.528,
+        "actual": 2116.517,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 993,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2116.7946666666667,
+        "actual": 2116.783,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1009,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2117.0453333333335,
+        "actual": 2117.033,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1024,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2117.296,
+        "actual": 2117.283,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1039,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2117.5466666666666,
+        "actual": 2117.533,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1054,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2117.7973333333334,
+        "actual": 2117.783,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1069,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2118.064,
+        "actual": 2118.05,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1085,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2118.3146666666667,
+        "actual": 2118.3,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1100,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2118.5653333333335,
+        "actual": 2118.55,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1115,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2118.8106666666667,
+        "actual": 2118.8,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1130,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2119.0613333333336,
+        "actual": 2119.05,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1145,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2119.328,
+        "actual": 2119.317,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1161,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2119.578666666667,
+        "actual": 2119.567,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1176,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2119.829333333333,
+        "actual": 2119.817,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1191,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2120.08,
+        "actual": 2120.067,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1206,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    },
+    {
+      "player": {
+        "status": "playing",
+        "duration": 2639.449666666,
+        "target": 2100,
+        "position": 2120.3306666666667,
+        "actual": 2120.317,
+        "playing": true,
+        "error": null,
+        "audioPolicy": "source-primary",
+        "metrics": {
+          "framesDisplayed": 1221,
+          "seeks": 2,
+          "lastSeekMs": 761.1499999761581,
+          "maxFrameLagMs": 19.333333333179326
+        }
+      },
+      "output": {
+        "bytes": 33338016,
+        "measuredDuration": 60
+      }
+    }
+  ],
+  "passed": true
+}
