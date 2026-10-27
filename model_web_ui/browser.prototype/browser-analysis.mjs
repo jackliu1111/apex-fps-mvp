@@ -1,5 +1,6 @@
 import { createAnalysisQueue } from './analysis-queue.mjs';
 import { sequentialAudio } from './stream-audio.js';
+import { createMediaReadSource } from './media-read-source.mjs';
 
 export function candidatesFromScores(record, threshold = record.threshold, frontier = record.frontier) {
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('阈值须在 0 到 1 之间');
@@ -94,7 +95,7 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
     onChange, onCandidates, onPrepared, release: releaseWorker,
     async prepare(record, { signal }) {
       const started = performance.now();
-      const input = new MB.Input({ source: new MB.BlobSource(record.file), formats: MB.ALL_FORMATS });
+      const input = new MB.Input({ source: createMediaReadSource({ MB, file: record.file }), formats: MB.ALL_FORMATS });
       try {
         const video = await input.getPrimaryVideoTrack(); signal.throwIfAborted();
         if (!video) throw new Error('文件不包含视频轨道');

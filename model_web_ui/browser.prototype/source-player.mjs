@@ -1,3 +1,5 @@
+import { createMediaReadSource } from './media-read-source.mjs';
+
 /** Full-source, bounded preview. Times exposed to callers are relative to video origin. */
 export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudioContext = (options) => new AudioContext(options),
   clock = { now: () => performance.now(), request: (fn) => requestAnimationFrame(fn), cancel: (id) => cancelAnimationFrame(id) } }) {
@@ -138,7 +140,7 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
     await release();
     if (ownLoad !== loadRevision) return player.state;
     emit({ status: 'loading', playing: false, error: null, actual: null });
-    const opened = new MB.Input({ source: new MB.BlobSource(source.file), formats: MB.ALL_FORMATS });
+    const opened = new MB.Input({ source: createMediaReadSource({ MB, file: source.file, priority: 'preview' }), formats: MB.ALL_FORMATS });
     openingInputs.add(opened);
     try {
       const video = await opened.getPrimaryVideoTrack();

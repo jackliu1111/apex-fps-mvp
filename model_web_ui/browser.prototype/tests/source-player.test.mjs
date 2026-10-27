@@ -11,7 +11,7 @@ function fixture({ duration = 120, origin = 2, waitForFrame, waitForOpen } = {})
     computeDuration: async () => origin + duration, displayWidth: 1920, displayHeight: 1080 };
   const audio = { ...track, sampleRate: 48000, id: 'primary' };
   const MB = {
-    ALL_FORMATS: [], BlobSource: class { constructor(file) { this.file = file; } },
+    ALL_FORMATS: [], StreamSource: class { constructor(options) { this.options = options; } },
     Input: class {
       constructor({ source }) { this.file = source.file; }
       async getPrimaryVideoTrack() { if (waitForOpen) await waitForOpen(this.file); return track; }
@@ -102,7 +102,8 @@ test('continuous playback advances on the source timeline and pause retains its 
 test('a later recording load supersedes an earlier pending load', async () => {
   const gate = Promise.withResolvers();
   const oldFile = new Blob(['old']);
-  const { player, drawn } = fixture({ waitForOpen: (file) => file === oldFile ? gate.promise : undefined });
+  let opens = 0;
+  const { player, drawn } = fixture({ waitForOpen: () => ++opens === 1 ? gate.promise : undefined });
   const old = player.load({ file: oldFile, position: 5 });
   for (let i = 0; i < 6; i++) await Promise.resolve();
   await player.load({ file: new Blob(['new']), position: 70 });
