@@ -1,0 +1,103 @@
+{
+  "date": "2026-10-27T06:45:24.202Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "backend": "onnxruntime-web 1.23.2 / WASM CPU / 1 thread",
+  "source": "localhost HTTP, no-store; fresh Worker is cold session, OS disk cache not flushed",
+  "model": "EfficientAT mn04_as",
+  "modelBytes": 3972280,
+  "cold": [
+    {
+      "readMs": 12.90499997138977,
+      "initializeMs": 109.98500001430511,
+      "frontendMs": 27.149999976158142,
+      "inferenceMs": 18.019999980926514,
+      "cold": true,
+      "totalMs": 185.87000000476837,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 7.454999923706055,
+      "initializeMs": 98.20499992370605,
+      "frontendMs": 27.509999990463257,
+      "inferenceMs": 19.27999997138977,
+      "cold": true,
+      "totalMs": 163.86500000953674,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 8.02999997138977,
+      "initializeMs": 98.07500004768372,
+      "frontendMs": 24.2849999666214,
+      "inferenceMs": 16.62000000476837,
+      "cold": true,
+      "totalMs": 155.50999999046326,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    }
+  ],
+  "warm": [
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 21.75,
+      "inferenceMs": 8.465000033378601,
+      "cold": false,
+      "totalMs": 30.485000014305115,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 14.940000057220459,
+      "inferenceMs": 8.409999966621399,
+      "cold": false,
+      "totalMs": 23.675000071525574,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    },
+    {
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 14.985000014305115,
+      "inferenceMs": 8.340000033378601,
+      "cold": false,
+      "totalMs": 23.52999997138977,
+      "maxAbsoluteError": 3.7997961044311523e-7
+    }
+  ],
+  "media": [
+    {
+      "mode": "cold",
+      "duration": 12,
+      "windows": 2,
+      "decodeMs": 38.044999957084656,
+      "readMs": 8.620000004768372,
+      "initializeMs": 106.91499996185303,
+      "frontendMs": 49.38000011444092,
+      "inferenceMs": 27.31000006198883,
+      "decoderPasses": 1,
+      "maxSourceBufferSeconds": 5.099999999999979,
+      "maxMonoBufferSamples": 640000,
+      "totalMs": 241.22500002384186
+    },
+    {
+      "mode": "warm",
+      "duration": 12,
+      "windows": 2,
+      "decodeMs": 31.899999976158142,
+      "readMs": 0,
+      "initializeMs": 0,
+      "frontendMs": 45.04000008106232,
+      "inferenceMs": 17.669999957084656,
+      "decoderPasses": 1,
+      "maxSourceBufferSeconds": 5.099999999999979,
+      "maxMonoBufferSamples": 640000,
+      "totalMs": 85.84499990940094
+    }
+  ],
+  "export": {
+    "duration": 5,
+    "totalMs": 44.0900000333786,
+    "bytes": 179451,
+    "width": 640,
+    "height": 360
+  }
+}

@@ -1,4 +1,5 @@
 import * as MB from '/assets/vendor/mediabunny.mjs';
+import { sequentialAudio, renderContinuous } from './stream-audio.js';
 
 // Throwaway functional prototype: real media and real model, no backend API.
 const $ = (id) => document.getElementById(id);
@@ -6,6 +7,7 @@ const files = [];
 const log = [];
 let busy = false, cancelled = false, worker, conversion, activeId = null, nextRequest = 0;
 let previewUrl;
+let analyzing = false, reviewBusy = false;
 const pending = new Map();
 const downloads = [];
 let metadata;
@@ -36,7 +38,7 @@ function renderState() {
   const current = active();
   if (current?.timings) {
     const t = current.timings, s = (v) => ((v || 0) / 1000).toFixed(3);
-    $('analysis-timing').textContent = `${current.file.name}\n状态：${current.status}；已完成窗口：${current.windows || 0}\n模型读取 ${s(t.readMs)} 秒；初始化 ${s(t.initializeMs)} 秒\n音频解码／重采样 ${s(t.decodeMs)} 秒；特征提取 ${s(t.frontendMs)} 秒；模型推理 ${s(t.inferenceMs)} 秒\n完整分析耗时：${t.totalMs === undefined ? '进行中' : s(t.totalMs) + ' 秒'}`;
+    $('analysis-timing').textContent = `${current.file.name}\n状态：${current.status}；已完成窗口：${current.windows || 0}\n模型读取 ${s(t.readMs)} 秒；初始化 ${s(t.initializeMs)} 秒\n音频解码／重采样 ${s(t.decodeMs)} 秒；特征提取 ${s(t.frontendMs)} 秒；模型推理 ${s(t.inferenceMs)} 秒\n完整分析耗时：${t.totalMs === undefined ? (current.status === '分析中' ? '进行中' : '未完成') : s(t.totalMs) + ' 秒'}\n首个可复核候选：${t.firstReviewableMs === undefined ? '尚无' : s(t.firstReviewableMs) + ' 秒'}；解码与推理并行，分项耗时不可相加`;
   } else $('analysis-timing').textContent = '尚无分析计时';
   $('state').textContent = JSON.stringify({
     processing: busy, cancelled, backend: 'WASM / CPU · Web Worker',
@@ -76,7 +78,7 @@ function render() {
     select.append(new Option('请选择游戏音轨', ''));
     f.tracks.forEach((track, index) => select.append(new Option(`音轨 ${index + 1} · ${track.name || track.codec} · ${track.languageCode || '未标注语言'}`, String(index))));
     select.value = f.selected === null ? '' : String(f.selected);
-    select.disabled = busy;
+    select.disabled = busy || reviewBusy;
     select.onchange = () => {
       if (f.id === activeId) clearPreview();
       f.selected = select.value === '' ? null : Number(select.value);
@@ -90,14 +92,36 @@ function render() {
   $('result-file').replaceChildren(...files.map((f) => new Option(f.file.name, f.id)));
   $('result-file').value = activeId || '';
   const f = active();
-  $('clips').replaceChildren();
+  renderClips(f);
+  for (const id of ['files', 'demo', 'analyze', 'manual', 'recompute', 'export', 'reference', 'benchmark', 'result-file', 'threshold', 'model', 'decode-reference']) $(id).disabled = busy || reviewBusy;
+  $('analyze').disabled = busy || reviewBusy || !files.length || files.some((f) => f.selected === null);
+  $('manual').disabled = (busy && !analyzing) || reviewBusy || !f;
+  $('result-file').disabled = (busy && !analyzing) || reviewBusy;
+  $('recompute').disabled = busy || reviewBusy || !(f?.scores || f?.windowScores);
+  $('export').disabled = busy || reviewBusy || !f?.clips.some((c) => c.selected && !c.provisional) || f.selected === null;
+  $('cancel').disabled = !busy && !reviewBusy;
+  renderState();
+}
+
+function renderClips(f) {
+  // Keep finalized row nodes alive across updates, including focused inputs.
+  for (const row of [...$('clips').children]) {
+    if (!f?.clips.includes(row.clip)) row.remove();
+  }
   if (!f?.clips.length) $('clips').append(element('p', (f?.scores || f?.windowScores) ? '未发现超过阈值的枪声候选。可调阈值或添加手动范围。' : '完成识别后在这里复核，也可添加手动范围。', 'empty'));
   for (const [index, clip] of (f?.clips || []).entries()) {
-    const row = element('div', undefined, 'clip');
+    const existing = [...$('clips').children].find((row) => row.clip === clip);
+    if (existing) {
+      existing.querySelector('span').textContent = `${String(index + 1).padStart(2, '0')} · ${clip.manual ? '手动' : clip.provisional ? (f.status === '分析中' ? '处理中' : '未完成') : '可复核'}`;
+      existing.querySelector('input').setAttribute('aria-label', `导出片段 ${index + 1}`);
+      existing.querySelectorAll('input,button').forEach((node) => { node.disabled = clip.provisional || reviewBusy || (busy && !analyzing); });
+      continue;
+    }
+    const row = element('div', undefined, 'clip'); row.clip = clip;
     const selected = element('input'); selected.type = 'checkbox'; selected.checked = clip.selected;
     selected.setAttribute('aria-label', `导出片段 ${index + 1}`);
     selected.onchange = () => { clip.selected = selected.checked; renderState(); };
-    row.append(selected, element('span', `${String(index + 1).padStart(2, '0')} · ${clip.manual ? '手动' : '枪声'}`));
+    row.append(selected, element('span', `${String(index + 1).padStart(2, '0')} · ${clip.manual ? '手动' : clip.provisional ? (f.status === '分析中' ? '处理中' : '未完成') : '可复核'}`));
     for (const [key, label] of [['start', '起点'], ['end', '终点']]) {
       const input = element('input'); input.type = 'number'; input.min = 0; input.max = f.duration;
       input.step = 0.04; input.value = clip[key].toFixed(2);
@@ -110,26 +134,28 @@ function render() {
       };
       const wrapper = element('label', `${label} `); wrapper.append(input); row.append(wrapper);
     }
-    const preview = element('button', '预览'); preview.onclick = () => run(() => makePreview(f, clip));
-    const remove = element('button', '移除'); remove.onclick = () => { f.clips.splice(index, 1); clearPreview(); render(); };
-    row.append(preview, remove); row.querySelectorAll('input,button').forEach((node) => { node.disabled = busy; });
+    const preview = element('button', '预览'); preview.onclick = () => reviewPreview(f, clip);
+    const remove = element('button', '移除'); remove.onclick = () => { if (clip.key) (f.removed ||= new Set()).add(clip.key); f.clips.splice(f.clips.indexOf(clip), 1); clearPreview(); render(); };
+    row.append(preview, remove); row.querySelectorAll('input,button').forEach((node) => { node.disabled = clip.provisional || reviewBusy || (busy && !analyzing); });
     $('clips').append(row);
   }
-  for (const id of ['files', 'demo', 'analyze', 'manual', 'recompute', 'export', 'reference', 'benchmark', 'result-file', 'threshold', 'model']) $(id).disabled = busy;
-  $('analyze').disabled = busy || !files.length || files.some((f) => f.selected === null);
-  $('manual').disabled = busy || !f;
-  $('recompute').disabled = busy || !(f?.scores || f?.windowScores);
-  $('export').disabled = busy || !f?.clips.some((c) => c.selected) || f.selected === null;
-  $('cancel').disabled = !busy;
-  renderState();
+}
+
+async function reviewPreview(f, clip) {
+  if (reviewBusy || clip.provisional || (busy && !analyzing)) return;
+  if (!busy) return run(() => makePreview(f, { ...clip }));
+  reviewBusy = true; render();
+  try { await makePreview(f, { ...clip }); }
+  catch (error) { note(cancelled ? '预览已取消' : `预览失败：${errorText(error)}`); }
+  finally { reviewBusy = false; conversion = null; render(); }
 }
 
 async function run(action) {
-  if (busy) return;
+  if (busy || reviewBusy) return;
   busy = true; cancelled = false; $('progress').value = 0; render();
   try { return await action(); }
   catch (error) { note(cancelled ? '已取消；已完成的录像和导出保留。' : `未完成：${errorText(error)}`); }
-  finally { busy = false; conversion = null; render(); }
+  finally { busy = false; analyzing = false; if (!reviewBusy) conversion = null; render(); }
 }
 
 function checkCancelled() { if (cancelled) throw new Error('已取消'); }
@@ -181,15 +207,15 @@ async function importFiles(incoming) {
   note('请为每份录像确认包含游戏声音的音轨，再开始分析。');
 }
 
-async function audioWindow(track, start) {
-  const context = new OfflineAudioContext(1, metadata.sampleRate * 10, metadata.sampleRate);
+async function audioWindow(track, start, length = 10) {
+  const context = new OfflineAudioContext(1, metadata.sampleRate * length, metadata.sampleRate);
   const sink = new MB.AudioBufferSink(track);
   let samples = 0;
-  for await (const { buffer, timestamp } of sink.buffers(start, start + 10)) {
+  for await (const { buffer, timestamp } of sink.buffers(start, start + length)) {
     checkCancelled();
     const offset = Math.max(0, start - timestamp);
     const when = Math.max(0, timestamp - start);
-    const duration = Math.min(buffer.duration - offset, 10 - when);
+    const duration = Math.min(buffer.duration - offset, length - when);
     if (duration <= 0) continue;
     const source = context.createBufferSource(); source.buffer = buffer;
     source.connect(context.destination); source.start(when, offset, duration); samples++;
@@ -198,12 +224,12 @@ async function audioWindow(track, start) {
   return (await context.startRendering()).getChannelData(0);
 }
 
-function candidates(f) {
+function candidates(f, frontier = Infinity) {
   const threshold = Number($('threshold').value);
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('阈值须在 0 到 1 之间');
   if (f.windowScores) {
     const hits = f.windowScores.filter((w) => Math.max(...w.scores) > threshold);
-    return mergeEvents(f, hits.map((w) => ({ start: w.start, end: w.end })));
+    return mergeEvents(f, hits.map((w) => ({ start: w.start, end: w.end })), frontier);
   }
   const n = f.scores.length / 2;
   const smooth = (i, k) => [f.scores[Math.max(0, i - 1) * 2 + k], f.scores[i * 2 + k], f.scores[Math.min(n - 1, i + 1) * 2 + k]].sort((a, b) => a - b)[1];
@@ -214,29 +240,43 @@ function candidates(f) {
     if (hit && start === null) start = i * 0.04;
     if (!hit && start !== null) { events.push({ start: start + f.audioOffset, end: Math.min(i * 0.04, f.audioDuration) + f.audioOffset }); start = null; }
   }
-  return mergeEvents(f, events);
+  return mergeEvents(f, events, frontier);
 }
 
-function mergeEvents(f, events) {
+function mergeEvents(f, events, frontier) {
   const groups = [];
   for (const event of events) {
     const last = groups.at(-1);
     if (last && event.start - last.end <= 5) last.end = event.end;
     else groups.push({ ...event });
   }
-  return groups.map((g) => ({ start: Math.max(0, g.start - 5), end: Math.min(f.duration, g.end + 5), selected: true, manual: false })).filter((g) => g.end > g.start);
+  return groups.map((g) => ({ key: `event-${g.start.toFixed(6)}`, provisional: frontier <= g.end + 5, start: Math.max(0, g.start - 5), end: Math.min(f.duration, g.end + 5), selected: true, manual: false })).filter((g) => g.end > g.start);
+}
+
+function publishCandidates(f, frontier) {
+  f.frontier = frontier;
+  const preserved = f.clips.filter((c) => !c.provisional);
+  const keys = new Set(preserved.map((c) => c.key));
+  const incoming = candidates(f, frontier).filter((c) => !keys.has(c.key) && !f.removed?.has(c.key));
+  f.clips = [...preserved, ...incoming];
+  if (f.timings.firstReviewableMs === undefined && f.clips.some((c) => !c.manual && !c.provisional)) {
+    f.timings.firstReviewableMs = performance.now() - f.analysisStarted;
+  }
+  render();
 }
 
 async function analyzeQueue(targets = files) {
+  analyzing = true;
   await loadMetadata();
   const classIndices = ['Gunshot, gunfire', 'Machine gun'].map((name) => metadata.classes.indexOf(name));
   if (classIndices.some((i) => i < 0)) throw new Error('模型类别清单不匹配');
   for (const f of targets) {
     if (f.selected === null) throw new Error('请先确认所有音轨');
     if (f.status === '完成') continue;
-    activeId = f.id; f.status = '分析中'; f.error = null; f.scores = null; f.windowScores = null; f.clips = []; f.windows = 0;
+    activeId = f.id; if (!reviewBusy) clearPreview(); f.status = '分析中'; f.error = null; f.scores = null; f.windowScores = null; f.clips = []; f.windows = 0; f.removed = new Set(); f.frontier = -Infinity;
     f.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0 };
-    const analysisStarted = performance.now(); render();
+    const analysisStarted = performance.now(); f.analysisStarted = analysisStarted; render();
+    let stream, ahead;
     try {
       const track = f.tracks[f.selected];
       if (!await track.canDecode()) throw new Error(`浏览器无法解码 ${track.codec} 音轨`);
@@ -250,13 +290,18 @@ async function analyzeQueue(targets = files) {
       const frames = Math.ceil(sampleCount / 640);
       const sums = new Float32Array(frames * 2), counts = new Uint16Array(frames);
       const windows = Math.ceil(Math.max(0, sampleCount - 160000) / 80000) + 1;
+      stream = sequentialAudio(MB, track, origin, f.audioDuration, metadata.sampleRate, checkCancelled, f.timings);
+      // At most one future window overlaps the current model invocation.
+      const prefetch = () => stream.next().then((value) => ({ value }), (error) => ({ error }));
+      ahead = prefetch();
       for (let i = 0; i < windows; i++) {
         checkCancelled(); note(`${f.file.name}：解码并识别第 ${i + 1} / ${windows} 个窗口`);
-        const decodeStarted = performance.now();
-        const waveform = await audioWindow(track, origin + i * 5);
-        f.timings.decodeMs += performance.now() - decodeStarted;
+        const decoded = await ahead;
+        if (decoded.error) throw decoded.error;
         checkCancelled();
-        const values = await infer(waveform);
+        const inference = infer(decoded.value);
+        ahead = i + 1 < windows ? prefetch() : null;
+        const values = await inference;
         for (const key of ['readMs', 'initializeMs', 'frontendMs', 'inferenceMs']) f.timings[key] += lastWindowTiming[key];
         checkCancelled();
         if (small) {
@@ -271,7 +316,18 @@ async function analyzeQueue(targets = files) {
             for (let k = 0; k < 2; k++) sums[frame * 2 + k] += values[j * 447 + classIndices[k]];
           }
         }
-        f.windows = i + 1; $('progress').value = (i + 1) / windows; renderState();
+        f.windows = i + 1; $('progress').value = (i + 1) / windows;
+        const complete = i + 1 === windows;
+        if (small) f.windowScores = windowScores;
+        else {
+          // Future overlapping windows can only change frames at/after (i+1)*125.
+          // Retain one extra finalized frame for median lookahead; publish conservatively.
+          const stable = complete ? frames : Math.min(frames, (i + 1) * 125);
+          f.scores = new Float32Array(stable * 2);
+          for (let j = 0; j < stable; j++) for (let k = 0; k < 2; k++) f.scores[j * 2 + k] = sums[j * 2 + k] / counts[j];
+        }
+        const frontier = complete ? Infinity : (small ? (i + 1) * 5 : (f.scores.length / 2 - 1) * 0.04) + f.audioOffset;
+        publishCandidates(f, frontier);
       }
       if (small) f.windowScores = windowScores;
       else {
@@ -279,15 +335,19 @@ async function analyzeQueue(targets = files) {
         for (let j = 0; j < frames; j++) for (let k = 0; k < 2; k++) sums[j * 2 + k] /= counts[j];
         f.scores = sums;
       }
-      f.clips = candidates(f); f.status = '完成';
+      publishCandidates(f, Infinity); f.status = '完成';
       f.timings.totalMs = performance.now() - analysisStarted;
     } catch (error) {
       f.status = cancelled ? '已取消' : '失败'; f.error = errorText(error);
       if (cancelled) throw error;
       note(`${f.file.name}：${f.error}`);
+    } finally {
+      await ahead; // Settle the sole prefetched decode before releasing its iterator.
+      await stream?.close();
     }
     render();
   }
+  analyzing = false;
   note(`分析结束：${files.filter((f) => f.status === '完成').length} / ${files.length} 份完成。请复核候选范围。`);
 }
 
@@ -301,7 +361,7 @@ async function convertClip(f, clip) {
   });
   const discarded = conversion.discardedTracks.filter((entry) => entry.track === f.video || entry.track === f.tracks[f.selected]);
   if (!conversion.isValid || discarded.length) throw new Error(`浏览器无法完整导出所选声画轨：${discarded.map((d) => d.reason).join(', ')}`);
-  conversion.onProgress = (value) => { $('progress').value = value; };
+  conversion.onProgress = (value) => { if (!analyzing) $('progress').value = value; };
   await conversion.execute(); checkCancelled(); conversion = null;
   const blob = new Blob([output.target.buffer], { type: 'video/webm' });
   const probe = new MB.Input({ source: new MB.BlobSource(blob), formats: MB.ALL_FORMATS });
@@ -323,7 +383,7 @@ async function makePreview(f, clip) {
 async function exportSelected() {
   const f = active();
   for (const [i, clip] of f.clips.entries()) {
-    if (!clip.selected) continue;
+    if (!clip.selected || clip.provisional) continue;
     checkCancelled(); note(`正在导出片段 ${i + 1}：${seconds(clip.start)}—${seconds(clip.end)}`);
     const started = performance.now();
     const { blob, measuredDuration } = await convertClip(f, clip);
@@ -366,6 +426,53 @@ async function demo() {
   }
   video.close(); audio.close(); second.close(); await output.finalize();
   await importFiles([new File([output.target.buffer], 'browser-synthetic.webm', { type: 'video/webm' })]);
+}
+
+async function compareDecoding() {
+  const f = active();
+  if (!f || f.selected === null) throw new Error('请先导入录像并确认音轨');
+  await loadMetadata();
+  const track = f.tracks[f.selected];
+  const origin = Math.max(0, await track.getFirstTimestamp());
+  const duration = await track.computeDuration() - origin;
+  const windows = Math.ceil(Math.max(0, Math.round(duration * 16000) - 160000) / 80000) + 1;
+  const indices = new Set([0, 1, Math.floor(windows / 2), windows - 1].filter((i) => i < windows));
+  const metrics = { decodeMs: 0 };
+  const stream = sequentialAudio(MB, track, origin, duration, metadata.sampleRate, checkCancelled, metrics);
+  const report = { date: new Date().toISOString(), source: f.file.name, model: metadata.model, duration, windows, metrics, comparisons: [] };
+  let previousTail;
+  // Independent 20-second continuous render checks the five-second stitching boundary.
+  try {
+    const referenceBlocks = [];
+    for await (const block of new MB.AudioBufferSink(track).buffers(origin, origin + 20)) { checkCancelled(); referenceBlocks.push(block); }
+    const continuous = await renderContinuous(referenceBlocks, origin, 20, metadata.sampleRate);
+    for (let i = 0; i < windows; i++) {
+      checkCancelled();
+      const waveform = await stream.next();
+      if (previousTail && waveform.subarray(0, previousTail.length).some((v, j) => v !== previousTail[j])) throw new Error('重叠音频没有精确复用');
+      previousTail = waveform.slice(metadata.sampleRate * 5);
+      if (indices.has(i)) {
+        const legacy = await audioWindow(track, origin + i * 5);
+        let max = 0, sum = 0, interiorMax = 0, continuousMax = 0;
+        for (let j = 0; j < legacy.length; j++) { const d = waveform[j] - legacy[j]; max = Math.max(max, Math.abs(d)); sum += d*d;
+          if (j >= metadata.sampleRate * 0.1 && j < legacy.length - metadata.sampleRate * 0.1) interiorMax = Math.max(interiorMax, Math.abs(d));
+          if (i < 2) continuousMax = Math.max(continuousMax, Math.abs(waveform[j] - continuous[i * metadata.sampleRate * 5 + j])); }
+        const oldScores = await infer(legacy), newScores = await infer(waveform);
+        let scoreMax = 0;
+        for (let j = 0; j < oldScores.length; j++) scoreMax = Math.max(scoreMax, Math.abs(oldScores[j] - newScores[j]));
+        report.comparisons.push({ window: i, waveformMaxAbsoluteError: max, waveformRmsError: Math.sqrt(sum / (metadata.sampleRate * 10)), interiorMaxAbsoluteError: interiorMax, continuous20sMaxAbsoluteError: i < 2 ? continuousMax : null, scoreMaxAbsoluteError: scoreMax });
+      }
+      $('progress').value = (i + 1) / windows;
+      note(`顺序解码对照：${i + 1} / ${windows} 窗口；重叠音频逐采样一致`);
+    }
+    report.overlapExactlyEqual = true;
+    report.continuousRenderPassed = report.comparisons.filter((c) => c.continuous20sMaxAbsoluteError !== null).every((c) => c.continuous20sMaxAbsoluteError < 0.0001);
+    $('decode-result').textContent = JSON.stringify(report, null, 2);
+    const link = element('a', '下载解码对照报告');
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
+    link.download = 'apex-browser-sequential-decode.json'; $('decode-download').replaceChildren(link);
+    note('顺序解码对照完成；误差记录见报告，不能据此宣布识别质量相等。');
+  } finally { await stream.close(); }
 }
 
 async function reference() {
@@ -462,6 +569,7 @@ $('model').onchange = () => {
 $('files').onchange = () => { const incoming = [...$('files').files]; $('files').value = ''; run(() => importFiles(incoming)); };
 $('demo').onclick = () => run(demo);
 $('analyze').onclick = () => run(analyzeQueue);
+$('decode-reference').onclick = () => run(compareDecoding);
 $('reference').onclick = () => run(reference);
 $('benchmark').onclick = () => run(benchmark);
 $('analysis-report').onclick = () => {
@@ -470,7 +578,7 @@ $('analysis-report').onclick = () => {
   const report = { date: new Date().toISOString(), userAgent: navigator.userAgent,
     model: metadata?.model, backend: 'WASM CPU / 1 thread',
     source: { name: f.file.name, bytes: f.file.size, width: f.video.displayWidth, height: f.video.displayHeight, duration: f.duration, selectedAudioIndex: f.selected },
-    status: f.status, windows: f.windows, scoreFrames: f.scores?.length / 2, windowScores: f.windowScores, timings: f.timings,
+    status: f.status, windows: f.windows, finalizedBefore: Number.isFinite(f.frontier) ? f.frontier : null, removedCandidateKeys: [...(f.removed || [])], scoreFrames: f.scores?.length / 2, windowScores: f.windowScores, timings: f.timings,
     browserReference: lastReference, modelSha256: metadata?.sha256,
     threshold: Number($('threshold').value), clips: f.clips,
     exports: downloads.map(({ url, ...record }) => record) };
@@ -479,7 +587,7 @@ $('analysis-report').onclick = () => {
 };
 $('result-file').onchange = () => { activeId = $('result-file').value; clearPreview(); render(); };
 $('manual').onclick = () => { const f = active(); f.clips.push({ start: 0, end: Math.min(5, f.duration), selected: true, manual: true }); render(); };
-$('recompute').onclick = () => { try { active().clips = candidates(active()); clearPreview(); note('已按当前阈值重新生成候选，原手动修改已替换。'); render(); } catch (error) { note(errorText(error)); } };
+$('recompute').onclick = () => { try { active().removed = new Set(); active().clips = candidates(active(), active().status === '完成' ? Infinity : (active().frontier ?? -Infinity)); clearPreview(); note('已按当前阈值重新生成候选，原手动修改已替换。'); render(); } catch (error) { note(errorText(error)); } };
 $('export').onclick = () => run(exportSelected);
 $('cancel').onclick = () => {
   cancelled = true; worker?.terminate(); worker = null;

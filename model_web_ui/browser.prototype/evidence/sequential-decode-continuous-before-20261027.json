@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-27T06:39:23.616Z",
+  "source": "2026-09-11 20-32-49.mkv",
+  "model": "EfficientAT mn04_as",
+  "duration": 1293.909,
+  "windows": 258,
+  "metrics": {
+    "decodeMs": 12020.149999260902,
+    "decoderPasses": 1,
+    "maxSourceBufferSeconds": 5.120000000000008,
+    "maxMonoBufferSamples": 640000
+  },
+  "comparisons": [
+    {
+      "window": 0,
+      "waveformMaxAbsoluteError": 0.000922278210055083,
+      "waveformRmsError": 0.000002270487198720328,
+      "interiorMaxAbsoluteError": 0.000922278210055083,
+      "continuous20sMaxAbsoluteError": 0.0009222780936397612,
+      "scoreMaxAbsoluteError": 0.0010353326797485352
+    },
+    {
+      "window": 1,
+      "waveformMaxAbsoluteError": 0.06451939791440964,
+      "waveformRmsError": 0.00019674011306675452,
+      "interiorMaxAbsoluteError": 0.06451939791440964,
+      "continuous20sMaxAbsoluteError": 0.06451939791440964,
+      "scoreMaxAbsoluteError": 0.036163002252578735
+    },
+    {
+      "window": 129,
+      "waveformMaxAbsoluteError": 0.6873674094676971,
+      "waveformRmsError": 0.005039353656332116,
+      "interiorMaxAbsoluteError": 0.6873674094676971,
+      "continuous20sMaxAbsoluteError": null,
+      "scoreMaxAbsoluteError": 0.01684248447418213
+    },
+    {
+      "window": 257,
+      "waveformMaxAbsoluteError": 0.4069637656211853,
+      "waveformRmsError": 0.0027080843642922933,
+      "interiorMaxAbsoluteError": 0.4069637656211853,
+      "continuous20sMaxAbsoluteError": null,
+      "scoreMaxAbsoluteError": 0.01953977346420288
+    }
+  ],
+  "overlapExactlyEqual": true
+}

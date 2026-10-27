@@ -1,0 +1,77 @@
+{
+  "progressiveEqualsFullRecompute": true,
+  "windows": 258,
+  "clips": 15,
+  "thresholdCrossingsAgainstOriginal": [
+    {
+      "window": 41,
+      "old": {
+        "start": 205,
+        "end": 215,
+        "scores": [
+          0.22885125875473022,
+          0.09325280785560608
+        ]
+      },
+      "new": {
+        "start": 205,
+        "end": 215,
+        "scores": [
+          0.1879224181175232,
+          0.07792744040489197
+        ]
+      }
+    },
+    {
+      "window": 61,
+      "old": {
+        "start": 305,
+        "end": 315,
+        "scores": [
+          0.2067454755306244,
+          0.10284721851348877
+        ]
+      },
+      "new": {
+        "start": 305,
+        "end": 315,
+        "scores": [
+          0.18445560336112976,
+          0.09525236487388611
+        ]
+      }
+    },
+    {
+      "window": 226,
+      "old": {
+        "start": 1130,
+        "end": 1140,
+        "scores": [
+          0.20645061135292053,
+          0.08901870250701904
+        ]
+      },
+      "new": {
+        "start": 1130,
+        "end": 1140,
+        "scores": [
+          0.1539115309715271,
+          0.0766812264919281
+        ]
+      }
+    }
+  ],
+  "timings": {
+    "decodeMs": 7912.735000252724,
+    "readMs": 0,
+    "initializeMs": 0,
+    "frontendMs": 5894.5,
+    "inferenceMs": 3321.159999370575,
+    "decoderPasses": 1,
+    "maxSourceBufferSeconds": 5.120000000000008,
+    "maxMonoBufferSamples": 640000,
+    "firstReviewableMs": 1918.1899999380112,
+    "totalMs": 10209.840000033379
+  },
+  "warmSession": true
+}

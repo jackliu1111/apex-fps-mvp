@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-27T06:37:56.970Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+  "model": "BEATs_strong_1",
+  "backend": "WASM CPU / 1 thread",
+  "source": {
+    "name": "2026-09-11 20-32-49.mkv",
+    "bytes": 16823282156,
+    "width": 3840,
+    "height": 2160,
+    "duration": 1293.949666666,
+    "selectedAudioIndex": 0
+  },
+  "status": "分析中",
+  "windows": 64,
+  "scoreFrames": 8000,
+  "windowScores": null,
+  "timings": {
+    "decodeMs": 2374.745000243187,
+    "readMs": 160.19000005722046,
+    "initializeMs": 472.914999961853,
+    "frontendMs": 0,
+    "inferenceMs": 118350.72000026703,
+    "decoderPasses": 1,
+    "maxSourceBufferSeconds": 5.120000000000008,
+    "maxMonoBufferSamples": 320000,
+    "firstReviewableMs": 66332.25999999046
+  },
+  "browserReference": null,
+  "modelSha256": "289096a55e7f79d2c40728269fb1b63b2a30d56d5a4fc5630930bbf01d5008f8",
+  "threshold": 0.2,
+  "clips": [
+    {
+      "key": "event-173.280000",
+      "provisional": false,
+      "start": 170,
+      "end": 179.88,
+      "selected": true,
+      "manual": false
+    },
+    {
+      "key": "event-297.600000",
+      "provisional": true,
+      "start": 292.6,
+      "end": 320.6,
+      "selected": true,
+      "manual": false
+    }
+  ],
+  "exports": []
+}

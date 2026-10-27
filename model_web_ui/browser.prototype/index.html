@@ -6,7 +6,7 @@
 <header><span class="brand">APEX / LOCAL CUT</span><span class="badge">可丢弃原型 · 本机处理</span></header>
 <main>
   <h1>从录像到交火片段，<br>留在你的浏览器里。</h1>
-  <p class="intro">验证问题：轻量 EfficientAT 能否在浏览器快速找到交火候选？支持切回 BEATs 对照；刷新即清空项目。</p>
+  <p class="intro">验证问题：能否边分析边复核，并用顺序解码缩短等待？支持 EfficientAT / BEATs；刷新即清空项目。</p>
   <div class="steps"><span>01 导入</span><span>02 确认游戏音轨</span><span>03 本地识别</span><span>04 复核与导出</span></div>
   <section>
     <div class="row"><h2>录像队列</h2><label class="button">导入本地录像<input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden></label><button id="demo">生成 12 秒合成样本</button></div>
@@ -20,7 +20,7 @@
     <section class="preview"><div class="row"><h2>片段预览</h2><span id="preview-label" class="muted">导出后复核画面与所选音轨</span></div><video id="player" controls playsinline></video><p class="muted">预览会在浏览器生成当前范围的 720p WebM；只包含确认的音轨。原文件保持不变。</p><div id="downloads"></div></section>
     <section><div class="row"><h2>候选片段</h2><select id="result-file" aria-label="当前录像"></select></div>
       <div class="row"><label>枪声阈值 <input id="threshold" type="number" value="0.2" min="0" max="1" step="0.01"></label><button id="recompute">重新生成候选</button></div>
-      <p class="muted">事件间隔 ≤5 秒合并，前后各留 5 秒。候选不代表本人开枪、命中或击杀。</p>
+      <p class="muted">事件间隔 ≤5 秒合并，前后各留 5 秒。“处理中”范围仍可能延长；“可复核”后可编辑、移除、预览，后续分析保留修改。批量导出须等分析结束。候选不代表本人开枪、命中或击杀。</p>
       <div id="clips"><p class="empty">完成识别后在这里复核。</p></div>
       <div class="row"><button id="manual">添加手动范围</button><button id="export" class="primary">导出勾选片段</button></div>
       <p class="muted">原型统一重编码为最高 720p 的 WebM（VP8 + Opus）；帧边界可能令成片时长略有差异，链接显示浏览器读回的近似时长。没有候选时可添加手动范围验证导出。</p>
@@ -28,6 +28,6 @@
   </div>
   <section><h2>操作导览</h2><div class="row" id="walkthroughs"><button data-guide="happy">完整链路</button><button data-guide="tracks">多音轨</button><button data-guide="cancel">取消与重试</button></div><p id="guide">导入录像 → 确认音轨 → 开始分析 → 预览候选 → 勾选导出。也可用合成样本走通操作。</p></section>
   <details open><summary>原型状态与证据</summary><pre id="state"></pre><button id="reference">验证浏览器模型与 Python 基准</button><p id="reference-status">使用固定合成噪声比对当前模型全部分数；不涉及你的录像。</p><pre id="log"></pre></details>
-<details open><summary>耗时测试</summary><pre id="analysis-timing">尚无分析计时</pre><button id="analysis-report">下载当前录像分析报告</button><p class="muted">固定合成音频冷／热各测 3 次，另测 12 秒合成视频分析及 5 秒导出，不分析你的录像。</p><button id="benchmark">运行合成耗时测试</button><pre id="benchmark-result"></pre><div id="benchmark-download"></div></details>
+<details open><summary>耗时测试</summary><pre id="analysis-timing">尚无分析计时</pre><button id="analysis-report">下载当前录像分析报告</button><p class="muted">固定合成音频冷／热各测 3 次，另测 12 秒合成视频分析及 5 秒导出，不分析你的录像。</p><button id="benchmark">运行合成耗时测试</button><button id="decode-reference">对照当前录像的新旧解码</button><p class="muted">顺序读完整音轨，检查相邻窗口复用；仅首两窗、中间窗和末窗与旧解码及模型分数对照，不修改候选。</p><pre id="decode-result"></pre><div id="decode-download"></div><pre id="benchmark-result"></pre><div id="benchmark-download"></div></details>
 </main><script type="module" src="app.js"></script>
 </body></html>
