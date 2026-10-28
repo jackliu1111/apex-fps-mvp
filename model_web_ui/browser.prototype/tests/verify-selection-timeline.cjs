@@ -1,0 +1,154 @@
+const assert = require('node:assert/strict');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+(async () => {
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE, headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  try {
+    await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:8794/');
+    await page.waitForFunction(() => window.reviewApp);
+    await page.evaluate(async () => {
+      await reviewApp.ready;
+      const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
+      await reviewApp.importFiles([await createSyntheticFile()]);
+    });
+    await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 120000 });
+    await page.locator('#queue [data-action=review]').first().click();
+    await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
+    await page.evaluate(() => reviewApp.workspace.publishCandidates(reviewApp.activeSourceId, [{ id: 'one', start: 2, end: 5 }, { id: 'two', start: 8, end: 10 }]));
+    await page.locator('#overview-markers button').first().click();
+    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent.includes('波形为原片'));
+    const state = () => page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId));
+    const before = await state();
+    assert.equal(await page.locator('.legacy-position, #seek-time').count(), 0);
+    assert.equal(await page.locator('#selection-player-axis #overview').isVisible(), true);
+    assert.ok(Math.abs(Number(await page.locator('#overview').getAttribute('max')) - before.duration) < 0.01);
+    assert.equal(before.review.zoomEnd - before.review.zoomStart, 9);
+    const selectedBox = await page.locator('#selection-overlay').boundingBox();
+    const axisBox = await page.locator('#source-axis').boundingBox();
+    assert.ok(Math.abs(selectedBox.width / axisBox.width - 1 / 3) < 0.01);
+    for (const width of [1440, 768, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      if (process.env.REVIEW_SCREENSHOT_DIR) {
+        await page.locator('#selection-player-axis').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/axis-${width}.png`, animations: 'disabled' });
+        await page.screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/selected-${width}.png`, fullPage: true, animations: 'disabled' });
+      }
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const evidence = () => page.evaluate(() => ({ frames: document.querySelector('#source-filmstrip').innerHTML, wave: document.querySelector('#source-wave').toDataURL() }));
+    const beforeEvidence = await evidence();
+    const left = await page.locator('#selection-left').boundingBox();
+    await page.mouse.move(left.x + left.width / 2, left.y + 20); await page.mouse.down();
+    await page.mouse.move(left.x + 65, left.y + 20, { steps: 8 }); await page.mouse.up();
+    const trimmed = await state();
+    assert.ok(trimmed.clips.some(c => c.manual && c.start > 2 && c.end === 5));
+    assert.deepEqual(await evidence(), beforeEvidence);
+    await page.locator('#undo-selection').click();
+    assert.deepEqual((await state()).clips.map(c => [c.start,c.end]), before.clips.map(c => [c.start,c.end]));
+    await page.locator('#redo-selection').click();
+    const current = await state();
+    await page.locator('#exclude-selection').click();
+    const deleted = await state();
+    assert.equal(deleted.review.selectedClipId, null);
+    assert.equal(deleted.review.position, current.review.position);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'prediction-workspace');
+    await page.keyboard.press('Delete');
+    assert.deepEqual((await state()).decisions, deleted.decisions);
+    await page.keyboard.press('Control+z');
+    assert.ok((await state()).review.selectedClipId);
+    await page.keyboard.press('Control+Shift+z');
+    await page.locator('#show-excluded').check();
+    await page.locator('#overview-markers .excluded').click();
+    assert.ok((await state()).decisions.every(d => d.kind !== 'exclude'));
+    await page.locator('#overview-markers button').first().click();
+    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent.includes('波形为原片'));
+    const cancelBefore = (await state()).decisions;
+    const handle = await page.locator('#selection-right').boundingBox();
+    await page.mouse.move(handle.x + 10, handle.y + 20); await page.mouse.down(); await page.mouse.move(handle.x - 45, handle.y + 20);
+    await page.keyboard.press('Escape'); await page.mouse.up();
+    assert.deepEqual((await state()).decisions, cancelBefore);
+    const position = (await state()).review.position;
+    await page.locator('#source-filmstrip').hover(); assert.equal(await page.locator('#source-hover').isVisible(), true);
+    assert.equal(await page.locator('#source-hover span').textContent(), '原片参考画面');
+    assert.equal(await page.locator('#source-filmstrip img').first().getAttribute('alt'), '原片参考画面');
+    assert.equal((await state()).review.position, position);
+    const zoom = (await state()).review.zoomStart;
+    await page.locator('#prediction-zoom').click(); assert.equal((await state()).review.zoomStart, zoom);
+    assert.equal((await state()).review.position, position);
+    await page.locator('#show-excluded').focus(); await page.keyboard.press('Backspace'); assert.deepEqual((await state()).decisions, cancelBefore);
+    // The merged axis retains whole-source seeking without clearing the selection.
+    const selectedId = (await state()).review.selectedClipId;
+    await page.locator('#source-fit').click();
+    assert.equal((await state()).review.selectedClipId, selectedId);
+    const fullAxis = await page.locator('#source-axis').boundingBox();
+    await page.mouse.click(fullAxis.x + fullAxis.width * 0.6, fullAxis.y + 10);
+    await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
+    const sought = (await state()).review.position;
+    assert.ok(Math.abs(sought - (await state()).duration * 0.6) < 0.05);
+    await page.locator('#source-head').focus(); await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
+    assert.ok(Math.abs((await state()).review.position - sought - 0.1) < 0.01);
+    // The whole-source axis stays available while the evidence axis is zoomed in.
+    await page.locator('#overview-markers button').first().click();
+    const localSource = await state(), local = localSource.review;
+    await page.locator('#overview').focus(); await page.keyboard.press('End');
+    await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
+    const atEnd = await state();
+    assert.ok(Math.abs(atEnd.review.position - atEnd.duration) < 0.02);
+    assert.ok(Math.abs(atEnd.review.zoomEnd - atEnd.duration) < 0.01);
+    assert.ok(Math.abs((atEnd.review.zoomEnd - atEnd.review.zoomStart) - (local.zoomEnd - local.zoomStart)) < 0.01);
+    assert.equal(atEnd.review.selectedClipId, local.selectedClipId);
+    assert.deepEqual(atEnd.decisions, localSource.decisions);
+    await page.keyboard.press('Home');
+    await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
+    assert.equal((await state()).review.position, 0);
+    const globalAxis = await page.locator('#overview').boundingBox();
+    await page.mouse.move(globalAxis.x + 8, globalAxis.y + globalAxis.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(globalAxis.x + globalAxis.width * 0.55, globalAxis.y + globalAxis.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
+    assert.ok(Math.abs((await state()).review.position / (await state()).duration - 0.55) < 0.03);
+    await page.evaluate(async () => {
+      await reviewApp.workspace.flush();
+      window.playbackSaveMutations = [];
+      window.playbackSaveObserver = new MutationObserver(() => playbackSaveMutations.push(document.querySelector('#save-state').textContent));
+      playbackSaveObserver.observe(document.querySelector('#save-state'), { childList: true, characterData: true, subtree: true });
+    });
+    const playbackStart = (await state()).review.position;
+    await page.locator('#play-pause').click();
+    await page.waitForFunction(start => reviewApp.player.state.position > start + 1.5, playbackStart);
+    await page.locator('#play-pause').click();
+    await page.evaluate(() => reviewApp.workspace.flush());
+    assert.deepEqual(await page.evaluate(() => playbackSaveMutations), [], 'Continuous playback and pause must save position without rewriting the review indicator');
+    await page.evaluate(() => playbackSaveObserver.disconnect());
+    await page.evaluate(async () => {
+      await reviewApp.workspace.flush();
+      window.saveMutations = [];
+      window.saveObserver = new MutationObserver(() => saveMutations.push(document.querySelector('#save-state').textContent));
+      saveObserver.observe(document.querySelector('#save-state'), { childList: true, characterData: true, subtree: true });
+      await reviewApp.submitExport();
+      await reviewApp.exportQueue.whenIdle();
+      await reviewApp.workspace.flush();
+    });
+    const exported = await page.evaluate(() => ({ batch: reviewApp.workspace.view().batches.at(-1), feedback: saveMutations, text: document.querySelector('#save-state').textContent }));
+    assert.equal(exported.batch.status, 'completed');
+    assert.ok(exported.batch.outputs.length > 0);
+    assert.equal(exported.text, '选片与复核位置已保存');
+    assert.deepEqual(exported.feedback, [], 'Real export progress must not rewrite the saved review indicator');
+    await page.evaluate(() => saveObserver.disconnect());
+    await page.evaluate(() => reviewApp.workspace.flush()); await page.reload(); await page.waitForFunction(() => window.reviewApp);
+    await page.evaluate(() => reviewApp.ready);
+    assert.equal(await page.locator('#undo-selection').isEnabled(), true);
+    await page.locator('#undo-selection').click();
+    for (const width of [1440, 768, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      if (process.env.REVIEW_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/${width}.png`, fullPage: true });
+    }
+    assert.deepEqual(errors, []);
+    console.log('PASS merged pointer/keyboard seek, one-third candidate window, quiet real export, atomic trim, stable evidence, cancel, undo/redo, restore, hover, independent zoom, three widths');
+  } finally { await browser.close(); }
+})().catch(e => { console.error(e); process.exitCode = 1; });

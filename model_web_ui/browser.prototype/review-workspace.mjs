@@ -1,4 +1,5 @@
 // Human review decisions survive replacement of automatic suggestions.
+import { mergeCandidateRanges } from './candidate-ranges.mjs';
 const copy = (value) => structuredClone(value);
 const overlaps = (a, b) => a.start < b.end && b.start < a.end;
 const sameRange = (a, b) => a.start === b.start && a.end === b.end;
@@ -14,7 +15,11 @@ const freeze = (value) => {
 export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayMs = 100 } = {}) {
   const sources = new Map();
   const batches = [];
+  let editing = false;
+  const decisionState = (source) => copy({ decisions: source.decisions, selectedClipId: source.review.selectedClipId });
+  const historyFor = (source) => source.history ||= { undo: [], redo: [] };
   let sequence = 0, revision = 0, savedRevision = 0, saveStatus = 'saved', saveError = null, saveTimer = null, saving = null;
+  let reviewRevision = 0;
   let restored = false, restoreFailed = false;
   const requireSource = (id) => {
     if (restoreFailed) throw new Error('请先重试恢复已有复核记录');
@@ -32,7 +37,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
     const excluded = source.decisions.filter((decision) => decision.kind === 'exclude');
     const manual = retained.map((decision) => ({ id: decision.id, ...decision.range, selected: true, manual: true, supplemental: false, provisional: false }));
     const automatic = source.candidates.flatMap((candidate) => {
-      if (excluded.some((decision) => sameRange(decision.range, candidate))) return [];
+      if (excluded.some((decision) => sameRange(decision.range, candidate) || sameRange(decision.originRange, candidate))) return [];
       if (retained.some((decision) => sameRange(decision.range, candidate) || sameRange(decision.originRange, candidate))) return [];
       const supplemental = excluded.some((decision) => overlaps(decision.range, candidate)) || retained.some((decision) => overlaps(decision.range, candidate) || overlaps(decision.originRange, candidate));
       return [{ ...candidate, selected: !supplemental, manual: false, supplemental }];
@@ -43,9 +48,12 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
   const signature = (clips) => JSON.stringify(clips.map(({ start, end }) => [start, end]));
   const getSource = (id) => {
     const source = requireSource(id);
-    return freeze(copy({ ...source, clips: clipsFor(source), hasUnexportedChanges: signature(selectedClips(source)) !== (source.lastSubmittedSelection ?? '[]') }));
+    const { history, ...visible } = source;
+    return freeze(copy({ ...visible, canUndo: !!history?.undo.length, canRedo: !!history?.redo.length, clips: clipsFor(source), hasUnexportedChanges: signature(selectedClips(source)) !== (source.lastSubmittedSelection ?? '[]') }));
   };
-  const view = () => freeze({ sources: [...sources.keys()].map(getSource), batches: copy(batches), save: { status: saveStatus, revision, savedRevision, error: saveError } });
+  // Export/analysis snapshots still persist, but do not dirty the human review indicator.
+  const reviewSaveStatus = () => saveStatus === 'error' ? 'error' : reviewRevision > savedRevision ? saveStatus : 'saved';
+  const view = () => freeze({ sources: [...sources.keys()].map(getSource), batches: copy(batches), save: { status: saveStatus, reviewStatus: reviewSaveStatus(), revision, savedRevision, error: saveError } });
   const notify = () => onChange(view());
   const snapshot = () => copy({ version: 1, sequence, revision, sources: [...sources.values()], batches });
   const flush = async () => {
@@ -75,10 +83,12 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
     });
     return saving;
   };
-  const changed = () => {
+  const changed = (reviewChanged = true) => {
+    if (editing) return;
     revision++;
-    saveStatus = saving ? 'saving' : 'unsaved';
-    saveError = null;
+    if (reviewChanged) reviewRevision = revision;
+    // A new progress event is not evidence that a failed write recovered.
+    if (saveStatus !== 'error') saveStatus = saving ? 'saving' : 'unsaved';
     notify();
     // Bound coalescing from the first dirty edit; ongoing analysis must not
     // continually push a user's save into the future.
@@ -114,7 +124,13 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
 
           }
           for (const batch of loadedBatches) {
-            const wasActive = ['awaiting-destination', 'queued', 'running'].includes(batch.status);
+            const wasActive = ['queued', 'running'].includes(batch.status);
+            // Old versions treated any picker AbortError as a cancelled export,
+            // including embedded browsers that never opened the directory dialog.
+            if (batch.status === 'cancelled' && batch.error === '已取消输出目录选择，本批未开始导出。' && !batch.outputs?.length) {
+              batch.status = 'awaiting-destination';
+              batch.error = '尚未取得输出目录，导出未开始。请选择输出目录后继续。';
+            }
             // Older records have output metadata but no per-clip outcomes.
             batch.clipResults ||= batch.clips.map((clip, index) => {
               const completedCount = batch.outputs?.length || 0;
@@ -154,7 +170,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       changed();
       return identity.id;
     },
-    setReview(id, patch) {
+    setReview(id, patch, { background = false } = {}) {
       const source = requireSource(id);
       if (Object.keys(patch).some((key) => !['position', 'selectedClipId', 'zoomStart', 'zoomEnd'].includes(key))) throw new Error('复核位置字段无效');
       const next = { ...source.review, ...patch };
@@ -162,7 +178,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       validRange(source, { start: next.zoomStart, end: next.zoomEnd });
       if (JSON.stringify(next) === JSON.stringify(source.review)) return;
       source.review = copy(next);
-      changed();
+      changed(!background || Object.keys(patch).some((key) => key !== 'position'));
     },
     updateAnalysis(id, patch) {
       const source = requireSource(id);
@@ -170,12 +186,23 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       if (patch.status && !['preparing', 'queued', 'analyzing', 'completed', 'stopped', 'failed', 'interrupted'].includes(patch.status)) throw new Error('分析状态无效');
       if (patch.processedUntil !== undefined && (!Number.isFinite(patch.processedUntil) || patch.processedUntil < 0 || patch.processedUntil > source.duration)) throw new Error('分析进度须在录像内');
       Object.assign(source.analysis, copy(patch));
-      changed();
+      changed(false);
     },
     publishCandidates(id, incoming) {
       const source = requireSource(id);
       source.candidates = incoming.map((candidate) => ({ id: `auto:${candidate.id ?? candidate.key ?? `${candidate.start}:${candidate.end}`}`, ...validRange(source, candidate), provisional: !!candidate.provisional }));
-      changed();
+      changed(false);
+    },
+    mergeCandidates(id) {
+      const source = requireSource(id), before = source.candidates;
+      const merged = mergeCandidateRanges(before);
+      if (JSON.stringify(before) === JSON.stringify(merged)) return;
+      const selected = before.find((candidate) => candidate.id === source.review.selectedClipId);
+      source.candidates = merged;
+      if (selected && !merged.some((candidate) => candidate.id === selected.id)) {
+        source.review.selectedClipId = merged.find((candidate) => candidate.start <= selected.start && candidate.end >= selected.end)?.id ?? null;
+      }
+      changed(false);
     },
     submitBatch(id, { audio = {}, output = {} } = {}) {
       const source = requireSource(id);
@@ -184,7 +211,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       const batch = { id: `batch:${++sequence}`, sourceId: id, source: copy(source.identity), clips, audio: copy(audio), output: copy(output), status: 'queued', createdAt: new Date().toISOString(), progress: 0, outputs: [], clipResults: clips.map((clip) => ({ ...clip, status: 'not-started', error: null })) };
       batches.push(batch);
       source.lastSubmittedSelection = signature(clips);
-      changed();
+      changed(false);
       return freeze(copy(batch));
     },
     updateBatch(id, patch) {
@@ -196,7 +223,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       if (patch.progress !== undefined && (!Number.isFinite(patch.progress) || patch.progress < 0 || patch.progress > 1)) throw new Error('导出进度无效');
       if (patch.clipResults && (!Array.isArray(patch.clipResults) || patch.clipResults.length !== batch.clips.length || patch.clipResults.some((result, index) => !sameRange(result, batch.clips[index]) || !['not-started', 'running', 'completed', 'failed', 'cancelled', 'interrupted'].includes(result.status)))) throw new Error('片段导出状态与已提交范围不一致');
       Object.assign(batch, copy(patch));
-      changed();
+      changed(false);
     },
     choose(id, clipId, selected) {
       const source = requireSource(id);
@@ -247,6 +274,48 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       changed();
       return decision.id;
     },
+  };
+  const applyDecisionState = (source, state) => {
+    source.decisions = copy(state.decisions);
+    source.review.selectedClipId = clipsFor(source).some((clip) => clip.id === state.selectedClipId) ? state.selectedClipId : null;
+  };
+  const recordEdit = (source, before) => {
+    const after = decisionState(source);
+    if (JSON.stringify(before.decisions) === JSON.stringify(after.decisions)) return false;
+    const history = historyFor(source);
+    history.undo.push({ before, after });
+    history.undo = history.undo.slice(-100);
+    history.redo = [];
+    return true;
+  };
+  // Only human decisions participate: analysis, playback and submitted batches
+  // are live independent objects and must never be rolled back by undo.
+  for (const name of ['choose', 'chooseAll', 'addManual', 'trim', 'resetDecisions']) {
+    const mutate = workspace[name];
+    workspace[name] = (id, ...args) => {
+      const source = requireSource(id), before = decisionState(source);
+      let result;
+      editing = true;
+      try { result = mutate(id, ...args); }
+      finally { editing = false; }
+      if (recordEdit(source, before) || JSON.stringify(before) !== JSON.stringify(decisionState(source))) changed();
+      return result;
+    };
+  }
+  for (const direction of ['undo', 'redo']) workspace[direction] = (id) => {
+    const source = requireSource(id);
+    const history = historyFor(source), entry = history[direction].pop();
+    if (!entry) return false;
+    applyDecisionState(source, entry[direction === 'undo' ? 'before' : 'after']);
+    history[direction === 'undo' ? 'redo' : 'undo'].push(entry);
+    changed();
+    return true;
+  };
+  workspace.restoreExcluded = (id, decisionId) => {
+    const source = requireSource(id);
+    const decision = source.decisions.find((item) => item.id === decisionId && item.kind === 'exclude');
+    if (!decision) throw new Error('找不到已排除片段');
+    return workspace.addManual(id, decision.range);
   };
   return workspace;
 }

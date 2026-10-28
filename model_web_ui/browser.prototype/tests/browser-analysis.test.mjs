@@ -2,18 +2,34 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { candidatesFromScores, chooseAudioTracks } from '../browser-analysis.mjs';
 
-test('window scores obey five-second grouping and publish final tail only at EOF', () => {
+test('nearby padded gunfire ranges become one candidate and the final tail waits for EOF', () => {
   const record = { duration: 60, windowScores: [
     { start: 10, end: 20, scores: [0.8, 0] },
     { start: 25, end: 35, scores: [0.7, 0] },
     { start: 42, end: 47, scores: [0.9, 0] },
   ] };
   assert.deepEqual(candidatesFromScores(record, 0.2, 40).map(({ start, end, provisional }) => ({ start, end, provisional })), [
-    { start: 5, end: 40, provisional: true }, { start: 37, end: 52, provisional: true },
+    { start: 5, end: 52, provisional: true },
   ]);
   assert.deepEqual(candidatesFromScores(record, 0.2, Infinity).map(({ start, end, provisional }) => ({ start, end, provisional })), [
-    { start: 5, end: 40, provisional: false }, { start: 37, end: 52, provisional: false },
+    { start: 5, end: 52, provisional: false },
   ]);
+});
+
+test('touching ranges and five-second pauses merge transitively; a longer pause separates fights', () => {
+  const record = { duration: 120, windowScores: [
+    { start: 10, end: 20, scores: [0.8, 0] },
+    { start: 30, end: 40, scores: [0.8, 0] },
+    { start: 55, end: 65, scores: [0.8, 0] },
+    { start: 81, end: 91, scores: [0.8, 0] },
+  ] };
+  assert.deepEqual(candidatesFromScores(record, 0.2, Infinity).map(({ start, end }) => [start, end]), [[5, 70], [76, 96]]);
+});
+
+test('a progressive candidate stays provisional until a following merge is impossible', () => {
+  const record = { duration: 120, windowScores: [{ start: 10, end: 20, scores: [0.8, 0] }] };
+  assert.equal(candidatesFromScores(record, 0.2, 35)[0].provisional, true);
+  assert.equal(candidatesFromScores(record, 0.2, 36)[0].provisional, false);
 });
 
 test('automatic analysis uses the source primary track and preserves its output identity', async () => {

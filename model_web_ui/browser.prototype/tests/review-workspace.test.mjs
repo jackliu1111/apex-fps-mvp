@@ -9,6 +9,46 @@ const setup = (options) => {
   return workspace;
 };
 
+test('saved automatic ranges can merge without changing manual decisions or submitted exports', async () => {
+  let stored;
+  const workspace = setup({ storage: { save: async snapshot => { stored = snapshot; } } });
+  workspace.publishCandidates(source.id, [{ key: 'one', start: 395, end: 425 }, { key: 'two', start: 425, end: 445 }, { key: 'three', start: 450, end: 495 }]);
+  workspace.trim(source.id, 'auto:one', { start: 400, end: 420 });
+  workspace.choose(source.id, 'auto:three', false);
+  workspace.setReview(source.id, { selectedClipId: 'auto:two', position: 430 });
+  const batch = workspace.submitBatch(source.id);
+  const before = workspace.getSource(source.id);
+  await workspace.flush();
+  workspace.mergeCandidates(source.id);
+  const after = workspace.getSource(source.id);
+  assert.deepEqual(after.candidates.map(({ start, end }) => [start, end]), [[395, 495]]);
+  assert.deepEqual(after.decisions, before.decisions);
+  assert.deepEqual(workspace.view().batches[0], batch);
+  assert.deepEqual(after.clips.filter(clip => clip.selected).map(({ start, end }) => [start, end]), [[400, 420]]);
+  assert.equal(after.review.position, 430);
+  assert.equal(after.review.selectedClipId, 'auto:one');
+  assert.equal(workspace.view().save.reviewStatus, 'saved');
+  await workspace.flush();
+  assert.deepEqual(stored.sources[0].candidates, after.candidates);
+});
+
+test('an unopened destination dialog restores as actionable waiting rather than a cancelled encode', async () => {
+  let snapshot;
+  const workspace = setup({ storage: { save: async value => { snapshot = value; } } });
+  workspace.addManual(source.id, { start: 10, end: 20 });
+  const legacy = workspace.submitBatch(source.id);
+  workspace.updateBatch(legacy.id, { status: 'cancelled', error: '已取消输出目录选择，本批未开始导出。' });
+  const waiting = workspace.submitBatch(source.id);
+  workspace.updateBatch(waiting.id, { status: 'awaiting-destination' });
+  const cancelled = workspace.submitBatch(source.id);
+  workspace.updateBatch(cancelled.id, { status: 'cancelled', error: '已取消本批导出。' });
+  await workspace.flush();
+  const restored = createReviewWorkspace({ storage: { load: async () => snapshot } });
+  await restored.restore();
+  assert.deepEqual(restored.view().batches.map(batch => batch.status), ['awaiting-destination', 'awaiting-destination', 'cancelled']);
+  assert.deepEqual(restored.view().batches[0].clips, legacy.clips);
+});
+
 test('a trimmed selection keeps its exact range when candidates move, split or disappear', () => {
   const workspace = setup();
   workspace.publishCandidates(source.id, [{ key: 'old', start: 600, end: 630 }]);
@@ -250,4 +290,46 @@ test('restore marks an active clip interrupted without claiming that it complete
   const reopened = createReviewWorkspace({ storage }); await reopened.restore();
   assert.equal(reopened.view().batches[0].status, 'interrupted');
   assert.deepEqual(reopened.view().batches[0].clipResults.map((clip) => clip.status), ['interrupted', 'not-started']);
+});
+
+test('undo persists and affects only human decisions while analysis, view and exports advance', async () => {
+  const storage = memoryStorage(), workspace = setup({ storage });
+  workspace.publishCandidates(source.id, [{ id: 'one', start: 10, end: 30 }]);
+  workspace.setReview(source.id, { selectedClipId: 'auto:one' });
+  const manual = workspace.trim(source.id, 'auto:one', { start: 12, end: 28 });
+  const batch = workspace.submitBatch(source.id);
+  workspace.choose(source.id, manual, false);
+  workspace.publishCandidates(source.id, [{ id: 'one', start: 10, end: 30 }, { id: 'two', start: 40, end: 50 }]);
+  workspace.setReview(source.id, { position: 100, zoomStart: 5, zoomEnd: 60 });
+  await workspace.flush();
+  const reopened = createReviewWorkspace({ storage }); await reopened.restore();
+  assert.equal(reopened.undo(source.id), true);
+  const restored = reopened.getSource(source.id);
+  assert.equal(restored.review.selectedClipId, manual);
+  assert.equal(restored.review.position, 100);
+  assert.equal(restored.review.zoomStart, 5);
+  assert.ok(restored.clips.some(c => c.id === 'auto:two'));
+  assert.deepEqual(reopened.view().batches[0].clips, batch.clips);
+  reopened.redo(source.id);
+  assert.equal(reopened.getSource(source.id).review.selectedClipId, null);
+  assert.equal(reopened.getSource(source.id).clips.some(c => c.id === 'auto:one'), false);
+  reopened.restoreExcluded(source.id, manual);
+  assert.equal(reopened.getSource(source.id).clips.find(c => c.id === manual).start, 12);
+  assert.equal(reopened.getSource(source.id).canRedo, false);
+  await reopened.flush();
+});
+
+test('new edits clear redo only for their source; history is bounded and no-op trims are not recorded', () => {
+  const workspace = setup(); workspace.addSource({ ...source, id: 'b' });
+  const id = workspace.addManual(source.id, { start: 10, end: 50 });
+  const revision = workspace.view().save.revision;
+  workspace.trim(source.id, id, { start: 10, end: 50 });
+  assert.equal(workspace.view().save.revision, revision);
+  for (let i = 0; i < 110; i++) workspace.trim(source.id, id, { start: 11 + i / 10, end: 50 });
+  workspace.undo(source.id); workspace.addManual('b', { start: 1, end: 2 });
+  assert.equal(workspace.getSource(source.id).canRedo, true);
+  workspace.redo(source.id);
+  let count = 0; while (workspace.undo(source.id)) count++;
+  assert.equal(count, 100);
+  assert.equal(workspace.getSource('b').clips.length, 1);
 });

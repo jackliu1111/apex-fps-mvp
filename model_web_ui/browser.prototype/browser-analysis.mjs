@@ -1,6 +1,7 @@
 import { createAnalysisQueue } from './analysis-queue.mjs';
 import { sequentialAudio } from './stream-audio.js';
 import { createMediaReadSource } from './media-read-source.mjs';
+import { CANDIDATE_PADDING_SECONDS, CANDIDATE_GAP_SECONDS, mergeCandidateRanges } from './candidate-ranges.mjs';
 
 export function candidatesFromScores(record, threshold = record.threshold, frontier = record.frontier) {
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('阈值须在 0 到 1 之间');
@@ -19,13 +20,16 @@ export function candidatesFromScores(record, threshold = record.threshold, front
       }
     }
   }
-  const groups = [];
-  for (const event of events) {
-    const last = groups.at(-1);
-    if (last && event.start - last.end <= 5) last.end = Math.max(last.end, event.end);
-    else groups.push({ ...event });
-  }
-  return groups.map((group) => ({ key: `event-${group.start.toFixed(6)}`, start: Math.max(0, group.start - 5), end: Math.min(record.duration, group.end + 5), provisional: frontier <= group.end + 5, selected: true, manual: false })).filter((group) => group.end > group.start);
+  // Merge the ranges the user actually sees, including context padding. A future
+  // event may reach back by its own padding, so wait for that horizon to settle.
+  const mergeHorizon = CANDIDATE_PADDING_SECONDS * 2 + CANDIDATE_GAP_SECONDS;
+  return mergeCandidateRanges(events.map((event) => ({
+    key: `event-${event.start.toFixed(6)}`,
+    start: Math.max(0, event.start - CANDIDATE_PADDING_SECONDS),
+    end: Math.min(record.duration, event.end + CANDIDATE_PADDING_SECONDS),
+    provisional: frontier <= event.end + mergeHorizon,
+    selected: true, manual: false,
+  })).filter((candidate) => candidate.end > candidate.start));
 }
 
 // Metadata/decoder capability selection only: never decode-scan all source tracks.
@@ -132,7 +136,7 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
         const next = candidatesFromScores(record, record.threshold, frontier);
         // During retry, later previously stable suggestions stay reviewable until this pass reaches them.
         const retained = Number.isFinite(frontier) ? previousStable.filter((candidate) => candidate.end > processedUntil && !next.some((item) => item.key === candidate.key)) : [];
-        publish([...next, ...retained].sort((a, b) => a.start - b.start), { frontier, processedUntil });
+        publish(mergeCandidateRanges([...next, ...retained]), { frontier, processedUntil });
         if (metrics.firstReviewableMs === undefined && next.some((candidate) => !candidate.provisional)) metrics.firstReviewableMs = performance.now() - started;
       }
       try {

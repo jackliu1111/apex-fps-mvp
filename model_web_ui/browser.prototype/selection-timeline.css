@@ -1,0 +1,512 @@
+/* Stitch Darkroom Review Studio: one 1120px column, video-dominant player deck,
+   and stacked source/prediction timelines sharing exact left and right edges. */
+body:has(#review-page:not([hidden])) .workspace-status {
+  max-width: 1120px;
+  margin: 0 auto 8px;
+  font-size: 12px;
+}
+body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
+  display: none;
+}
+
+#review-page .review-heading,
+#review-page .notice,
+#review-page .workspace {
+  max-width: 1120px;
+  margin-inline: auto;
+}
+
+#review-page .review-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 10px;
+}
+#review-page .review-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  min-width: 0;
+}
+#review-page #back-analysis {
+  width: 30px;
+  min-height: 30px;
+  background: var(--surface);
+  border-color: var(--border);
+  font-size: 15px;
+}
+#review-page h1 {
+  font-size: 18px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+#review-page #review-progress {
+  margin: 0;
+  font-size: 13px;
+  color: var(--faint);
+}
+#review-page #source-select {
+  min-height: 30px;
+  padding: 4px 12px;
+  background: var(--surface);
+  border-color: var(--border);
+  font-size: 13px;
+  color: var(--text);
+}
+
+#review-page .workspace { display: block; }
+#review-page .preview { display: block; }
+
+/* 3. Dominant Video Player Deck */
+#review-page .player-panel {
+  padding: 0;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+#review-page .player-frame {
+  height: clamp(320px, 39vh, 420px);
+  aspect-ratio: auto;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: #000000;
+}
+#review-page #source-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Compact Transport Control Bar */
+#review-page .player-controls {
+  margin: 0;
+  min-height: 36px;
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#review-page #play-pause {
+  min-height: 28px;
+  padding: 4px 12px;
+  background: #1c1c19;
+  border-color: var(--control);
+  font-size: 13px;
+  font-weight: 500;
+}
+#review-page .playback-time {
+  margin-inline: auto;
+  padding: 3px 10px;
+  background: #000000;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+}
+#review-page #next-candidate {
+  margin-left: 0;
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+/* 4. Upper Track — Source Evidence & Trim Axis */
+#selection-player-axis {
+  position: relative;
+  padding: 10px 16px;
+  background: var(--surface);
+}
+#selection-player-axis > .panel-heading {
+  margin-bottom: 8px;
+  gap: 8px 16px;
+}
+#selection-player-axis h2 {
+  font-size: 13px;
+  font-weight: 600;
+}
+#evidence-status {
+  font-size: 13px;
+  color: var(--faint);
+}
+.axis-head-actions {
+  gap: 10px;
+}
+#selection-readout {
+  font-size: 13px;
+  color: var(--muted);
+}
+#selection-readout[data-active="true"] {
+  color: var(--accent);
+  font-weight: 500;
+}
+#exit-selection {
+  min-height: 26px;
+  padding: 2px 10px;
+  font-size: 13px;
+  border-color: var(--border);
+  background: var(--surface-low);
+}
+
+.source-axis {
+  position: relative;
+  height: 104px;
+  margin: 0 12px;
+  background: #000000;
+  border: 1px solid var(--border);
+  touch-action: none;
+  cursor: crosshair;
+}
+.source-filmstrip {
+  height: 64px;
+  display: flex;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-low);
+}
+.source-filmstrip img {
+  width: 10%;
+  height: 64px;
+  object-fit: cover;
+  border-right: 1px solid #1a1a18;
+}
+#source-wave {
+  display: block;
+  height: 38px;
+  width: 100%;
+  background: #181818;
+}
+#selection-overlay {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-block: 2px solid var(--accent);
+  background: rgba(198, 242, 78, 0.06);
+  pointer-events: none;
+  z-index: 3;
+}
+.selection-handle {
+  position: absolute;
+  width: 22px;
+  top: -2px;
+  bottom: -2px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--accent);
+  color: var(--ground);
+  touch-action: none;
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+.selection-handle:hover:not(:disabled) { background: #d6ff72; }
+.selection-handle::before {
+  content: "";
+  display: block;
+  width: 2px;
+  height: 20px;
+  margin: auto;
+  background: var(--ground);
+}
+#selection-left { left: -11px; }
+#selection-right { right: -11px; }
+#source-head {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 3px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--text);
+  transform: translateX(-50%);
+  z-index: 2;
+  touch-action: none;
+}
+#source-head::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 11px;
+  height: 8px;
+  background: var(--text);
+}
+#source-head::after {
+  content: "";
+  position: absolute;
+  inset: 0 -9px;
+}
+
+.axis-ticks {
+  display: flex;
+  justify-content: space-between;
+  color: var(--faint);
+  font-size: 12px;
+  margin: 6px 12px 0;
+}
+.source-overview { margin: 12px 12px 0; }
+.source-overview-label { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+#overview { min-height: 24px; margin: 2px 0 0; padding: 0; }
+#source-hover {
+  position: absolute;
+  bottom: 132px;
+  right: 28px;
+  background: #1c1c19;
+  border: 1px solid var(--control);
+  padding: 6px;
+  width: 180px;
+  pointer-events: none;
+  z-index: 5;
+}
+#source-hover img { width: 100%; display: block; }
+#source-hover span { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+
+/* Folded precision disclosures */
+.precise-editor {
+  margin-top: 6px;
+  padding: 5px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  font-size: 13px;
+}
+.precise-editor #range-editor {
+  margin-top: 8px;
+  padding: 12px 0 4px;
+  border: 0;
+  background: transparent;
+}
+
+/* 5. Lower Track Panel — Prediction Interval Axis & Export Bar */
+#review-page .review-list {
+  margin-top: 8px;
+  padding: 0;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+.prediction-tools,
+.prediction-tools-left,
+.prediction-tools-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.prediction-tools {
+  justify-content: space-between;
+  padding: 8px 16px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+}
+.prediction-tools button {
+  min-height: 28px;
+  padding: 3px 10px;
+  font-size: 13px;
+  background: var(--surface-low);
+  border-color: var(--border);
+}
+#exclude-selection:not(:disabled) {
+  color: var(--negative);
+}
+#exclude-selection:hover:not(:disabled) {
+  background: #3a1416;
+  border-color: var(--negative);
+  color: var(--text);
+}
+.prediction-tools label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.prediction-track-box {
+  padding: 10px 16px;
+  background: #080808;
+}
+.prediction-heading {
+  margin-bottom: 6px;
+}
+.prediction-heading h2 {
+  font-size: 13px;
+  font-weight: 600;
+}
+#review-page #candidate-tail {
+  margin: 0;
+  font-size: 13px;
+  color: var(--faint);
+}
+.prediction-axis {
+  position: relative;
+  height: 56px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.prediction-axis button {
+  position: absolute;
+  top: 8px;
+  height: 38px;
+  min-height: 0;
+  padding: 0 4px;
+  border: 1px solid #484842;
+  border-radius: 2px;
+  background: #262623;
+  color: var(--text);
+  font-size: 12px;
+  overflow: hidden;
+}
+.prediction-axis button:hover:not(:disabled) {
+  border-color: var(--text);
+}
+.prediction-axis button[aria-pressed=true] {
+  background: var(--accent);
+  color: var(--ground);
+  border-color: var(--accent);
+  font-weight: 700;
+  z-index: 2;
+}
+.prediction-axis button.excluded {
+  background: #161614;
+  border-style: dashed;
+  border-color: #57564f;
+  color: var(--negative);
+  text-decoration: line-through;
+}
+.prediction-axis button.supplemental {
+  background: transparent;
+}
+.prediction-axis button.provisional {
+  opacity: 0.5;
+  border-style: dashed;
+}
+.prediction-track-box .axis-ticks {
+  margin: 6px 0 0;
+}
+#prediction-empty {
+  margin-top: 6px;
+}
+#prediction-empty:empty { display: none; }
+
+/* Bottom Action & Export Bar */
+#review-page .selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+  padding: 10px 16px;
+  margin: 0;
+  background: var(--surface);
+}
+.selection-summary-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+#review-page #selection-summary {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+#review-page #selection-summary::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  flex: none;
+}
+#review-page #export-note {
+  width: auto;
+  margin: 0;
+  font-size: 13px;
+  color: var(--faint);
+}
+.selection-export-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+#review-page .selection-actions .field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+#review-page #export-format {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+#review-page #view-exports {
+  margin: 0;
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+#review-page #export {
+  width: auto;
+  min-height: 34px;
+  padding: 6px 18px;
+  border-radius: 0;
+  background: var(--crimson);
+  border-color: var(--crimson);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+#review-page #export:hover:not(:disabled) {
+  background: #c9342d;
+  border-color: #c9342d;
+}
+#review-page #export:disabled {
+  background: var(--raised);
+  border-color: var(--border);
+  color: var(--faint);
+}
+
+#review-page .selection-details,
+#review-page .filter-settings {
+  margin: 0;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  #review-page .player-frame { height: 210px; }
+  #review-page .player-controls { padding: 8px 12px; }
+  #selection-player-axis { padding: 10px 12px; }
+  .source-axis { height: 86px; }
+  .source-filmstrip, .source-filmstrip img { height: 46px; }
+  .prediction-tools, .prediction-track-box, #review-page .selection-actions,
+  #review-page .selection-details, #review-page .filter-settings { padding-inline: 12px; }
+  .selection-export-controls { width: 100%; }
+  #review-page #export { width: 100%; }
+}
