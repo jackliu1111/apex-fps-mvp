@@ -1,4 +1,4 @@
-"""Throwaway, developer-only export. Runtime users need only a browser.
+"""Developer-only BEATs asset builder. Runtime users need only a browser.
 
 Run with the existing inference Python and PYTHONPATH pointing at ONNX deps.
 --output must point to approved artifact storage (never commit the weights).

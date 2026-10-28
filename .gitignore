@@ -16,6 +16,7 @@ __pycache__/
 # Local agent tooling and regenerable caches are not part of source archives.
 /.agents/
 /skills-lock.json
+/.taste-skill/
 .archify/
 .ruff_cache/
 .mypy_cache/

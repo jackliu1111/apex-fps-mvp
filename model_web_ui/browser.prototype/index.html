@@ -1,32 +1,116 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Apex · 本地选片工作区</title><link rel="stylesheet" href="style.css"></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#000000">
+  <title>Apex Local Cut · 本地选片工作区</title>
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
-<header><span class="brand">APEX / LOCAL CUT</span><span class="badge">录像留在本机</span><span id="save-state" role="status">正在恢复复核记录…</span><button id="retry-save" hidden>重试保存</button></header>
-<main>
-  <nav class="row navigation" aria-label="工作区"><button id="nav-analysis" aria-current="page">01 分析队列</button><button id="nav-review" disabled>02 片段复核</button></nav>
-  <p id="status" role="status" aria-live="polite">正在恢复复核记录…</p>
-  <div id="analysis-page">
-    <h1>后面继续分析，<br>前面开始选片。</h1>
-    <p class="intro">导入录像后自动分析。候选逐步出现，你可以随时进入整片复核；人工选片和观看位置自动保存。</p>
-    <section><div class="row"><h2>录像队列</h2><label class="button primary">导入本地录像<input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden></label><button id="demo">生成 12 秒合成样本</button></div><p class="muted">只读取你选择的原录像。合成样本用于验证操作，不代表真实枪声素材。</p><div id="queue" class="queue"></div></section>
-    <details><summary>高级设置与分析记录</summary><div class="row settings"><label>新任务模型 <select id="model"><option value="efficientat">EfficientAT mn04_as</option><option value="beats">BEATs</option></select></label><span id="capabilities" class="muted"></span></div><p class="muted">默认按事件间隔不超过 5 秒分组，前后各留 5 秒。检测自动使用默认且可解码的音轨；系统不判断该音轨是否包含游戏声音。预览和导出沿用原片默认声音。</p><p class="muted">模型按任务固定，更改这里只影响新任务。关闭页面会中断浏览器分析；刷新恢复选片，不恢复分析进程。</p><pre id="analysis-timing"></pre><button id="analysis-report" disabled>下载当前录像分析报告</button></details>
-  </div>
-  <div id="review-page" hidden>
-    <div class="row review-heading"><button id="back-analysis">← 分析队列</button><h1>片段复核</h1><select id="source-select" aria-label="正在复核的录像"></select></div>
-    <p id="review-progress" class="muted"></p>
-    <div id="missing-source" class="notice" hidden><span>选片已恢复。重新关联原录像后即可播放与导出。</span><button id="relink-current">关联原录像</button></div>
-    <div class="workspace">
-      <section class="preview"><div class="player-frame"><canvas id="source-canvas" width="1280" height="720" aria-label="原录像画面"></canvas><p id="player-status" role="status">选择录像开始复核</p></div>
-        <div class="row player-controls"><button id="play-pause" disabled>播放</button><label>定位到 <input id="seek-time" type="number" step="0.01" min="0" value="0"> 秒</label><span id="playback-time" class="muted"></span><button id="next-candidate">下一候选</button></div>
-        <div class="timeline"><div class="row"><strong>全片概览</strong><span id="overview-label" class="muted"></span></div><div id="overview-markers" class="markers" aria-label="原片上的候选范围"></div><input id="overview" aria-label="原录像播放位置" type="range" min="0" max="1" step="0.01" value="0"><div class="row timeline-caption"><span>00:00</span><span id="duration-label"></span></div></div>
-        <p class="muted">连续播放原片，不在候选终点跳转。尚未分析的区域也可浏览；画面按当前位置准备。</p>
-        <div id="range-editor"><div class="row"><h2>当前请求范围</h2><span id="range-label" class="muted">选择候选或添加手动范围</span></div><div class="row settings"><label>起点 <input id="range-start" type="number" min="0" step="0.01"> 秒</label><label>终点 <input id="range-end" type="number" min="0" step="0.01"> 秒</label></div><div class="row"><label>局部视野起点 <input id="zoom-start" type="number" min="0" step="1"></label><label>终点 <input id="zoom-end" type="number" min="0" step="1"></label><button id="fit-selection">放大至选片</button></div><div class="local-range"><label>调整选片起点<input id="range-start-handle" aria-label="调整选片起点" type="range" step="0.01"></label><label>调整选片终点<input id="range-end-handle" aria-label="调整选片终点" type="range" step="0.01"></label></div><p class="muted">范围调整只修改请求范围，不自动移动播放位置。实际导出边界可能受编码和包边界影响。</p></div>
-      </section>
-      <section class="review-list"><div class="row"><h2>候选与人工选片</h2><span id="new-candidates" class="badge" aria-live="polite"></span></div><p class="muted">普通候选默认选中；勾选代表加入导出，不代表已经看过或确认精彩。补充建议默认不选。</p><div class="row"><label>枪声阈值 <input id="threshold" type="number" min="0" max="1" step="0.01" value="0.2"></label><button id="recompute">调整筛选</button></div><div class="row"><button id="retain-all">保留全部可选片段</button><button id="exclude-all">排除全部可选片段</button></div><p class="muted">批量操作只处理当前列表中范围已确定的片段；保留已有裁边和排除记录，跳过尚未收尾的候选。</p><div id="clips"></div><p id="candidate-tail" class="muted"></p><div class="row"><button id="manual">在当前位置添加范围</button><button id="reset-decisions" class="quiet">重置人工选片</button></div><hr><p id="selection-summary"></p><button id="export" class="primary" disabled>提交选片导出</button><p id="export-note" class="muted">导出提交时固定本批范围，后续修改用于下一批。</p></section>
+  <a class="skip-link" href="#main">跳到工作区</a>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand" aria-label="Apex Local Cut">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 26 15 5h3l-6 12h7l-4 9H4Zm17-14 7 14h-8l4-8-3-6Z" fill="currentColor"/></svg>
+        <span>Apex <span class="brand-secondary">Local Cut</span></span>
+      </div>
+      <nav class="navigation" aria-label="工作区">
+        <button id="nav-analysis" aria-current="page">分析队列</button>
+        <button id="nav-review" disabled>片段复核</button>
+      </nav>
+      <div class="save-status"><span id="save-state" role="status">正在恢复复核记录…</span><button id="retry-save" hidden>重试保存</button></div>
     </div>
-  </div>
-  <section id="exports-section"><div class="row"><h2>导出任务</h2></div><p class="muted">每段独立导出为<span id="output-format"></span>，声音沿用原片默认音轨。提交后排队，分析释放资源后执行；复核仍可继续。</p><div class="row"><button id="choose-directory">选择输出目录</button><button id="clear-directory" hidden>改用下载链接</button><span id="output-directory" class="muted">小批次生成下载链接；大批次直接写入所选目录。</span></div><p class="muted">下载缓存最多 <span id="export-budget"></span>。大批次请选择已挂载且空间充足的外接盘目录；浏览器不能验证挂载身份。生成下载链接不表示文件已保存。</p><div id="export-batches"></div></section>
-  <input id="relink-file" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" hidden>
-</main><script type="module" src="app.js"></script>
-</body></html>
+  </header>
+  <main id="main" tabindex="-1">
+    <p id="status" class="workspace-status" role="status" aria-live="polite">正在恢复复核记录…</p>
+    <div id="analysis-page">
+      <div class="page-heading">
+        <div><h1>录像工作区</h1><p class="intro">从整场对局，找到值得留下的片段。</p></div>
+        <span class="local-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8m-4-4v4"/></svg>录像留在本机</span>
+      </div>
+      <div class="analysis-layout">
+        <section class="panel queue-panel" aria-labelledby="queue-heading">
+          <div class="panel-heading">
+            <div class="heading-label"><h2 id="queue-heading">分析队列</h2><span id="queue-count" class="count">0 份录像</span></div>
+            <button id="import-files" class="primary" disabled><span aria-hidden="true">＋</span> 导入录像</button>
+            <input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden>
+          </div>
+          <div id="drop-zone" aria-label="拖入本地录像" aria-disabled="true"><div id="queue" class="queue"></div></div>
+          <div class="queue-footer"><span id="queue-summary" class="muted">等待导入录像</span><span class="muted">支持多文件 · 自动排队</span></div>
+        </section>
+        <section class="panel workflow-guide" aria-labelledby="workflow-heading">
+          <h2 id="workflow-heading">分析与复核，同时推进</h2>
+          <ul class="workflow-list">
+            <li><strong>导入后自动分析</strong><p>枪声候选随分析逐步出现。</p></li>
+            <li><strong>随时开始选片</strong><p>浏览原片，保留片段、调整范围。</p></li>
+            <li><strong>选好即可提交导出</strong><p>每段独立成片，期间可继续复核。</p></li>
+          </ul>
+          <div class="demo-action"><button id="demo">试用 1 分钟真实交战 <span aria-hidden="true">↗</span></button><p class="muted">来自实际 Apex 对局，体验分析、选片与导出。</p></div>
+        </section>
+      </div>
+      <details class="settings-panel">
+        <summary>分析设置与运行记录</summary>
+        <div class="settings-content">
+          <div class="row settings"><label class="field">新任务模型<select id="model"><option value="efficientat">EfficientAT mn04_as</option><option value="beats">BEATs</option></select></label><span id="capabilities" class="muted"></span></div>
+          <p class="muted">模型仅影响新任务。默认将间隔不超过 5 秒的事件分组，前后各保留 5 秒。检测自动使用默认且可解码的音轨，不判断是否为游戏声音；预览和导出沿用原片默认声音。</p>
+          <p class="muted">选片与观看位置自动保存。关闭页面会中断分析；刷新后可恢复选片，分析需重新开始。</p>
+          <pre id="analysis-timing"></pre><button id="analysis-report" disabled>下载当前录像分析报告</button>
+        </div>
+      </details>
+    </div>
+    <div id="review-page" hidden>
+      <div class="page-heading review-heading">
+        <div class="row"><button id="back-analysis" class="icon-button" aria-label="返回分析队列">←</button><h1>片段复核</h1></div>
+        <select id="source-select" aria-label="正在复核的录像"></select>
+      </div>
+      <p id="review-progress" class="muted source-progress"></p>
+      <div id="missing-source" class="notice" hidden><span>选片已恢复，关联原录像后即可播放与导出。</span><button id="relink-current">关联原录像</button></div>
+      <div class="workspace">
+        <div class="preview">
+          <section class="panel player-panel" aria-label="原片播放与时间轴">
+            <div class="player-frame"><canvas id="source-canvas" width="1280" height="720" aria-label="原录像画面"></canvas><p id="player-status" role="status">选择录像开始复核</p></div>
+            <div class="row player-controls"><button id="play-pause" disabled>播放</button><span id="playback-time" class="playback-time"></span><button id="next-candidate" class="quiet">下一候选 →</button></div>
+            <div class="timeline">
+              <div class="panel-heading"><h2>全片概览</h2><span id="overview-label" class="muted"></span></div>
+              <div id="overview-markers" class="markers" aria-label="原片上的候选范围"></div>
+              <input id="overview" aria-label="原录像播放位置" type="range" min="0" max="1" step="0.01" value="0">
+              <div class="row timeline-caption"><span>00:00</span><span id="duration-label"></span></div>
+            </div>
+            <div class="row seek-row"><label for="seek-time">定位到</label><input id="seek-time" type="number" step="0.01" min="0" value="0"><span class="muted">秒</span><span class="muted playback-hint">连续播放原片，未分析区域也可浏览</span></div>
+          </section>
+          <section id="range-editor" class="panel" aria-labelledby="range-heading">
+            <div class="panel-heading"><h2 id="range-heading">当前选片范围</h2><button id="fit-selection" class="quiet">放大至选片</button></div>
+            <p id="range-label" class="muted">选择候选或添加手动范围</p>
+            <div class="range-fields"><label class="field" for="range-start">起点 / 秒<input id="range-start" type="number" min="0" step="0.01"></label><label class="field" for="range-end">终点 / 秒<input id="range-end" type="number" min="0" step="0.01"></label></div>
+            <div class="local-range" role="group" aria-label="选片裁剪范围">
+              <div class="range-track"><span class="range-fill" aria-hidden="true"></span><input id="range-start-handle" aria-label="调整选片起点" type="range" step="0.01"><input id="range-end-handle" aria-label="调整选片终点" type="range" step="0.01"></div>
+              <div class="range-scale" aria-hidden="true"><span id="range-view-start"></span><span id="range-view-end"></span></div>
+              <div class="range-actions"><button id="range-start-current" class="quiet">当前位置设为起点</button><button id="range-end-current" class="quiet">当前位置设为终点</button></div>
+            </div>
+            <details class="inline-details"><summary>局部视野与切点说明</summary><div class="row settings"><label class="field">视野起点 / 秒<input id="zoom-start" type="number" min="0" step="1"></label><label class="field">视野终点 / 秒<input id="zoom-end" type="number" min="0" step="1"></label></div><p class="muted">调整范围不会移动播放位置。这里记录请求范围，实际导出边界可能受编码和包边界影响。</p></details>
+          </section>
+        </div>
+        <section class="panel review-list" aria-labelledby="clips-heading">
+          <div class="panel-heading"><h2 id="clips-heading">候选与人工选片</h2><span id="new-candidates" class="badge" aria-live="polite"></span></div>
+          <p class="muted">勾选以加入导出，点击候选定位原片。</p>
+          <div class="selection-actions"><p id="selection-summary" role="status"></p><button id="export" class="primary" disabled>提交选片导出 <span aria-hidden="true">↗</span></button><p id="export-note" class="muted">提交后固定本批范围，后续修改用于下一批。</p></div>
+          <div class="row clip-toolbar"><button id="manual">＋ 添加当前位置</button><button id="retain-all" class="quiet">全选</button><button id="exclude-all" class="quiet">全不选</button></div>
+          <div id="clips"></div>
+          <p id="candidate-tail" class="muted"></p>
+          <details class="inline-details filter-settings"><summary>筛选与选片规则</summary><div class="row settings"><label class="field">枪声阈值<input id="threshold" type="number" min="0" max="1" step="0.01" value="0.2"></label><button id="recompute">调整筛选</button></div><p class="muted">普通稳定候选默认选中，补充建议默认不选；勾选不表示已经看过或确认精彩。批量操作保留裁边，跳过尚未收尾的候选。筛选使用已有预测分数，保留人工决定。</p><button id="reset-decisions" class="quiet destructive">重置人工选片</button></details>
+        </section>
+      </div>
+    </div>
+    <section id="exports-section" class="panel exports-panel" aria-labelledby="exports-heading">
+      <div class="panel-heading"><div class="heading-label"><h2 id="exports-heading">导出任务</h2><span id="export-count" class="count">0 个批次</span></div><div class="row"><button id="choose-directory">选择输出目录</button><button id="clear-directory" class="quiet" hidden>改用下载链接</button></div></div>
+      <p id="output-directory" class="muted">小批次生成下载链接；大批次直接写入所选目录。</p>
+      <div id="export-batches"></div>
+      <details class="inline-details export-settings"><summary>输出规格与保存说明</summary><p class="muted">每段独立导出为<span id="output-format"></span>，声音沿用原片默认音轨。分析释放资源后执行导出，期间可继续复核。</p><p class="muted">下载缓存最多 <span id="export-budget"></span>。大批次请选择已挂载且空间充足的外接盘目录，浏览器不能验证挂载身份。生成下载链接不表示文件已保存。</p></details>
+    </section>
+    <footer class="workspace-footer"><span>Apex Local Cut · 本地选片</span><span>枪声候选不代表本人开枪、命中或击杀。</span></footer>
+    <input id="relink-file" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" hidden>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

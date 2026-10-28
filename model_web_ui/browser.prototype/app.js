@@ -101,7 +101,8 @@ async function importFiles(files) {
   if (!restoreReady) throw new Error('请先重试恢复已有记录，再导入录像');
   const options = { model: $('model').value, threshold: 0.2 };
   const failures = [];
-  note(`正在准备 ${files.length} 份录像；每份就绪后独立进入分析。`);
+  const importMessage = `正在准备 ${files.length} 份录像；每份就绪后独立进入分析。`;
+  note(importMessage);
   await Promise.all([...files].map(async (file) => {
     let reservedId;
     try {
@@ -118,6 +119,7 @@ async function importFiles(files) {
     }
   }));
   if (failures.length) note(`以下录像未能导入，可重新选择重试：${failures.join('；')}。其他就绪录像继续分析。`);
+  else if ($('status').textContent === importMessage) note('录像已加入工作区。分析进度见队列，可随时进入复核。');
 }
 async function openReview(id) {
   if (!view.sources.some((item) => item.id === id)) return;
@@ -154,10 +156,21 @@ async function relink(file) {
 function renderQueue() {
   const rows = view.sources.map((saved) => ({ key: saved.id, saved, record: bindings.get(saved.id) }));
   for (const record of queue.records) if (!record.sourceId) rows.push({ key: `runtime:${record.id}`, record });
+  const analyzing = rows.filter(({ record }) => record?.status === 'analyzing').length;
+  const waiting = rows.filter(({ record }) => ['preparing', 'queued'].includes(record?.status)).length;
+  $('queue-count').textContent = `${rows.length} 份录像`;
+  $('queue-summary').textContent = !restoreReady ? '复核记录尚未就绪，请查看保存状态。' : analyzing || waiting
+    ? `${analyzing} 份分析中 · ${waiting} 份待分析`
+    : view.sources.length ? '当前没有正在分析的录像，可进入复核或导入新录像。'
+      : rows.length ? '暂无可复核录像，请重试或导入其他录像。' : '导入录像后自动分析，候选随进度逐步出现。';
   const keys = new Set(rows.map((row) => row.key));
   for (const [key, node] of queueRows) if (!keys.has(key)) { node.remove(); queueRows.delete(key); }
   $('queue').querySelector('.empty')?.remove();
-  if (!rows.length) $('queue').append(element('p', '导入一份或多份录像，开始本地分析。', 'empty'));
+  if (!rows.length) {
+    const empty = element('div', undefined, 'empty');
+    empty.append(element('strong', '把录像拖到这里'), element('span', '也可以点击「导入录像」，一次选择多份文件。'), element('small', '支持 MP4、MKV、WebM、MOV 等录像格式'));
+    $('queue').append(empty);
+  }
   for (const item of rows) {
     let row = queueRows.get(item.key);
     if (!row) {
@@ -176,12 +189,20 @@ function renderQueue() {
     const { record, saved } = item;
     const identity = saved?.identity || record.file;
     const status = record?.status || saved.analysis.status;
+    row.dataset.status = status;
     const duration = saved?.duration || record.duration;
+    const processedUntil = record?.processedUntil ?? saved?.analysis.processedUntil ?? 0;
     const count = saved?.clips.filter((clip) => !clip.provisional).length || 0;
     const info = row.querySelector('.file-info');
     info.replaceChildren(element('strong', identity.name), element('small', `${duration ? time(duration) : '准备媒体信息'} · ${(identity.size / 1048576).toFixed(1)} MiB`));
     const details = row.querySelector('.file-progress');
-    details.replaceChildren(element('span', `${statuses[status]}${!record && saved ? ' · 原录像待关联' : ''}`), element('small', `已分析至 ${time(record?.processedUntil ?? saved?.analysis.processedUntil)}${duration ? ` / ${time(duration)}` : ''} · ${count} 个确定范围`));
+    details.replaceChildren(element('span', `${statuses[status]}${!record && saved ? ' · 原录像待关联' : ''}`, 'file-status'), element('small', `已分析至 ${time(processedUntil)}${duration ? ` / ${time(duration)}` : ''} · ${count} 个确定范围`));
+    const meter = element('progress', undefined, 'file-meter');
+    meter.max = duration > 0 ? duration : 1;
+    meter.value = Math.max(0, Math.min(processedUntil, meter.max));
+    meter.setAttribute('aria-label', `${identity.name} 分析进度`);
+    meter.setAttribute('aria-valuetext', duration > 0 ? `已分析 ${time(processedUntil)}，全片 ${time(duration)}` : '正在准备媒体信息');
+    details.append(meter);
     if (record?.error || saved?.analysis.error) details.append(element('small', record?.error || saved.analysis.error, 'error'));
     if (record?.status === 'analyzing' && record.message) details.append(element('small', record.message));
     const actions = row.querySelector('.file-actions');
@@ -245,10 +266,19 @@ function renderMarkers(saved) {
 function renderRange(saved) {
   const clip = selectedClip(), valid = !!clip && !clip.provisional;
   $('range-label').textContent = clip ? `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} 秒 · ${(clip.end - clip.start).toFixed(2)} 秒` : '选择候选或添加手动范围';
+  const low = Math.min(saved.review.zoomStart, clip?.start ?? saved.review.zoomStart);
+  const high = Math.max(saved.review.zoomEnd, clip?.end ?? saved.review.zoomEnd);
+  const track = $('range-editor').querySelector('.local-range');
+  track.style.setProperty('--range-start', `${valid ? (clip.start - low) / (high - low) * 100 : 0}%`);
+  track.style.setProperty('--range-end', `${valid ? (clip.end - low) / (high - low) * 100 : 0}%`);
+  $('range-view-start').textContent = `${time(low)} · ${low.toFixed(2)} 秒`;
+  $('range-view-end').textContent = `${time(high)} · ${high.toFixed(2)} 秒`;
   for (const key of ['start', 'end']) {
     const field = $(`range-${key}`), handle = $(`range-${key}-handle`);
     field.disabled = handle.disabled = !valid; field.max = saved.duration;
-    handle.min = saved.review.zoomStart; handle.max = saved.review.zoomEnd;
+    handle.min = low; handle.max = high;
+    handle.setAttribute('aria-valuetext', clip ? `${clip[key].toFixed(2)} 秒，${key === 'start' ? '起点' : '终点'}` : '未选择片段');
+    $(`range-${key}-current`).disabled = !valid || (key === 'start' ? saved.review.position >= clip.end : saved.review.position <= clip.start);
     setValue(field, clip ? clip[key].toFixed(2) : ''); setValue(handle, clip ? clip[key] : saved.review.zoomStart);
     setValue($(`zoom-${key}`), saved.review[`zoom${key === 'start' ? 'Start' : 'End'}`].toFixed(2));
   }
@@ -277,7 +307,8 @@ function renderReview() {
   const added = saved.clips.filter((clip) => !clip.provisional).length - (seenCandidates.get(saved.id) || 0);
   $('new-candidates').textContent = added > 0 ? `新增 ${added} 段` : '';
   $('candidate-tail').textContent = analyzing ? '当前候选已到末尾，后续仍在分析。全片可继续浏览。' : '当前候选列表已到末尾。';
-  $('selection-summary').textContent = `已选 ${selected.length} 段 · 共 ${selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2)} 秒${saved.hasUnexportedChanges ? ' · 有选片尚未提交导出' : ''}`;
+  const selectionSummary = `已选 ${selected.length} 段 · 共 ${selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2)} 秒${saved.hasUnexportedChanges ? ' · 有选片尚未提交导出' : ''}`;
+  if ($('selection-summary').textContent !== selectionSummary) $('selection-summary').textContent = selectionSummary;
   $('export').disabled = !record || !selected.length;
   $('recompute').disabled = !(record?.scores || record?.windowScores);
   $('reset-decisions').disabled = !saved.decisions.length;
@@ -286,6 +317,7 @@ function renderReview() {
 }
 function renderExports() {
   const statuses = { 'awaiting-destination': '等待输出目录', queued: '排队中', running: '正在导出', completed: '成片已生成', cancelled: '已取消', failed: '导出失败', interrupted: '已中断，尚未继续执行' };
+  $('export-count').textContent = `${view.batches.length} 个批次`;
   $('export-batches').querySelector('.empty-batches')?.remove();
   if (!view.batches.length && !$('export-batches').children.length) $('export-batches').append(element('p', '尚无导出任务。', 'muted empty-batches'));
   for (const batch of view.batches) {
@@ -333,33 +365,54 @@ function render() {
   $('analysis-page').hidden = currentPage !== 'analysis'; $('review-page').hidden = currentPage !== 'review';
   $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
   $('nav-review').setAttribute('aria-current', currentPage === 'review' ? 'page' : 'false'); $('nav-review').disabled = !view.sources.length;
-  $('files').disabled = !restoreReady; $('demo').disabled = !restoreReady || makingDemo;
+  $('files').disabled = $('import-files').disabled = !restoreReady; $('demo').disabled = !restoreReady || makingDemo;
+  $('drop-zone').setAttribute('aria-disabled', String(!restoreReady || currentPage !== 'analysis'));
+  if (!restoreReady || currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
   renderSave(); renderQueue(); renderSources(); renderReview(); renderExports(); renderDiagnostics();
 }
 
 async function demo() {
   if (makingDemo) return;
-  makingDemo = true; render(); note('正在生成双音轨合成样本…');
+  makingDemo = true; render(); note('正在加载一分钟真实交战样本…');
   try {
-    const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 360; const ctx = canvas.getContext('2d');
-    const output = new MB.Output({ format: new MB.WebMOutputFormat(), target: new MB.BufferTarget() });
-    const video = new MB.CanvasSource(canvas, { codec: 'vp8', bitrate: 600000 });
-    const audio = new MB.AudioBufferSource({ codec: 'opus', bitrate: 64000 }), second = new MB.AudioBufferSource({ codec: 'opus', bitrate: 64000 });
-    output.addVideoTrack(video, { frameRate: 12 }); output.addAudioTrack(audio, { name: '合成脉冲' }); output.addAudioTrack(second, { name: '440 Hz 对照' }); await output.start();
-    const pulse = new AudioBuffer({ numberOfChannels: 1, length: 48000 * 12, sampleRate: 48000 }), tone = new AudioBuffer({ numberOfChannels: 1, length: 48000 * 12, sampleRate: 48000 });
-    let seed = 12345;
-    for (let i = 0; i < pulse.length; i++) { seed = (Math.imul(seed, 1664525) + 1013904223) | 0; const t = i / 48000; pulse.getChannelData(0)[i] = t % 2 < 0.12 ? ((seed >>> 0) / 4294967296 - 0.5) * 0.6 * Math.exp(-30 * (t % 2)) : 0; tone.getChannelData(0)[i] = 0.08 * Math.sin(2 * Math.PI * 440 * t); }
-    await audio.add(pulse); await second.add(tone);
-    for (let i = 0; i < 144; i++) { ctx.fillStyle = '#101b22'; ctx.fillRect(0, 0, 640, 360); ctx.fillStyle = '#afedc9'; ctx.fillRect(30 + (i * 3) % 500, 240, 80, 10); ctx.font = '24px sans-serif'; ctx.fillText('BROWSER / SYNTHETIC SAMPLE', 30, 65); ctx.font = '64px monospace'; ctx.fillText(`${(i / 12).toFixed(2)} s`, 30, 165); await video.add(i / 12, 1 / 12); }
-    video.close(); audio.close(); second.close(); await output.finalize();
-    await importFiles([new File([output.target.buffer], 'browser-synthetic.webm', { type: 'video/webm', lastModified: 1793059200000 })]);
+    const metadata = await fetch('/demo/manifest.json');
+    if (!metadata.ok) throw new Error('真实样本尚未配置或所在磁盘不可用。请使用“导入录像”选择本地交战片段。');
+    const { name, bytes, lastModified } = await metadata.json();
+    if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes >= 100 * 1048576) throw new Error('演示样本需小于 100 MiB；较大录像请使用“导入录像”。');
+    const response = await fetch('/demo/recording.mp4');
+    if (!response.ok) throw new Error('无法读取真实样本，请确认样本所在磁盘已挂载后重试。');
+    const blob = await response.blob();
+    if (blob.size !== bytes) throw new Error('样本文件已变化或读取不完整，请重试。');
+    await importFiles([new File([blob], name, { type: 'video/mp4', lastModified })]);
+    note('已导入一分钟真实交战样本，可随时进入片段复核。');
   } finally { makingDemo = false; render(); }
 }
 
 $('export').onclick = () => safely(submitExport);
 $('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) => { if (error.name !== 'AbortError') note(errorText(error)); }); };
 $('clear-directory').onclick = () => { directoryHandle = null; $('output-directory').textContent = '小批次生成下载链接；大批次直接写入所选目录。'; $('clear-directory').hidden = true; };
+$('import-files').onclick = () => { if (restoreReady) $('files').click(); };
 $('files').onchange = () => { const files = [...$('files').files]; $('files').value = ''; safely(() => importFiles(files)); };
+const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+document.addEventListener('dragover', (event) => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  const canImport = currentPage === 'analysis' && restoreReady && $('drop-zone').contains(event.target);
+  event.dataTransfer.dropEffect = canImport ? 'copy' : 'none';
+  $('drop-zone').classList.toggle('drag-over', canImport);
+});
+$('drop-zone').addEventListener('dragleave', (event) => {
+  if (!$('drop-zone').contains(event.relatedTarget)) $('drop-zone').classList.remove('drag-over');
+});
+document.addEventListener('drop', (event) => {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  $('drop-zone').classList.remove('drag-over');
+  if (currentPage !== 'analysis' || !$('drop-zone').contains(event.target)) return;
+  if (!restoreReady) { note('请先恢复复核记录，再导入录像。'); return; }
+  const files = Array.from(event.dataTransfer.files);
+  if (files.length) safely(() => importFiles(files));
+});
 $('demo').onclick = () => safely(demo);
 $('nav-analysis').onclick = $('back-analysis').onclick = showAnalysis;
 $('nav-review').onclick = () => safely(() => openReview(activeSourceId || view.sources[0].id));
@@ -380,10 +433,29 @@ $('overview').onchange = () => safely(() => seek($('overview').value));
 $('seek-time').onchange = () => safely(() => seek($('seek-time').value));
 $('next-candidate').onclick = () => safely(() => { const saved = source(); const clip = saved.clips.find((item) => !item.provisional && item.start > saved.review.position + 0.01); if (clip) return selectRange(clip); note(saved.analysis.status === 'analyzing' ? '当前候选已到末尾，后续仍在分析。' : '没有后续候选，可继续浏览原片。'); });
 $('manual').onclick = () => safely(() => { const saved = source(), start = Math.min(saved.review.position, Math.max(0, saved.duration - 5)); const id = workspace.addManual(saved.id, { start, end: Math.min(saved.duration, start + 5) }); selectRange(workspace.getSource(saved.id).clips.find((clip) => clip.id === id), false); });
+function trimBoundary(key, value, clamp = false) {
+  const saved = source(), clip = selectedClip();
+  if (!clip || clip.provisional) return;
+  if (value === '' || !Number.isFinite(Number(value))) throw new Error('请输入有效的切点时间');
+  let next = Number(value);
+  if (clamp) {
+    // Keep the opposite edge and playhead fixed, with a minimum gap of one input step.
+    const minimum = key === 'start' ? 0 : Math.min(saved.duration, clip.start + 0.01);
+    const maximum = key === 'start' ? Math.max(0, clip.end - 0.01) : saved.duration;
+    next = Math.max(minimum, Math.min(maximum, next));
+  }
+  workspace.trim(saved.id, clip.id, { start: clip.start, end: clip.end, [key]: next });
+  $(`range-${key}`).value = next.toFixed(2);
+  $(`range-${key}-handle`).value = next;
+}
 for (const key of ['start', 'end']) {
-  const commit = (node) => safely(() => { const clip = selectedClip(); if (!clip) return; try { workspace.trim(activeSourceId, clip.id, { start: clip.start, end: clip.end, [key]: Number(node.value) }); } catch (error) { node.value = clip[key]; throw error; } });
-  $(`range-${key}`).onchange = () => commit($(`range-${key}`));
-  $(`range-${key}-handle`).oninput = () => commit($(`range-${key}-handle`));
+  const commit = (node, clamp) => safely(() => {
+    try { trimBoundary(key, node.value, clamp); }
+    catch (error) { const clip = selectedClip(); node.value = clip ? clip[key] : ''; throw error; }
+  });
+  $(`range-${key}`).onchange = () => commit($(`range-${key}`), false);
+  $(`range-${key}-handle`).oninput = () => commit($(`range-${key}-handle`), true);
+  $(`range-${key}-current`).onclick = () => safely(() => trimBoundary(key, source().review.position));
   $(`zoom-${key}`).onchange = () => safely(() => workspace.setReview(activeSourceId, { [`zoom${key === 'start' ? 'Start' : 'End'}`]: Number($(`zoom-${key}`).value) }));
 }
 $('fit-selection').onclick = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
@@ -394,7 +466,7 @@ $('reset-decisions').onclick = () => { const saved = source(); if (confirm(`重�
 $('analysis-report').onclick = () => { const record = bindings.get(activeSourceId) || queue.records.find((item) => item.status === 'analyzing') || queue.records.at(-1); if (!record) return; const report = { date: new Date().toISOString(), source: { name: record.file.name, bytes: record.file.size, duration: record.duration }, model: record.modelInfo, audioPolicy: record.audioPolicy, status: record.status, windows: record.windows, timings: record.timings, candidates: record.candidates }; const link = element('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })); link.download = 'apex-analysis-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); };
 $('output-format').textContent = `最高 ${outputSettings.height}p ${outputSettings.format.toUpperCase()}（${outputSettings.videoCodec.toUpperCase()} + ${outputSettings.audioCodec}）`;
 $('export-budget').textContent = `${MAX_EXPORT_MEMORY_BYTES / 1048576} MiB`;
-$('capabilities').textContent = `音频解码 ${typeof AudioDecoder !== 'undefined' ? '✓' : '✗'} · 视频解码 ${typeof VideoDecoder !== 'undefined' ? '✓' : '✗'} · 隔离上下文 ${crossOriginIsolated ? '✓' : '✗'}`;
+$('capabilities').textContent = `音频解码${typeof AudioDecoder !== 'undefined' ? '可用' : '不可用'} · 视频解码${typeof VideoDecoder !== 'undefined' ? '可用' : '不可用'} · 隔离上下文${crossOriginIsolated ? '可用' : '不可用'}`;
 window.addEventListener('pagehide', () => { player.pause(); void workspace.flush(); });
 const ready = (async () => {
   restoreReady = await workspace.restore();

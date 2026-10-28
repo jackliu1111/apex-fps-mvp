@@ -8,7 +8,7 @@
 
 对本地录屏离线枪声检测，怎样同时减少环境安装和处理等待？Web 界面、推理位置和打包形式分别选择，避免把网页界面等同于视频上传。
 
-双击 [单文件原型](model-service.prototype.html) 即可使用，无依赖、联网、服务或持久化要求。页面含四条部署路径、耗时计算、模拟任务状态和真实历史枪声候选合并。
+当时的单文件模拟页面含四条部署路径、耗时计算、模拟任务状态和真实历史枪声候选合并。该 HTML 已在 2026-10-28 初版收敛时移除，本文保留方法与结论；[历史源码](https://github.com/jackliu1111/apex-fps-mvp/blob/6e2a81ac94f38fea345fbb614573a8d82a297bf2/docs/design/model-service.prototype.html)仅用于追溯，当前有效实现见 [浏览器工作区](../../model_web_ui/browser.prototype/README.md)。
 
 ## 当前建议及依据
 

@@ -51,7 +51,7 @@
 
 最终选择 4 MiB 块。每个 File 仍同时只执行一个读取，预览最多连续四块后给等待中的分析一次读取机会，每个 Input 仍有 8 MiB 解析缓存和独立取消信号。单次底层读取无法立即中断时，其最大块从 1 MiB 变为 4 MiB；没有引入整片预处理或页面导航暂停分析。
 
-诊断入口为 [verify-player-read-quantum.cjs](../model_web_ui/browser.prototype/diagnostics/verify-player-read-quantum.cjs)。在独立工作区中准备需要比较的 1/2/4 MiB 版本并启动静态服务后，依次运行以下命令；`CHUNK_MIB` 只核对实际服务代码并标记报告，不会修改源码。不同轮次不可并发，需分别使用新报告路径。现有历史报告未记录模块哈希，改为此诊断入口复现时会保存实际读取模块的哈希。
+历史诊断入口为 [verify-player-read-quantum.cjs](https://github.com/jackliu1111/apex-fps-mvp/blob/6e2a81ac94f38fea345fbb614573a8d82a297bf2/model_web_ui/browser.prototype/diagnostics/verify-player-read-quantum.cjs)。该一次性调优脚本已在 2026-10-28 移除，4 MiB 生产实现和下文真实媒体回归工具继续保留；复现以下对照需先在独立工作区检出清理前提交 `6e2a81ac94f38fea345fbb614573a8d82a297bf2`，再准备需要比较的 1/2/4 MiB 版本并启动静态服务后，依次运行以下命令；`CHUNK_MIB` 只核对实际服务代码并标记报告，不会修改源码。不同轮次不可并发，需分别使用新报告路径。现有历史报告未记录模块哈希，改为此诊断入口复现时会保存实际读取模块的哈希。
 
 ```sh
 CHUNK_MIB=4 PLAYWRIGHT_MODULE=/path/to/playwright CHROME_EXECUTABLE=/path/to/chrome \

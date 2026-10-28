@@ -90,6 +90,8 @@ M4A 保留全部 123,723 包和相同的 AAC 负载 SHA-256，但 Mediabunny 首
 
 ## 复现
 
+本节是历史实验方法：2026-10-28 已从当前代码树移除隔离诊断入口，保留本文和全部小型证据。以下命令与 URL 需在清理前提交 `6e2a81ac94f38fea345fbb614573a8d82a297bf2` 的独立工作区运行，查看方式见 [初版收敛记录](initial-release-cleanup.md)。当前产品不提供 `standalone-audio.html`。
+
 从仓库根目录运行。先确认 `/Volumes/EXTERNALUSB` 为真实已挂载、可写且空间足够的外接卷，再新建独立输出目录。脚本拒绝覆盖已有媒体或报告。以下路径中的 `REPLAY-NEW` 必须使用尚未存在的新任务目录；不要向已有实验目录重复写同名文件。
 
 ```sh
@@ -146,4 +148,4 @@ python3 model_web_ui/browser.prototype/diagnostics/compare-audio-results.py \
 | `ffmpeg-from-mka.m4a` | 64,973,268 | 时间轴差异对照 |
 | `mediabunny.mka` | 65,689,632 | 当前固定库的提取写盘对照，保真范围见上文 |
 
-仓库仅保存诊断代码和小型 JSON 证据；原录像未复制、未修改，没有生成整段 PCM 文件。复测和使用上述媒体依赖 `/Volumes/EXTERNALUSB` 挂载。4 份压缩媒体合计 **261,389,942 字节**，4 份包时间轴各 2,969,352 字节，数据总计 **273,267,350 字节**；计入 ExFAT 上 macOS 自动生成的 32 KiB 元数据，目录文件合计 **273,300,118 字节（约 260.64 MiB）**。实际绝对路径和 SHA-256 见 [产物 manifest](../model_web_ui/browser.prototype/evidence/audio-experiment-manifest-20261027.json)，关键数字见 [机器可读摘要](../model_web_ui/browser.prototype/evidence/audio-experiment-summary-20261027.json)。
+仓库仅保存实验文档和小型 JSON 证据，诊断代码已按上述历史提交归档；原录像未复制、未修改，没有生成整段 PCM 文件。复测和使用上述媒体依赖 `/Volumes/EXTERNALUSB` 挂载。4 份压缩媒体合计 **261,389,942 字节**，4 份包时间轴各 2,969,352 字节，数据总计 **273,267,350 字节**；计入 ExFAT 上 macOS 自动生成的 32 KiB 元数据，目录文件合计 **273,300,118 字节（约 260.64 MiB）**。实际绝对路径和 SHA-256 见 [产物 manifest](../model_web_ui/browser.prototype/evidence/audio-experiment-manifest-20261027.json)，关键数字见 [机器可读摘要](../model_web_ui/browser.prototype/evidence/audio-experiment-summary-20261027.json)。

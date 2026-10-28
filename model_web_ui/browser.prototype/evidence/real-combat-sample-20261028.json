@@ -1,0 +1,141 @@
+{
+  "purpose": "Real gameplay demo and workflow validation; not labeled model-quality ground truth",
+  "source": {
+    "path": "/Users/jackliu/Downloads/2026-09-11 20-32-49.mkv",
+    "bytes": 16823282156,
+    "mtimeNs": 1791289307779997737,
+    "media": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 3840,
+          "height": 2160,
+          "avg_frame_rate": "60/1"
+        },
+        {
+          "index": 1,
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "sample_rate": "48000",
+          "channels": 2,
+          "avg_frame_rate": "0/0"
+        }
+      ],
+      "format": {
+        "duration": "1293.950000",
+        "size": "16823282156"
+      }
+    }
+  },
+  "selection": {
+    "startSeconds": 630.0,
+    "endSeconds": 690.0,
+    "audioStream": "0:a:0",
+    "videoStream": "0:v:0",
+    "timelineMapping": {
+      "sampleStartSeconds": 0,
+      "sourceStartSeconds": 630,
+      "sampleEndSeconds": 60,
+      "sourceEndSeconds": 690,
+      "method": "Continuous transcoded interval; sample time + 630 seconds gives requested source time"
+    }
+  },
+  "output": {
+    "path": "/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/apex-combat-60s.mp4",
+    "bytes": 39116353,
+    "sha256": "65cabc4054c5e32f880068030233579079aef4a4c7228c9a5c623d52cc629608",
+    "media": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "index": 0,
+          "codec_name": "h264",
+          "codec_type": "video",
+          "width": 1920,
+          "height": 1080,
+          "avg_frame_rate": "30/1"
+        },
+        {
+          "index": 1,
+          "codec_name": "aac",
+          "codec_type": "audio",
+          "sample_rate": "48000",
+          "channels": 2,
+          "avg_frame_rate": "0/0"
+        }
+      ],
+      "format": {
+        "duration": "60.000000",
+        "size": "39116353"
+      }
+    }
+  },
+  "validation": {
+    "fullAudioVideoDecodePassed": true,
+    "durationSeconds": 60.0
+  },
+  "encoding": {
+    "transcoded": true,
+    "command": [
+      "ffmpeg",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-nostdin",
+      "-n",
+      "-ss",
+      "630.0",
+      "-i",
+      "/Users/jackliu/Downloads/2026-09-11 20-32-49.mkv",
+      "-t",
+      "60",
+      "-map",
+      "0:v:0",
+      "-map",
+      "0:a:0",
+      "-vf",
+      "scale=1920:1080:force_original_aspect_ratio=decrease:force_divisible_by=2,setsar=1,fps=30",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "23",
+      "-maxrate",
+      "5M",
+      "-bufsize",
+      "10M",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      "-ar",
+      "48000",
+      "-ac",
+      "2",
+      "-map_metadata",
+      "-1",
+      "-movflags",
+      "+faststart",
+      "-fs",
+      "94371840",
+      "/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/apex-combat-60s.mp4"
+    ]
+  },
+  "visualReview": {
+    "reviewedOn": "2026-10-28",
+    "method": "Inspected contact sheets from the source interval and a decoded final-output frame",
+    "framePath": "/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/combat-frame-19s.jpg",
+    "sampleTimeSeconds": 19,
+    "sourceTimeSeconds": 649,
+    "observation": "Aiming and firing at an opponent, visible damage number, outgoing muzzle flash, incoming damage indicator; surrounding interval includes movement and shield recovery",
+    "limitation": "Visual spot check, not per-event labels or model accuracy validation"
+  }
+}

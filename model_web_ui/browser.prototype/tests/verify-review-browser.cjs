@@ -13,7 +13,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   try {
     await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:8797/');
     await page.locator('#analysis-page').waitFor({ timeout: 5000 });
-    await page.locator('#demo').click();
+    await page.waitForFunction(() => window.reviewApp);
+    await page.evaluate(async () => {
+      await reviewApp.ready;
+      const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
+      await reviewApp.importFiles([await createSyntheticFile()]);
+    });
     await page.waitForFunction(() => window.reviewApp?.queue.records.some((record) => record.status === 'complete'), null, { timeout: 120000 });
     const result = await page.evaluate(() => {
       const record = reviewApp.queue.records[0];

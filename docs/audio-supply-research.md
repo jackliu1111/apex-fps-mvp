@@ -14,7 +14,7 @@
 
 对之前保存的完整稀疏读取轨迹做范围合并，逻辑上真正需要的范围合计 **68,005,303 字节，分布于 158,368 个不相交区间**。它包含选中音频及必要容器结构，并不等于音频压缩负载。区间间隙中位数约 186.6 KB，说明小范围分散在整个视频中。[离线范围几何证据](../model_web_ui/browser.prototype/evidence/audio-supply-range-geometry-20261027.json)
 
-可用 [analyze-read-trace.py](../model_web_ui/browser.prototype/diagnostics/analyze-read-trace.py) 复算，脚本只读取旧 JSON，不会打开原始媒体。输入旧日志为 `/private/tmp/apex-sparse-full.json`，67,793,444 字节，SHA-256 `bb3da76cdf53df8560127ebfdd28d0b1c4e78e706eea385f2606c3826ee35481`；临时文件可能被系统清理，项目保留了汇总与脚本，未复制这份大日志。分位数使用 `(n - 1) × p` 位置的线性插值。
+当时使用 [analyze-read-trace.py](https://github.com/jackliu1111/apex-fps-mvp/blob/6e2a81ac94f38fea345fbb614573a8d82a297bf2/model_web_ui/browser.prototype/diagnostics/analyze-read-trace.py) 复算，脚本只读取旧 JSON，不会打开原始媒体。实验脚本已在 2026-10-28 移除，复现需使用链接所指的历史提交；当前保留汇总和结论，见 [初版收敛记录](initial-release-cleanup.md)。输入旧日志为 `/private/tmp/apex-sparse-full.json`，67,793,444 字节，SHA-256 `bb3da76cdf53df8560127ebfdd28d0b1c4e78e706eea385f2606c3826ee35481`；临时文件可能被系统清理，项目保留了汇总，未复制这份大日志。分位数使用 `(n - 1) × p` 位置的线性插值。
 
 | 固定对齐页大小 | 覆盖这些范围需触及的唯一页数 | 覆盖字节，十进制 |
 | --- | ---: | ---: |
@@ -28,7 +28,7 @@
 
 这是旧轨迹的**离线几何计算，不是读取耗时，也不是可直接实现的在线算法**：实际解析时后续位置可能尚未知，内存限制还会迫使长区间拆分。它足以降低“调大缓存、合并附近请求就能大幅加速”的预期，不能据此算出最终秒数。
 
-同一份旧 Node 轨迹还保存了每次实际范围读取的耗时：214,927 次调用累计 204.845 秒，其中不超过 4 KiB 的 176,399 次调用累计 **186.266 秒，占约 91%**；这一组的中位数为 0.975 毫秒，p90 为 2.427 毫秒。这是在之前带隐式 128 KiB 合并的实验上统计出来的，不能冒充后来浏览器或无合并版本的延迟。计时包括 buffer 分配和异步文件读取完成，受 OS 缓存影响，不能分解为真实磁盘延迟、文件系统与运行时调度各占多少。不同大小的请求也不是随机分组，不能把它们的均值差直接当成页大小的因果效果。[计时实现](../model_web_ui/browser.prototype/diagnostics/demux.mjs)、[离线统计](../model_web_ui/browser.prototype/evidence/audio-supply-range-geometry-20261027.json)
+同一份旧 Node 轨迹还保存了每次实际范围读取的耗时：214,927 次调用累计 204.845 秒，其中不超过 4 KiB 的 176,399 次调用累计 **186.266 秒，占约 91%**；这一组的中位数为 0.975 毫秒，p90 为 2.427 毫秒。这是在之前带隐式 128 KiB 合并的实验上统计出来的，不能冒充后来浏览器或无合并版本的延迟。计时包括 buffer 分配和异步文件读取完成，受 OS 缓存影响，不能分解为真实磁盘延迟、文件系统与运行时调度各占多少。不同大小的请求也不是随机分组，不能把它们的均值差直接当成页大小的因果效果。[计时实现](https://github.com/jackliu1111/apex-fps-mvp/blob/6e2a81ac94f38fea345fbb614573a8d82a297bf2/model_web_ui/browser.prototype/diagnostics/demux.mjs)、[离线统计](../model_web_ui/browser.prototype/evidence/audio-supply-range-geometry-20261027.json)
 
 这使下一轮重点更明确：**保持相同范围与顺序，先隔离单次访问成本。** 若仍串行执行这份旧轨迹中的 214,927 次读取，想在 60 秒内完成，仅每次调用的平均预算就需低于约 0.279 毫秒，且尚未留出解析和分析时间。这是工作量约束，不是优化结果预测。
 

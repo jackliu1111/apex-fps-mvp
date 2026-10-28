@@ -8,7 +8,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const errors = []; page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:8797/');
     await page.waitForFunction(() => !!window.reviewApp);
-    await page.evaluate(async () => { await reviewApp.ready; await reviewApp.demo(); await reviewApp.queue.whenIdle(); });
+    await page.evaluate(async () => { await reviewApp.ready; const { createSyntheticFile } = await import('./tests/synthetic-media.mjs'); await reviewApp.importFiles([await createSyntheticFile()]); await reviewApp.queue.whenIdle(); });
     const imported = await page.evaluate(async () => {
       const base = reviewApp.queue.records[0].file;
       const good = new File([base], 'healthy-after-error.webm', { lastModified: 1 });

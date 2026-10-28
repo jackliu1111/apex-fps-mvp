@@ -1,0 +1,40 @@
+{
+  "errors": [],
+  "screenshots": [
+    "/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/review-1440.png",
+    "/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/review-768.png",
+    "/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/review-390.png"
+  ],
+  "missingSample": "passed",
+  "analysis": {
+    "name": "apex-combat-60s.mp4",
+    "bytes": 39116353,
+    "windows": 11,
+    "duration": 60,
+    "status": "complete",
+    "model": "efficientat",
+    "candidates": [
+      {
+        "start": 0,
+        "end": 40
+      }
+    ]
+  },
+  "export": {
+    "status": "completed",
+    "ranges": [
+      {
+        "start": 15,
+        "end": 22
+      }
+    ],
+    "outputs": [
+      {
+        "bytes": 1888333,
+        "measuredDuration": 7,
+        "saved": false,
+        "available": true
+      }
+    ]
+  }
+}
