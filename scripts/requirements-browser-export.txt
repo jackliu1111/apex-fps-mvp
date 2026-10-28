@@ -1,0 +1,12 @@
+# Developer-only model asset conversion; not needed to serve or use the browser UI.
+# Known working Python 3.12 environment. Upstream model source/checkpoints are separate.
+# Install into approved storage; these packages and model outputs can exceed 1 GiB.
+torch==2.8.0
+torchaudio==2.8.0
+torchvision==0.23.0
+numpy==1.26.4
+scipy==1.16.2
+soundfile==0.13.1
+pillow==11.3.0
+onnx==1.19.1
+onnxruntime==1.23.2

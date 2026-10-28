@@ -126,7 +126,7 @@ RESULT_PATH=/absolute/path/to/new-export-overlap-report.json \
 - `export-overlap`：真实原片按需播放，同时转换另一处最多 60 秒范围；每 250ms 采样，共 80 次，断言播放帧滞后小于 0.5 秒。如果转换在观察结束前完成，检查读回时长；否则取消转换并将状态明确记为观察后取消。此模式验证 20 秒重叠窗口，不替代完整批次导出验收。
 - 长于 2120 秒的素材使用 05:00、35:00、15:00 定位点；短素材使用其时长的 10%、50%、30%。性能比较必须使用同一原录像和相同运行参数，不能把不同素材结果直接横比。
 
-复现旧路径时，在独立目录恢复基线的静态源文件，并使用另一个端口。模型资产仍复用已有外部目录。以下示例只导出小型静态源码；替换目标路径且不要覆盖已有目录：
+当前回归工具已移除 `legacy-baseline` 模式。复现旧路径时，测试脚本须取自归档提交 `69b637c` 的独立检出目录 `/absolute/path/to/archived-69b637c`；在另一个目录恢复基线的静态源文件，并使用另一个端口。模型资产仍复用已有外部目录。以下示例只导出小型静态源码；替换目标路径且不要覆盖已有目录：
 
 ```sh
 mkdir /absolute/path/to/new-baseline-source
@@ -139,7 +139,7 @@ python3 /absolute/path/to/new-baseline-source/model_web_ui/browser.prototype/ser
 
 REVIEW_BASE_URL=http://127.0.0.1:8793/ \
   RESULT_PATH=/absolute/path/to/new-baseline-report.json \
-  node model_web_ui/browser.prototype/tests/verify-review-media.cjs legacy-baseline
+  node /absolute/path/to/archived-69b637c/model_web_ui/browser.prototype/tests/verify-review-media.cjs legacy-baseline
 ```
 
 旧基线模式只适用于该版本的 `prototypeApi`，先进行三次片段预览，再做两轮完整分析。每轮固定使用第一条音轨，与现有基线证据一致；与新自动音源策略比较时，必须核实两边实际选择的音轨一致。

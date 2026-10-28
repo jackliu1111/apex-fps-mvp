@@ -2,23 +2,31 @@
 
 日期：2026-10-28。
 
-本次保留已经接入实际使用流程的浏览器分析、完整原片播放、选片复核、自动保存与独立导出；从当前代码树移除隔离诊断、未采用的读取实验和早期模拟页面。`model_web_ui/browser.prototype/` 虽沿用历史目录名，其中工作区已是实际实现，不能按 `prototype` 名称整体删除。Python／Electron 入口和回归检查仍保留。
+本记录包含同日两次收敛。第一阶段提交 `69b637c` 保留已接入实际使用流程的浏览器分析、完整原片播放、选片复核、自动保存与独立导出，移除隔离诊断、未采用的读取实验和早期模拟页面，当时仍保留 Python / Electron 双入口。随后用户明确确认主线只保留当前纯浏览器初版，第二阶段将旧双入口整体归档；当前范围以下面的第二阶段说明为准。
+
+`model_web_ui/browser.prototype/` 虽沿用历史目录名，其中工作区已是实际实现，不能按 `prototype` 名称整体删除。
+
+## 第二阶段：主线只保留纯浏览器初版
+
+清理前完整版本保存至 [archive/python-electron-20261028](https://github.com/jackliu1111/apex-fps-mvp/tree/archive/python-electron-20261028)，固定提交为 `69b637cddde2ab4cfe8663e55e2bd295199c8133`。旧 `model_*.py` 服务、旧 `model_web_ui/` 根界面、`desktop/`、移交工具、旧 Python 包配置和对应专属构建测试已从当前代码树移除。旧服务的设计、使用与验收文档也归档，入口及结论见 [Python / Electron 归档说明](archive-python-electron.md)。
+
+主线保留浏览器工作区、两种浏览器模型所需的资产生成工具、真实样本制作工具，以及浏览器模块、交互和真实媒体回归。模型资产导出依赖由 `scripts/requirements-browser-export.txt` 独立记录；它不启动旧分析服务。浏览器相关实验文档、结论及小型证据继续保留；旧服务与桌面的历史测试结果仍可追溯，但不作为当前浏览器初版的验证结果。
 
 ## 保留的实现
 
 - 两种实际可选的音频模型：EfficientAT 与 BEATs，以及开发阶段生成它们所需的 `export_efficientat.py`、`export_model.py` 和运行库下载脚本。
 - 顺序音频解码、渐进候选、独立分析与复核、人工决定保护、固定导出批次、IndexedDB 恢复和最终 4 MiB 共享读取调度。
-- 公开接口测试、浏览器交互与真实媒体回归工具。合成媒体仍用于确定性的音轨、取消和失败场景检查，用户体验样本使用真实交战录像。
+- 浏览器模块公开接口测试、浏览器交互与真实媒体回归工具。合成媒体仍用于确定性的音轨、取消和失败场景检查，用户体验样本使用真实交战录像。
 - 实验说明、结论、JSON 数值报告和截图。清理不删除用户原录像、已有模型、外接盘媒体产物或其他工作区。
 
-## 移除的实验代码与结论
+## 第一阶段移除的实验代码与结论
 
 | 实验 | 移除的代码 | 保留的结论与证据 |
 | --- | --- | --- |
 | 外接盘 MKV 读取诊断、稀疏跳读及 Cluster 并发 | `diagnostics/` 中读取、运行库补丁、包差分与计时脚本和网页，`sparse-audio.prototype.js` | 稀疏读取减少交付字节但该素材耗时更长；Cluster 2/4/8 并发无收益，未作为生产策略。见 [原型验证记录](../model_web_ui/browser.prototype/CAPTURE.md)、[音频供应调研](audio-supply-research.md)及对应 `evidence/` 报告。 |
 | 独立音频提取与分析 | `diagnostics/` 中 standalone-audio 页面、提取与时间轴对照脚本 | 已有 MKA 分析约 12–14 秒；先完整提取再分析约 225–226 秒，未改善首次等待；M4A 时间语义改变模型输入。见 [独立音频实验](independent-audio-experiment.md)。 |
 | 1/2/4 MiB 读取块调优 | `diagnostics/verify-player-read-quantum.cjs` | 最终采用 4 MiB；保留生产读取模块、真实媒体回归和全部比较报告。见 [最终验收](parallel-analysis-review-validation.md)。 |
-| 早期模型部署与任务状态模拟 | `docs/design/model-service.prototype.html` | 只模拟状态和耗时，不运行模型或输出真实视频；保留 [方案原型说明](design/model-service.prototype.md)。 |
+| 早期模型部署与任务状态模拟 | `docs/design/model-service.prototype.html` | 只模拟状态和耗时，不运行模型或输出真实视频；保留 [方案原型说明](https://github.com/jackliu1111/apex-fps-mvp/blob/69b637cddde2ab4cfe8663e55e2bd295199c8133/docs/design/model-service.prototype.md)。 |
 | 暂缓的 QuickLook 卡顿调查 | `scripts/diagnose_copy_avfoundation.swift`、`scripts/diagnose_model_copy_playback.cjs`、`scripts/diagnose_model_native_playback.swift` | 其他播放器正常；已有检查未复现 QuickLook 问题，未确认修复。见 [调查记录](copy-stutter-investigation.md)。 |
 
 `diagnostics/README.md` 保留为历史方法说明，当前不再提供诊断网页入口。实验失败、未验证范围和计时边界随结论保留，不把实验移除解释为问题已修复。
@@ -35,7 +43,9 @@ git show 6e2a81ac94f38fea345fbb614573a8d82a297bf2:model_web_ui/browser.prototype
 
 确需复现实验时，在独立目录检出该提交，按历史报告恢复固定版本依赖和媒体条件。不得把旧实验代码重新覆盖进当前工作区；下载、转换和导出前重新核实外接挂载、空间及输出路径，历史本机存储例外不适用于新产物。
 
-## 本轮合入前验证
+## 第一阶段提交 `69b637c` 前的验证
+
+以下为首次整理时的已执行结果。第二阶段已归档其中旧 Python / Electron 测试与实现，不将这些历史结果重复计为当前浏览器版本的验收。
 
 - 浏览器逻辑回归 46 / 46 通过；桌面与移交 CLI 回归 12 / 12 通过。
 - Python 3.12 及已有推理环境运行 108 项检查，98 项通过、10 项跳过；跳过为 1 项需显式开启的真实 BEATs 和 9 项需 PowerShell 的目标环境检查。本轮没有重新验收 Windows 或真实 BEATs。
@@ -45,3 +55,9 @@ git show 6e2a81ac94f38fea345fbb614573a8d82a297bf2:model_web_ui/browser.prototype
 - `git diff --check`、生产模块引用与文档链接检查通过，未把视频、模型或大型生成物纳入本次提交。
 
 最初调用系统 Python 3.9 时因环境缺少推理测试依赖导致失败；随后改用项目已有 Python 3.12 环境，上述完整回归通过，没有为此改动业务实现。
+
+## 第二阶段纯浏览器主线验证
+
+移除旧宿主后，当前浏览器逻辑 46 / 46 检查通过；`verify-review-browser.cjs`、`verify-review-fixes.cjs` 与 `verify-range-interaction.cjs` 均在真实 Chrome 中通过，覆盖实际模型、解码、导出、持久化及裁剪交互。并行启动多份检查时有两次等待页面初始化超时，独立重跑均通过；未据此更改产品实现或放宽断言。
+
+当前分析 smoke 另已通过真实 Chrome、WebCodecs 和 EfficientAT 双音轨检查；移除旧模式后的 `verify-review-media.cjs storage` 检查通过。生产相对模块引用全部存在，保留的 Python 工具语法检查、文档链接检查及 `git diff --check` 通过。没有重新构建模型、下载大型依赖或重新运行已归档的 Python / Electron 检查。当前模型转换依赖单列为 `scripts/requirements-browser-export.txt`，与静态服务运行无关。

@@ -9,4 +9,6 @@ date: 2026-10-02
 
 这一范围优先验证处理链路和使用便利，接受通用枪声模型暂时无法证明本人开枪、命中或高光语义的限制。后续模型升级应通过适配器统一输出；若目标类别或输入模态改变，仍需调整适配与选片规则并重新评估，而非只替换权重。
 
-服务职责、处理规则和验证边界见 [本地模型服务方案](../design/model-service.md)。
+当时的服务职责、处理规则和验证边界见 [历史本地模型服务方案](https://github.com/jackliu1111/apex-fps-mvp/blob/69b637cddde2ab4cfe8663e55e2bd295199c8133/docs/design/model-service.md)。
+
+2026-10-28 后续范围：音频优先、标注与训练后置的产品决定继续适用；原文的服务端完整预测持久化属于已归档的 Python / Electron 实现。当前主线使用浏览器工作区，分数保留与恢复边界见 [当前说明](../../model_web_ui/browser.prototype/README.md)，旧双入口见 [归档说明](../archive-python-electron.md)。

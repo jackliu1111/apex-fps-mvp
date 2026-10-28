@@ -1,8 +1,8 @@
 // Real WebCodecs + ONNX smoke at the user-confirmed browser-flow seam.
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE || undefined, headless: true });
   try {
     const page = await browser.newPage();
     await page.goto(process.env.ANALYSIS_TEST_URL || 'http://127.0.0.1:8794');

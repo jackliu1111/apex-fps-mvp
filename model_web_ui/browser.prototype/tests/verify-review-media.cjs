@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const mode = process.argv[2] || 'player';
-const modes = new Set(['player', 'concurrent', 'storage', 'export', 'export-overlap', 'legacy-baseline']);
+const modes = new Set(['player', 'concurrent', 'storage', 'export', 'export-overlap']);
 if (!modes.has(mode)) throw new Error(`Unknown mode: ${mode}`);
 const resultPath = process.env.RESULT_PATH;
 if (!resultPath) throw new Error('Set RESULT_PATH to a new JSON output path');
@@ -13,7 +13,7 @@ if (fs.existsSync(resultPath)) throw new Error(`Refusing to replace ${resultPath
 const mediaPath = process.env.MEDIA_PATH;
 if (!['storage', 'export'].includes(mode) && (!mediaPath || !fs.statSync(mediaPath).isFile())) throw new Error('Set MEDIA_PATH to an existing local recording');
 const baseUrl = process.env.REVIEW_BASE_URL || 'http://127.0.0.1:8792/';
-const report = { date: new Date().toISOString(), mode, baseUrl, source: mediaPath || null, baseline: mode === 'legacy-baseline' ? '86f7ef7c536493282a66265996223dc372293126' : undefined, passed: false };
+const report = { date: new Date().toISOString(), mode, baseUrl, source: mediaPath || null, passed: false };
 const targetsFor = (duration) => duration > 2120 ? [300, 2100, 900] : [duration * 0.1, duration * 0.5, duration * 0.3];
 
 function assertPlaybackHealthy(samples) {
@@ -286,34 +286,6 @@ async function exportOverlapRun(page) {
   }
 }
 
-async function baselineRun(page) {
-  report.media = await fixtureFile(page);
-  const [start, far] = targetsFor(report.media.duration);
-  await page.waitForFunction(() => !!window.prototypeApi);
-  await page.evaluate(async () => { await prototypeApi.importFiles([reviewTestFile]); prototypeApi.files[0].selected = 0; });
-  report.previews = []; report.analysis = [];
-  for (const position of [start, far, start]) {
-    report.previews.push(await page.evaluate(async (start) => {
-      const api = window.prototypeApi, file = api.files[0], time = performance.now();
-      const blob = await api.makePreview(file, { start, end: Math.min(start + 5, file.duration) });
-      const conversionMs = performance.now() - time, video = document.querySelector('#player');
-      if (video.readyState < 2) await new Promise((resolve, reject) => {
-        video.addEventListener('loadeddata', resolve, { once: true });
-        video.addEventListener('error', () => reject(new Error('Video decode failed')), { once: true });
-      });
-      return { start, conversionMs, firstFrameMs: performance.now() - time, bytes: blob.size };
-    }, position));
-  }
-  for (let run = 0; run < 2; run++) {
-    const result = await page.evaluate(async () => {
-      const api = window.prototypeApi, file = api.files[0]; file.status = '待分析';
-      await api.run(() => api.analyzeQueue([file]));
-      return { status: file.status, duration: file.duration, windows: file.windows, clips: file.clips.length, timings: file.timings };
-    });
-    report.analysis.push(result); assert.equal(result.status, '完成');
-    console.log(`Baseline run ${run + 1}: ${(result.timings.totalMs / 1000).toFixed(3)} s`);
-  }
-}
 
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE || undefined, headless: true,
@@ -324,8 +296,7 @@ async function baselineRun(page) {
   try {
     await page.goto(baseUrl);
     report.moduleHashes = await page.evaluate(async (mode) => {
-      const files = mode === 'legacy-baseline' ? ['app.js', 'stream-audio.js', 'inference-worker.js']
-        : mode === 'storage' ? ['review-workspace.mjs', 'review-storage.mjs']
+      const files = mode === 'storage' ? ['review-workspace.mjs', 'review-storage.mjs']
         : mode === 'export' ? ['browser-export.mjs', 'export-queue.mjs']
         : mode === 'export-overlap' ? ['browser-export.mjs', 'source-player.mjs', 'media-read-source.mjs']
         : ['source-player.mjs', 'browser-analysis.mjs', 'analysis-queue.mjs', 'stream-audio.js', 'media-read-source.mjs'];
@@ -336,7 +307,7 @@ async function baselineRun(page) {
         return [name, [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join('')];
       })));
     }, mode);
-    await ({ player: playerRun, concurrent: concurrentRun, storage: storageRun, export: exportRun, 'export-overlap': exportOverlapRun, 'legacy-baseline': baselineRun })[mode](page);
+    await ({ player: playerRun, concurrent: concurrentRun, storage: storageRun, export: exportRun, 'export-overlap': exportOverlapRun })[mode](page);
     report.passed = true;
   } catch (error) { report.failure = error.stack || String(error); throw error; }
   finally {

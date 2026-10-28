@@ -1,5 +1,7 @@
 # 纯浏览器选片工作区
 
+当前主分支只保留这套纯浏览器初版。旧 Python / Electron 实现已转入 [历史归档](../../docs/archive-python-electron.md)。
+
 分析队列与片段复核独立推进。媒体解析、播放、模型推理和选片状态处理均在浏览器执行，静态服务不接收录像上传，也不调用 Python 分析服务。实现依据见 [并行分析与复核方案](../../docs/design/parallel-analysis-review.md) 与 [本地任务清单](../../docs/design/parallel-analysis-review.tasks.md)，真实录像、性能代价及双轴审查见[最新验收记录](../../docs/parallel-analysis-review-validation.md)。
 
 ## 启动
@@ -47,7 +49,7 @@ PLAYWRIGHT_MODULE=/path/to/playwright CHROME_EXECUTABLE=/path/to/chrome \
 
 ## 开发阶段重建资产
 
-以下仅是开发者转换和打包步骤，不是网站用户的安装步骤。两个导出器是保留的资产构建工具，主界面仍支持 EfficientAT 和 BEATs。Python 需要既有模型环境和 ONNX 1.19.1、ONNX Runtime 1.23.2；下面只读取此前已有的 `/private/tmp/apex-browser-prototype-20261026/deps`，其他环境须替换为自己的依赖位置。
+以下仅是开发者转换和打包步骤，不是网站用户的安装步骤。开发依赖单独列于 [`scripts/requirements-browser-export.txt`](../../scripts/requirements-browser-export.txt)，不再通过旧 Python 服务的 `pyproject.toml` 安装。两个导出器是保留的资产构建工具，主界面仍支持 EfficientAT 和 BEATs。Python 需要既有模型环境和 ONNX 1.19.1、ONNX Runtime 1.23.2；下面只读取此前已有的 `/private/tmp/apex-browser-prototype-20261026/deps`，其他环境须替换为自己的依赖位置。
 
 BEATs 单文件约 356 MiB，模型、运行库及开发临时空间至少按 1 GiB 预留。先用 `diskutil info /Volumes/EXTERNALUSB` 确认它是真实已挂载的外接卷，再用 `df -h /Volumes/EXTERNALUSB` 检查空间，并确认目录可写及所需权限、符号链接受支持。挂载不可用时停止重建，不能在本机创建同名目录。以下 `NEW-TASK` 必须改成新的任务名，避免覆盖已有资产。
 
@@ -76,7 +78,7 @@ env PYTHONDONTWRITEBYTECODE=1 TMPDIR="$APEX_BUILD_ROOT/tmp" \
 - 当前通过 WASM CPU 运行，未接 WebGPU；并发等待与吞吐以验收记录中的真实测量及其覆盖范围为准。
 - 不读取整份视频进内存。可下载成片的总缓存最多 64 MiB，过期链接明确标记不可用；大批次需选择目录直接写入。流式目录输出已设容量边界，任意浏览器、配额和长时间后台生命周期仍不在验收保证内。
 - 音频重采样和多声道混音由浏览器完成，尚未证明与 FFmpeg 全链路数值一致。模型合成基准对照不能替代真实录像验证。
-- 分析内存中只保留两个枪声类的时间分数，不实现正式服务完整 447 类预测存档或分析断点续算。人工复核记录可独立恢复。
+- 分析内存中只保留两个枪声类的时间分数，不实现已归档 Python 服务的完整 447 类预测存档或分析断点续算。人工复核记录可独立恢复。
 - 格式支持取决于浏览器与 Mediabunny；不支持的解码／编码会显示失败。WebM 重编码不保留原视频质量；声音沿用原片默认音轨，声画边界仍需人工复核。
 - 候选不代表本人开枪、命中或击杀；分析自动音轨策略与默认声音保留规则见上文。
 

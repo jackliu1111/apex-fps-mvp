@@ -4,7 +4,7 @@
 
 ## 当前主线与历史恢复
 
-当前主线仅保留音频模型的 Python Web／Electron 双入口。旧版 Python 终端、Go/CGO、Bun 网页、RMS 音频能量检测、OCR／模板伤害识别，以及对应测试、素材、打包脚本和发布 workflow 已删除。以下范围与检查均描述历史快照，不表示这些实现仍存在于当前主线。
+当前主线仅保留纯浏览器选片初版。此前音频模型的 Python Web／Electron 双入口已于 2026-10-28 [单独归档](archive-python-electron.md)。更早的 Python 终端、Go/CGO、Bun 网页、RMS 音频能量检测、OCR／模板伤害识别，以及对应测试、素材、打包脚本和发布 workflow 已在 version0 清理时删除。以下范围与检查均描述历史快照，不表示这些实现仍存在于当前主线。
 
 - 旧实现：`version0` 标签或 `archive/version0` 分支。
 - 依赖旧 TypeScript 导出器的早期模型原型：提交 `d9f2bbd`；当前主线也已移除其启动与执行脚本，保留设计和基准记录。
