@@ -190,7 +190,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
     updateBatch(id, patch) {
       const batch = batches.find((item) => item.id === id);
       if (!batch) throw new Error('找不到导出批次');
-      if (Object.keys(patch).some((key) => !['status', 'outputs', 'error', 'progress', 'clipResults'].includes(key))) throw new Error('已提交批次的范围和设置不可更改');
+      if (Object.keys(patch).some((key) => !['status', 'outputs', 'error', 'progress', 'clipResults', 'destination'].includes(key))) throw new Error('已提交批次的范围和设置不可更改');
       const statuses = ['awaiting-destination', 'queued', 'running', 'completed', 'failed', 'cancelled', 'interrupted'];
       if (patch.status && !statuses.includes(patch.status)) throw new Error('导出状态无效');
       if (patch.progress !== undefined && (!Number.isFinite(patch.progress) || patch.progress < 0 || patch.progress > 1)) throw new Error('导出进度无效');

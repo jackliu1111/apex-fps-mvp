@@ -1,8 +1,8 @@
-import { MAX_EXPORT_MEMORY_BYTES, exportSettings } from './export-policy.mjs';
+import { MAX_EXPORT_MEMORY_BYTES, sourceExportSettings, exportSettings } from './export-policy.mjs';
 const abortError = () => new DOMException('本批导出已取消', 'AbortError');
 
 /** Position-addressed memory writer; bounds actual encoded bytes, including metadata rewrites. */
-function memoryDestination(limit) {
+function memoryDestination(limit, mimeType) {
   const blockSize = Math.min(256 * 1024, limit);
   const blocks = new Map();
   let size = 0;
@@ -21,14 +21,14 @@ function memoryDestination(limit) {
     blob() {
       const parts = [];
       for (let start = 0; start < size; start += blockSize) parts.push((blocks.get(start / blockSize) || new Uint8Array(blockSize)).subarray(0, Math.min(blockSize, size - start)));
-      return new Blob(parts, { type: 'video/webm' });
+      return new Blob(parts, { type: mimeType });
     },
   };
 }
 
 async function newOutputFile(directory, proposedName) {
   for (let attempt = 0; attempt < 100; attempt++) {
-    const name = attempt ? proposedName.replace(/\.webm$/, `-${attempt}.webm`) : proposedName;
+    const name = attempt ? proposedName.replace(/(\.[^.]+)$/, `-${attempt}$1`) : proposedName;
     try { await directory.getFileHandle(name); continue; }
     catch (error) { if (error.name !== 'NotFoundError') throw error; }
     const handle = await directory.getFileHandle(name, { create: true });
@@ -45,7 +45,8 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() 
     if (!source?.file) throw new Error('原录像暂不可用，请重新关联');
     const limit = Math.floor(Math.min(MAX_EXPORT_MEMORY_BYTES, memoryBudgetBytes));
     if (!(limit > 0) && !source.directoryHandle) throw new Error('下载缓存没有可用空间，请选择输出目录');
-    let name = `${source.file.name.replace(/\.[^.]+$/, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100)}-${String(index + 1).padStart(2, '0')}-${makeId()}.webm`;
+    const format = exportSettings(batch.output).format;
+    let name = `${source.file.name.replace(/\.[^.]+$/, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100)}-${String(index + 1).padStart(2, '0')}-${makeId()}.${format}`;
     const input = new MB.Input({ source: new MB.BlobSource(source.file), formats: MB.ALL_FORMATS });
     let conversion, cancelWork, abortListener, diskFile, diskWriter, diskClosed = false, completed = false;
     try {
@@ -54,7 +55,7 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() 
       const audio = batch.audio?.trackId !== undefined ? tracks.find((track) => track.id === batch.audio.trackId)
         : Number.isInteger(batch.audio?.trackIndex) ? tracks[batch.audio.trackIndex] : await input.getPrimaryAudioTrack();
       if (!video || !audio) throw new Error('提交时指定的声画轨不可用');
-      const destination = source.directoryHandle ? null : memoryDestination(limit);
+      const destination = source.directoryHandle ? null : memoryDestination(limit, `video/${format}`);
       if (source.directoryHandle) {
         diskFile = await newOutputFile(source.directoryHandle, name); name = diskFile.name;
         diskWriter = await diskFile.handle.createWritable();
@@ -75,14 +76,15 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() 
       });
       const target = new MB.StreamTarget(writable, { chunked: true, chunkSize: 256 * 1024 });
       target.onwrite = (_start, end) => { if (!diskWriter && end > limit) throw new Error('成片超出下载缓存预算，请选择输出目录后重新提交'); };
-      const output = new MB.Output({ format: new MB.WebMOutputFormat(), target });
-      const settings = exportSettings(batch.output), origin = source.origin || 0;
+      const output = new MB.Output({ format: format === 'mp4' ? new MB.Mp4OutputFormat({ fastStart: false }) : new MB.WebMOutputFormat(), target });
+      const settings = sourceExportSettings(batch.output, video), origin = source.origin || 0;
+      // Deliberately omit frameRate: preserve source timestamps, including VFR.
       conversion = await MB.Conversion.init({ input, output, trim: { start: origin + clip.start, end: origin + clip.end },
-        video: (track) => track === video ? { codec: settings.videoCodec, width: Math.min(settings.width, track.displayWidth),
-          height: Math.min(settings.height, track.displayHeight), fit: 'contain', bitrate: settings.videoBitrate, forceTranscode: true } : { discard: true },
+        video: (track) => track === video ? { codec: settings.videoCodec, width: settings.width,
+          height: settings.height, fit: 'contain', bitrate: settings.videoBitrate, forceTranscode: true } : { discard: true },
         audio: (track) => track === audio ? { codec: settings.audioCodec, bitrate: settings.audioBitrate, forceTranscode: true } : { discard: true },
       });
-      if (!conversion.isValid || conversion.discardedTracks.some((entry) => entry.track === video || entry.track === audio)) throw new Error('浏览器无法完整导出提交的声画轨');
+      if (!conversion.isValid || conversion.discardedTracks.some((entry) => entry.track === video || entry.track === audio)) throw new Error(`浏览器无法按 ${settings.width}×${settings.height} 和原片帧率完整导出 ${format.toUpperCase()} 声画轨；未降低分辨率或帧率。${format === 'mp4' ? '请改选 WebM，或尝试支持 H.264 + AAC 编码的浏览器。' : '请尝试支持该规格的浏览器。'}`);
       conversion.onProgress = onProgress;
       signal.throwIfAborted();
       // Pinned Mediabunny deliberately leaves execute() pending after cancellation.

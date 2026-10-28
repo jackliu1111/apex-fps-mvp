@@ -1,9 +1,9 @@
-import { MAX_EXPORT_MEMORY_BYTES, MAX_REUSABLE_ARTIFACTS, exportSettings } from './export-policy.mjs';
+import { MAX_EXPORT_MEMORY_BYTES, MAX_REUSABLE_ARTIFACTS, sourceExportSettings, exportSettings } from './export-policy.mjs';
 const copy = (value) => structuredClone(value);
 const freeze = (value) => { for (const child of Object.values(value || {})) if (child && typeof child === 'object') freeze(child); return Object.freeze(value); };
 
 export function estimateExportBytes(batch) {
-  const { videoBitrate: video, audioBitrate: audio } = exportSettings(batch.output);
+  const { videoBitrate: video, audioBitrate: audio } = sourceExportSettings(batch.output, { displayWidth: 3840, displayHeight: 2160 });
   return Math.ceil(batch.clips.reduce((bytes, clip) => bytes + 65536 + (clip.end - clip.start) * (video + audio) / 8 * 1.5, 0));
 }
 

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createBrowserConverter } from '../browser-export.mjs';
 
-function mediaFixture({ hang = false } = {}) {
+function mediaFixture({ hang = false, format = 'webm' } = {}) {
   const selected = [], closed = [];
   const begun = Promise.withResolvers();
   const video = { id: 0, displayWidth: 1920, displayHeight: 1080 };
@@ -16,7 +16,7 @@ function mediaFixture({ hang = false } = {}) {
       async computeDuration() { return 5.02; }
       dispose() { closed.push('input'); }
     },
-    WebMOutputFormat: class {},
+    WebMOutputFormat: class {}, Mp4OutputFormat: class { constructor(options) { assert.equal(options.fastStart, false); } },
     StreamTarget: class { constructor(writable) { this.writable = writable; } },
     Output: class { constructor(options) { Object.assign(this, options); } },
     Conversion: { async init(options) {
@@ -35,7 +35,7 @@ function mediaFixture({ hang = false } = {}) {
     } },
   };
   const convert = createBrowserConverter({ MB, makeId: () => 'unique' });
-  const request = { batch: { id: 'batch', audio: { trackIndex: 1 }, output: {} },
+  const request = { batch: { id: 'batch', audio: { trackIndex: 1 }, output: { format } },
     clip: { start: 10, end: 15 }, source: { file: new File(['source'], 'recording.mkv') }, index: 0,
     signal: new AbortController().signal, memoryBudgetBytes: 10000 };
   return { convert, request, selected, begun, closed };
@@ -114,4 +114,19 @@ test('directory export chooses a fresh name and cancellation cleans only its own
 test('actual encoded bytes cannot exceed the memory budget even when the estimate was smaller', async () => {
   const { convert, request } = mediaFixture(); request.memoryBudgetBytes = 5;
   await assert.rejects(convert(request), /超出下载缓存预算/);
+});
+
+
+test('MP4 uses its own MIME type and avoids overwriting an existing MP4 file', async () => {
+  const { convert, request } = mediaFixture({ format: 'mp4' });
+  const memory = await convert(request);
+  assert.equal(memory.blob.type, 'video/mp4');
+  assert.equal(memory.name, 'recording-01-unique.mp4');
+  const { directory, files } = directoryFixture();
+  files.set(memory.name, new Uint8Array([77]));
+  request.source.directoryHandle = directory;
+  const disk = await convert(request);
+  assert.equal(disk.name, 'recording-01-unique-1.mp4');
+  assert.deepEqual([...files.get(memory.name)], [77]);
+  assert.equal(disk.saved, true);
 });

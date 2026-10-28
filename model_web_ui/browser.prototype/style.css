@@ -291,3 +291,8 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+
+.batch-destination { margin: 8px 0; overflow-wrap: anywhere; }
+.batch-details { margin: 12px 0; }
+.output-details { color: var(--muted); font-size: 12px; }
+.output-details summary { cursor: pointer; }

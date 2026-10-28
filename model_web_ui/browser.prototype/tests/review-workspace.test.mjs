@@ -222,7 +222,7 @@ import { createExportQueue } from '../export-queue.mjs';
 test('partial export outcomes persist through restore while expired download URLs stay unavailable', async () => {
   const storage = memoryStorage(), workspace = setup({ storage });
   for (const start of [10, 20, 30]) workspace.addManual(source.id, { start, end: start + 5 });
-  const batch = workspace.submitBatch(source.id);
+  const batch = workspace.submitBatch(source.id, { output: { width: 640, height: 360, videoBitrate: 2000000 } });
   const queue = createExportQueue({
     onChange: ({ id, waitingReason, ...patch }) => workspace.updateBatch(id, patch),
     convert: async ({ clip }) => {
