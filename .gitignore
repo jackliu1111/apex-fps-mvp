@@ -25,3 +25,8 @@ __pycache__/
 # Local caches and outputs left by the removed version0 implementations.
 /go/
 /typescript/
+
+# Preserve existing local desktop artifacts after archiving the desktop source.
+/desktop/node_modules/
+/desktop/resources/
+/desktop/ui/
