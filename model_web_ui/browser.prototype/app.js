@@ -289,9 +289,13 @@ function renderSources() {
   select.value = activeSourceId || '';
 }
 function selectRange(clip, jump = true) {
-  workspace.setReview(activeSourceId, { selectedClipId: clip.id, ...selectionWindow(source().duration, clip) });
+  const shouldMove = jump && (bindings.has(activeSourceId) || preview);
+  workspace.setReview(activeSourceId, {
+    selectedClipId: clip.id,
+    ...selectionWindow(source().duration, clip),
+    ...(shouldMove ? { position: clip.start } : {}),
+  });
   if (jump && bindings.has(activeSourceId)) return player.seek(clip.start);
-  if (jump && preview) workspace.setReview(activeSourceId, { position: clip.start });
 }
 function renderClips(saved) {
   const clips = saved?.clips || [], keys = new Set(clips.map((clip) => clip.id));
@@ -552,7 +556,7 @@ for (const key of ['start', 'end']) {
   $(`range-${key}-current`).onclick = () => safely(() => trimBoundary(key, source().review.position));
   $(`zoom-${key}`).onchange = () => safely(() => workspace.setReview(activeSourceId, { [`zoom${key === 'start' ? 'Start' : 'End'}`]: Number($(`zoom-${key}`).value) }));
 }
-selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(), report: (error) => note(errorText(error)) });
+selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(), isPlayerBusy: () => loadingSource || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
 $('fit-selection').onclick = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
 $('recompute').onclick = () => safely(() => { const record = bindings.get(activeSourceId); queue.recompute(record.id, Number($('threshold').value)); note('已用已有分数调整筛选，人工裁边和排除决定保留。'); });
 $('retain-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, true));
@@ -578,6 +582,7 @@ window.addEventListener('beforeunload', event => {
 });
 window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
 const ready = Promise.resolve();
+$('import-files').disabled = false;
 render(); note('工作区已就绪', 'quiet');
 window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, demo, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
 

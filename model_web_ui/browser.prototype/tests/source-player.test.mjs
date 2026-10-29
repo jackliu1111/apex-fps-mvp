@@ -148,3 +148,34 @@ test('invalid positioning reports an error without moving the established frame'
   assert.equal(player.state.position, 20);
   await player.dispose();
 });
+
+test('playing after a candidate seek reuses the warm decoder iterator without re-seeking', async () => {
+  const { player, closed, advance } = fixture();
+  await player.load({ file: new Blob(['source']), position: 0 });
+  await player.seek(25);
+  const seeksAfterJump = player.state.metrics.seeks;
+  const closedAfterJump = closed.length;
+  await player.play();
+  assert.equal(player.state.metrics.seeks, seeksAfterJump, 'Play reuses the positioned iterator instead of re-seeking');
+  assert.equal(closed.length, closedAfterJump, 'Warm iterator stays open across seek -> play');
+  await advance(0.2);
+  assert.equal(player.state.playing, true);
+  assert.ok(player.state.position > 25.1);
+  await player.dispose();
+});
+
+test('playing while a candidate seek is still decoding joins the in-flight seek', async () => {
+  const gate = Promise.withResolvers();
+  const { player, drawn } = fixture({ waitForFrame: (timestamp) => timestamp === 42 ? gate.promise : undefined });
+  await player.load({ file: new Blob(['source']), position: 0 });
+  const seeking = player.seek(40);
+  await Promise.resolve(); await Promise.resolve();
+  const seeksDuringJump = player.state.metrics.seeks;
+  const playing = player.play();
+  gate.resolve();
+  await Promise.all([seeking, playing]);
+  assert.equal(player.state.metrics.seeks, seeksDuringJump, 'In-flight seek is not aborted and restarted by play()');
+  assert.equal(player.state.playing, true);
+  assert.deepEqual(drawn, [2, 42]);
+  await player.dispose();
+});

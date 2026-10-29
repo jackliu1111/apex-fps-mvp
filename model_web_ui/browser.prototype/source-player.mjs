@@ -35,6 +35,22 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
     revision++; wantPlay = false; stopPlayback();
     emit({ status: 'error', playing: false, position, error: error.message || String(error) });
   }
+  async function warmNextFrame(ownRevision) {
+    if (videoReading || nextFrame || !videoIterator || state.playing || pendingSeek) return;
+    videoReading = true;
+    const iterator = videoIterator;
+    try {
+      const frame = (await iterator.next()).value;
+      if (ownRevision !== revision || !frame) return;
+      if (state.playing && frame.timestamp - origin <= currentPosition()) draw(frame);
+      else if (!nextFrame) nextFrame = frame;
+    } catch (error) {
+      if (state.playing) fail(error, ownRevision);
+    } finally {
+      videoReading = false;
+      if (ownRevision === revision && state.playing && !nextFrame) void readVideo(ownRevision);
+    }
+  }
   async function readVideo(ownRevision) {
     if (videoReading || nextFrame || !videoIterator) return;
     videoReading = true;
@@ -108,7 +124,8 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
         if (!frame) throw new Error('该位置没有可解码的视频画面');
         draw(frame); state.metrics.lastSeekMs = clock.now() - started;
         emit({ status: 'paused' });
-        startPlayback(ownRevision);
+        if (wantPlay) startPlayback(ownRevision);
+        else void warmNextFrame(ownRevision);
       } catch (error) {
         if (ownRevision !== revision) continue;
         emit({ status: 'error', error: error.message });
@@ -176,12 +193,22 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
       wantPlay = true;
       await audioContext.resume();
       if (!wantPlay || ownRevision !== revision) return player.state;
+      if (seeking && state.position < state.duration) return seeking;
+      if (!pendingSeek && videoIterator && state.position < state.duration && state.actual !== null) {
+        startPlayback(ownRevision);
+        return player.state;
+      }
       return seek(state.position >= state.duration ? 0 : state.position);
     },
     pause() {
       const position = currentPosition();
-      wantPlay = false; revision++; pendingSeek = false; stopPlayback();
-      void videoIterator?.return().catch(() => {});
+      const wasActive = state.playing || seeking || pendingSeek;
+      wantPlay = false;
+      if (wasActive) {
+        revision++; pendingSeek = false; stopPlayback();
+        void videoIterator?.return().catch(() => {});
+        videoIterator = null;
+      }
       emit({ position, target: position, playing: false, status: videoSink ? 'paused' : 'empty' });
       return player.state;
     },
