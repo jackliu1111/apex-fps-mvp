@@ -333,3 +333,21 @@ test('new edits clear redo only for their source; history is bounded and no-op t
   assert.equal(count, 100);
   assert.equal(workspace.getSource('b').clips.length, 1);
 });
+
+test('progressive waveform survives refresh and human edits without dirtying review state', async () => {
+  let snapshot;
+  const storage = { save: async value => { snapshot = value; }, load: async () => snapshot };
+  const workspace = setup({ storage });
+  await workspace.flush();
+  const wave = { version: 1, step: .05, peaks: [0, .5, null], decodedUntil: .1, trackIndex: 0 };
+  workspace.updateWaveform(source.id, wave);
+  wave.peaks[1] = 1;
+  assert.equal(workspace.getSource(source.id).waveform.peaks[1], .5);
+  assert.equal(workspace.view().save.reviewStatus, 'saved');
+  workspace.addManual(source.id, { start: 10, end: 20 });
+  await workspace.flush();
+  const restored = createReviewWorkspace({ storage });
+  await restored.restore();
+  assert.deepEqual(restored.getSource(source.id).waveform, { ...wave, peaks: [0, .5, null] });
+  assert.equal(restored.getSource(source.id).clips.length, 1);
+});

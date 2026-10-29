@@ -81,7 +81,6 @@
               </div>
               <div id="source-axis" class="source-axis">
                 <div id="source-filmstrip" class="source-filmstrip"></div>
-                <canvas id="source-wave" width="960" height="40" aria-label="原片音频峰值"></canvas>
                 <div id="selection-overlay" hidden><button id="selection-left" class="selection-handle" aria-label="调整选片起点"></button><button id="selection-right" class="selection-handle" aria-label="调整选片终点"></button></div>
                 <button id="source-head" role="slider" aria-label="原录像播放位置" aria-orientation="horizontal" title="拖动定位；方向键微调，Shift 加速"></button>
               </div>
@@ -118,6 +117,8 @@
                 <div class="heading-label"><h2 id="clips-heading">预测区间</h2><span id="new-candidates" class="badge" aria-live="polite"></span></div>
                 <p id="candidate-tail" class="muted"></p>
               </div>
+              <p id="waveform-status" class="muted"></p>
+              <canvas id="prediction-wave" width="1440" height="64" role="img" aria-label="分析音轨波形，随分析逐步生成" aria-describedby="waveform-status"></canvas>
               <div id="overview-markers" class="prediction-axis" aria-label="预测区间，点击选择"></div>
               <div id="prediction-ticks" class="axis-ticks"></div>
               <p id="prediction-empty" class="muted"></p>

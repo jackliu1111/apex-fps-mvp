@@ -1,3 +1,4 @@
+import { createAudioPeaks, appendAudioPeaks } from './audio-peaks.mjs';
 import { createAnalysisQueue } from './analysis-queue.mjs';
 import { sequentialAudio } from './stream-audio.js';
 import { createMediaReadSource } from './media-read-source.mjs';
@@ -49,7 +50,7 @@ export async function chooseAudioTracks(input, tracks) {
   throw new Error(`浏览器无法解码录像音轨（${tracks.map((track) => track.codec || '未知编码').join('、')}）`);
 }
 
-export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = () => {}, onPrepared = async () => {} }) {
+export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = () => {}, onPrepared = async () => {}, onWaveform = () => {} }) {
   const metadata = new Map();
   let worker = null, workerModel = null, nextRequest = 0, activeRequest = null;
   function releaseWorker() {
@@ -126,6 +127,8 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
       const metrics = record.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, audioSetupMs: performance.now() - started, audioWaitMs: 0, inferenceRoundTripMs: 0, postprocessAndRenderMs: 0, timingVersion: 3 };
       record.analysisStarted = started; record.windows = 0; record.processedUntil = 0; record.frontier = -Infinity;
       record.scores = null; record.windowScores = null;
+      record.waveform = createAudioPeaks(record.duration, record.selected);
+      onWaveform(record, record.waveform);
       const small = manifest.scoreType === 'window';
       const frameCount = Math.ceil(duration / 0.04), windows = Math.ceil(Math.max(0, duration - 10) / 5) + 1;
       const sums = small ? null : new Float32Array(frameCount * 2), counts = small ? null : new Uint16Array(frameCount);
@@ -140,8 +143,8 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
         if (metrics.firstReviewableMs === undefined && next.some((candidate) => !candidate.provisional)) metrics.firstReviewableMs = performance.now() - started;
       }
       try {
-        stream = sequentialAudio(MB, track, audioOrigin, duration, manifest.sampleRate, check, metrics);
-        const prefetch = () => stream.next().then((value) => ({ value }), (error) => ({ error }));
+        stream = sequentialAudio(MB, track, audioOrigin, duration, manifest.sampleRate, check, metrics, (block) => appendAudioPeaks(record.waveform, block, record.origin, record.duration));
+        const prefetch = () => stream.next().then((value) => { onWaveform(record, record.waveform); return { value }; }, (error) => { onWaveform(record, record.waveform); return { error }; });
         ahead = prefetch();
         for (let index = 0; index < windows; index++) {
           check(); progress({ message: `正在分析第 ${index + 1} / ${windows} 个窗口`, totalWindows: windows });

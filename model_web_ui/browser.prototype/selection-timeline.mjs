@@ -1,3 +1,4 @@
+import { waveformColumns } from './audio-peaks.mjs';
 import { createSelectionEvidence } from './selection-evidence.mjs';
 
 export function selectionWindow(duration, { start, end }) {
@@ -17,10 +18,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     $('source-filmstrip').replaceChildren(...frames.map((frame) => {
       const image = document.createElement('img'); image.src = frame.image; image.alt = '原片参考画面'; return image;
     }));
-    const canvas = $('source-wave'), context = canvas.getContext('2d');
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = '#b4b4b4';
-    result.peaks?.forEach((peak, i) => { const h = Math.min(1, peak) * 38; context.fillRect(i * 2, (40 - h) / 2, 1, h); });
     $('evidence-status').textContent = result.status;
   } });
   const run = (fn) => { try { Promise.resolve(fn()).catch(report); } catch (error) { report(error); } };
@@ -63,6 +60,21 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (!source) return;
     if (sourceId !== source.id) { drag = null; overviewTarget = null; sourceId = source.id; predictionStart = 0; predictionEnd = source.duration; }
     paintSelection(source);
+    const wave = source.waveform;
+    const canvas = $('prediction-wave'), context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    const columns = waveformColumns(wave, predictionStart, predictionEnd, canvas.width);
+    context.fillStyle = '#b4b4b4';
+    columns.forEach((peak, x) => {
+      if (peak === null) return;
+      const height = Math.max(1, Math.sqrt(peak) * (canvas.height - 8));
+      context.fillRect(x, (canvas.height - height) / 2, 1, height);
+    });
+    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
+    const track = wave ? `音轨 ${wave.trackIndex + 1}` : '';
+    $('waveform-status').textContent = wave?.decodedUntil > 0
+      ? `分析音频波形 · ${track} · 已读取至 ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}`
+      : source.analysis.status === 'completed' ? '此录像尚无已保存波形，重新分析后生成。' : '音频波形将随分析逐步出现。';
     const [low, high] = windowFor(source);
     $('source-fit').disabled = low === 0 && high === source.duration;
     ticks($('source-ticks'), low, high); ticks($('prediction-ticks'), predictionStart, predictionEnd);

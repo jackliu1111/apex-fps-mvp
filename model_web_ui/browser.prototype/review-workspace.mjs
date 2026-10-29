@@ -180,6 +180,11 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       source.review = copy(next);
       changed(!background || Object.keys(patch).some((key) => key !== 'position'));
     },
+    updateWaveform(id, waveform) {
+      const source = requireSource(id);
+      source.waveform = copy(waveform);
+      changed(false);
+    },
     updateAnalysis(id, patch) {
       const source = requireSource(id);
       if (Object.keys(patch).some((key) => !['status', 'processedUntil', 'error'].includes(key))) throw new Error('分析状态字段无效');

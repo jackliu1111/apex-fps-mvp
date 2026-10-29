@@ -42,6 +42,7 @@ function renderSave() {
 }
 const workspace = createReviewWorkspace({ storage: createIndexedDBStorage(), onChange(next) { view = next; render(); } });
 const queue = createBrowserAnalysis({ MB,
+  onWaveform(record, waveform) { if (record.sourceId) workspace.updateWaveform(record.sourceId, waveform); },
   async onPrepared(record) {
     const identity = identified.get(record.file) || await identifyFile(record.file);
     record.sourceId = workspace.addSource({ ...identity, duration: record.duration });

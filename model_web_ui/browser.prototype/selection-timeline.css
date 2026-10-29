@@ -155,7 +155,7 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
 
 .source-axis {
   position: relative;
-  height: 104px;
+  height: 66px;
   margin: 0 12px;
   background: #000000;
   border: 1px solid var(--border);
@@ -175,9 +175,9 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
   object-fit: cover;
   border-right: 1px solid #1a1a18;
 }
-#source-wave {
+#prediction-wave {
   display: block;
-  height: 38px;
+  height: 64px;
   width: 100%;
   background: #181818;
 }
@@ -503,10 +503,12 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
   #review-page .player-frame { height: 210px; }
   #review-page .player-controls { padding: 8px 12px; }
   #selection-player-axis { padding: 10px 12px; }
-  .source-axis { height: 86px; }
+  .source-axis { height: 48px; }
   .source-filmstrip, .source-filmstrip img { height: 46px; }
   .prediction-tools, .prediction-track-box, #review-page .selection-actions,
   #review-page .selection-details, #review-page .filter-settings { padding-inline: 12px; }
   .selection-export-controls { width: 100%; }
   #review-page #export { width: 100%; }
 }
+
+#waveform-status { margin: 0 0 8px; font-size: 12px; }

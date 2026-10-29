@@ -1,6 +1,6 @@
 // One decoder iterator, bounded source blocks and reusable five-second mono hops.
 // OfflineAudioContext retains browser channel mixing and band-limited resampling.
-export function sequentialAudio(MB, track, origin, duration, rate, check, metrics) {
+export function sequentialAudio(MB, track, origin, duration, rate, check, metrics, onDecoded = () => {}) {
   const iterator = new MB.AudioBufferSink(track).buffers(origin, origin + duration)[Symbol.asyncIterator]();
   const hop = rate * 5, halo = Math.round(rate * 0.04);
   let blocks = [], done = false, closed = false, index = 0, previous;
@@ -21,7 +21,7 @@ export function sequentialAudio(MB, track, origin, duration, rate, check, metric
       metrics.sourceDecodeWaitMs += performance.now() - readStarted;
       check();
       done = result.done;
-      if (!done) blocks.push(result.value);
+      if (!done) { onDecoded(result.value); blocks.push(result.value); }
     }
     metrics.maxSourceBufferSeconds = Math.max(metrics.maxSourceBufferSeconds, blocks.reduce((n, b) => n + b.buffer.duration, 0));
     const rendered = await renderContinuous(blocks, origin + from, to - from, rate, metrics);

@@ -17,7 +17,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     await page.evaluate(() => reviewApp.workspace.publishCandidates(reviewApp.activeSourceId, [{ id: 'one', start: 2, end: 5 }, { id: 'two', start: 8, end: 10 }]));
     await page.locator('#overview-markers button').first().click();
-    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent.includes('波形为原片'));
+    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent === '原片参考画面');
     const state = () => page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId));
     const before = await state();
     assert.equal(await page.locator('.legacy-position, #seek-time').count(), 0);
@@ -37,7 +37,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       }
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    const evidence = () => page.evaluate(() => ({ frames: document.querySelector('#source-filmstrip').innerHTML, wave: document.querySelector('#source-wave').toDataURL() }));
+    const evidence = () => page.evaluate(() => ({ frames: document.querySelector('#source-filmstrip').innerHTML, wave: document.querySelector('#prediction-wave').toDataURL() }));
     const beforeEvidence = await evidence();
     const left = await page.locator('#selection-left').boundingBox();
     await page.mouse.move(left.x + left.width / 2, left.y + 20); await page.mouse.down();
@@ -63,7 +63,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.locator('#overview-markers .excluded').click();
     assert.ok((await state()).decisions.every(d => d.kind !== 'exclude'));
     await page.locator('#overview-markers button').first().click();
-    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent.includes('波形为原片'));
+    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent === '原片参考画面');
     const cancelBefore = (await state()).decisions;
     const handle = await page.locator('#selection-right').boundingBox();
     await page.mouse.move(handle.x + 10, handle.y + 20); await page.mouse.down(); await page.mouse.move(handle.x - 45, handle.y + 20);
@@ -142,6 +142,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.evaluate(() => reviewApp.workspace.flush()); await page.reload(); await page.waitForFunction(() => window.reviewApp);
     await page.evaluate(() => reviewApp.ready);
     assert.equal(await page.locator('#undo-selection').isEnabled(), true);
+    assert.ok(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform.peaks.some(v => v > 0)));
+    assert.equal(await page.locator('#prediction-workspace #prediction-wave').isVisible(), true);
     await page.locator('#undo-selection').click();
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 1000 });
