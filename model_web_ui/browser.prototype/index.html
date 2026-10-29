@@ -73,7 +73,7 @@
         <div class="preview">
           <section class="panel player-panel" aria-label="原片播放与时间轴">
             <div class="player-frame"><canvas id="source-canvas" width="1280" height="720" aria-label="原录像画面"></canvas><p id="player-status" role="status">选择录像开始复核</p></div>
-            <div class="row player-controls"><button id="play-pause" disabled>播放</button><span id="playback-time" class="playback-time"></span><button id="next-candidate" class="quiet">下一候选 →</button></div>
+            <div class="row player-controls"><button id="play-pause" disabled>播放</button><span id="playback-time" class="playback-time"></span><div class="row candidate-nav"><button id="prev-candidate" class="quiet" disabled title="上一候选 ([)">← 上一候选</button><button id="next-candidate" class="quiet" title="下一候选 (])">下一候选 →</button></div></div>
             <div id="selection-player-axis" tabindex="0" aria-label="原片时间轴工作区">
               <div class="panel-heading">
                 <div class="heading-label"><h2>原片时间轴</h2><span id="evidence-status" class="muted" role="status"></span></div>
@@ -110,7 +110,7 @@
           <div id="prediction-workspace" tabindex="0" aria-label="预测区间工作区">
             <div class="prediction-tools">
               <div class="prediction-tools-left"><button id="exclude-selection">排除选中 · Del</button><button id="undo-selection">撤销</button><button id="redo-selection">重做</button><label><input id="show-excluded" type="checkbox"> 显示已排除</label></div>
-              <div class="prediction-tools-right"><button id="prediction-prev" aria-label="预测视野向前">←</button><button id="prediction-zoom">放大</button><button id="prediction-fit">全片</button><button id="prediction-next" aria-label="预测视野向后">→</button></div>
+              <div class="prediction-tools-right"><span id="prediction-window" class="muted"></span><button id="prediction-prev" aria-label="预测视野向前">←</button><button id="prediction-zoom-out" aria-label="缩小预测视野">缩小</button><button id="prediction-zoom">放大</button><button id="prediction-fit">全片</button><button id="prediction-next" aria-label="预测视野向后">→</button></div>
             </div>
             <div class="prediction-track-box">
               <div class="panel-heading prediction-heading">
@@ -118,8 +118,12 @@
                 <p id="candidate-tail" class="muted"></p>
               </div>
               <p id="waveform-status" class="muted"></p>
-              <canvas id="prediction-wave" width="1440" height="64" role="img" aria-label="分析音轨波形，随分析逐步生成" aria-describedby="waveform-status"></canvas>
-              <div id="overview-markers" class="prediction-axis" aria-label="预测区间，点击选择"></div>
+              <div class="prediction-shared-axis">
+                <canvas id="prediction-wave" width="1440" height="64" role="img" aria-label="分析音轨波形，随分析逐步生成" aria-describedby="waveform-status"></canvas>
+                <div id="prediction-source-window" aria-hidden="true" hidden></div>
+                <div id="overview-markers" class="prediction-axis" aria-label="预测区间，点击选择"></div>
+                <div id="prediction-playhead" aria-hidden="true" hidden></div>
+              </div>
               <div id="prediction-ticks" class="axis-ticks"></div>
               <p id="prediction-empty" class="muted"></p>
             </div>

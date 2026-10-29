@@ -1,3 +1,4 @@
+import { preview, previewStorage, mountReviewPreview, renderReviewPreview } from './review-preview.mjs';
 import { createSelectionTimeline, selectionWindow } from './selection-timeline.mjs';
 import { batchSummary, justCompleted, taskFeedback, createFrameSignal } from './task-feedback.mjs';
 import * as MB from '/assets/vendor/mediabunny.mjs';
@@ -29,6 +30,7 @@ const element = (tag, text, className) => { const node = document.createElement(
 const button = (text, action) => { const node = element('button', text); node.onclick = () => safely(action); return node; };
 const setValue = (node, value) => { if (document.activeElement !== node) node.value = value; };
 function rememberNavigation() {
+  if (preview) return;
   try { localStorage.setItem('apex-review-navigation-v1', JSON.stringify({ sourceId: activeSourceId, page: currentPage })); navigationError = null; }
   catch (error) { navigationError = errorText(error); }
   renderSave();
@@ -40,7 +42,7 @@ function renderSave() {
   $('save-state').classList.toggle('error', view.save.status === 'error' || !!navigationError);
   $('retry-save').hidden = view.save.status !== 'error' && !navigationError;
 }
-const workspace = createReviewWorkspace({ storage: createIndexedDBStorage(), onChange(next) { view = next; render(); } });
+const workspace = createReviewWorkspace({ storage: preview ? previewStorage : createIndexedDBStorage(), onChange(next) { view = next; render(); } });
 const queue = createBrowserAnalysis({ MB,
   onWaveform(record, waveform) { if (record.sourceId) workspace.updateWaveform(record.sourceId, waveform); },
   async onPrepared(record) {
@@ -263,6 +265,7 @@ function renderSources() {
 function selectRange(clip, jump = true) {
   workspace.setReview(activeSourceId, { selectedClipId: clip.id, ...selectionWindow(source().duration, clip) });
   if (jump && bindings.has(activeSourceId)) return player.seek(clip.start);
+  if (jump && preview) workspace.setReview(activeSourceId, { position: clip.start });
 }
 function renderClips(saved) {
   const clips = saved?.clips || [], keys = new Set(clips.map((clip) => clip.id));
@@ -284,6 +287,7 @@ function renderClips(saved) {
     row.querySelector('.clip-selected').setAttribute('aria-label', `选择 ${time(clip.start)} 至 ${time(clip.end)}`);
     row.querySelector('.clip-title').textContent = `${time(clip.start)}—${time(clip.end)} · ${clip.provisional ? '后续正在补全' : clip.supplemental ? '补充建议 · 与人工决定重叠' : clip.manual ? '人工选片' : '可复核候选'}`;
     row.classList.toggle('selected-range', saved.review.selectedClipId === clip.id);
+    row.querySelector('.clip-jump').textContent = saved.review.selectedClipId === clip.id ? '当前编辑' : '定位与调整';
     row.classList.toggle('supplemental', clip.supplemental);
     row.querySelectorAll('input,button').forEach((node) => { node.disabled = clip.provisional; });
   }
@@ -320,7 +324,11 @@ function renderPlayer() {
   $('play-pause').textContent = playerState.playing ? '暂停' : '播放';
   const position = playerSourceId === saved.id ? playerState.position : saved.review.position;
   $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && playerSourceId === saved.id ? ` · 画面 ${time(playerState.actual)}` : ''}`;
+  const stable = saved.clips.filter((item) => !item.provisional);
+  $('prev-candidate').disabled = !stable.some((item) => item.start < position - 0.01);
+  $('next-candidate').disabled = !stable.some((item) => item.start > position + 0.01) && saved.analysis.status !== 'analyzing';
   $('player-status').textContent = !bound ? '关联原录像后加载画面' : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? '正在准备该位置…' : playerState.status === 'error' ? playerState.error : '';
+  renderReviewPreview(saved, bound);
 }
 function renderReview() {
   const saved = source();
@@ -498,7 +506,19 @@ async function seek(value) {
   workspace.setReview(saved.id, { position });
   if (bindings.has(saved.id)) await player.seek(position);
 }
-$('next-candidate').onclick = () => safely(() => { const saved = source(); const clip = saved.clips.find((item) => !item.provisional && item.start > saved.review.position + 0.01); if (clip) return selectRange(clip); note(saved.analysis.status === 'analyzing' ? '当前候选已到末尾，后续仍在分析。' : '没有后续候选，可继续浏览原片。'); });
+function stepCandidate(direction) {
+  const saved = source(); if (!saved) return;
+  const position = playerSourceId === saved.id ? playerState.position : saved.review.position;
+  const stable = saved.clips.filter((item) => !item.provisional);
+  const clip = direction < 0
+    ? [...stable].reverse().find((item) => item.start < position - 0.01)
+    : stable.find((item) => item.start > position + 0.01);
+  if (clip) return selectRange(clip);
+  if (direction < 0) note('没有更早的候选，可继续浏览原片。');
+  else note(saved.analysis.status === 'analyzing' ? '当前候选已到末尾，后续仍在分析。' : '没有后续候选，可继续浏览原片。');
+}
+$('prev-candidate').onclick = () => safely(() => stepCandidate(-1));
+$('next-candidate').onclick = () => safely(() => stepCandidate(1));
 $('manual').onclick = () => safely(() => { const saved = source(), start = Math.min(saved.review.position, Math.max(0, saved.duration - 5)); const id = workspace.addManual(saved.id, { start, end: Math.min(saved.duration, start + 5) }); selectRange(workspace.getSource(saved.id).clips.find((clip) => clip.id === id), false); });
 function trimBoundary(key, value, clamp = false) {
   const saved = source(), clip = selectedClip();
@@ -543,7 +563,9 @@ window.addEventListener('pagehide', () => { player.pause(); void workspace.flush
 const ready = (async () => {
   restoreReady = await workspace.restore();
   if (restoreReady) for (const saved of workspace.view().sources) workspace.mergeCandidates(saved.id);
-  try { const navigation = JSON.parse(localStorage.getItem('apex-review-navigation-v1') || 'null'); if (navigation?.page === 'exports') currentPage = 'exports'; if (navigation && view.sources.some((item) => item.id === navigation.sourceId)) { activeSourceId = navigation.sourceId; if (navigation.page === 'review') currentPage = 'review'; } } catch (error) { navigationError = errorText(error); }
+  try { const navigation = JSON.parse(preview ? 'null' : localStorage.getItem('apex-review-navigation-v1') || 'null'); if (navigation?.page === 'exports') currentPage = 'exports'; if (navigation && view.sources.some((item) => item.id === navigation.sourceId)) { activeSourceId = navigation.sourceId; if (navigation.page === 'review') currentPage = 'review'; } } catch (error) { navigationError = errorText(error); }
   render(); note(restoreReady ? '工作区已就绪' : '无法恢复已有复核记录，请重试；原记录没有被覆盖。', restoreReady ? 'quiet' : 'error');
 })();
 window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, demo, openReview, showAnalysis, ready, bindings, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
+
+if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));

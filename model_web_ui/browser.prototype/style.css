@@ -146,7 +146,7 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
 #player-status:empty { display: none; }
 .player-controls { margin-top: 10px; gap: 8px; }
 .playback-time { font-size: 13px; color: var(--muted); }
-#next-candidate { margin-left: auto; }
+.candidate-nav { margin-left: auto; }
 #range-editor .panel-heading { margin-bottom: 6px; }
 .range-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin: 14px 0; }
 .range-fields input { width: 100%; }
@@ -262,7 +262,7 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   .player-panel { padding: 12px; }
   .player-controls { gap: 8px; }
   .playback-time { order: 3; width: 100%; }
-  #next-candidate { font-size: 13px; }
+  :is(#prev-candidate, #next-candidate) { font-size: 13px; }
   input[type="range"] { min-height: 28px; }
   .clip button { min-height: 44px; }
   .clip-toolbar button { min-height: 44px; }

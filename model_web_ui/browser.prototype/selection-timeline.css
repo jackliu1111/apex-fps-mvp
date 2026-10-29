@@ -109,7 +109,10 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
   font-size: 13px;
   font-weight: 500;
 }
-#review-page #next-candidate {
+#review-page .candidate-nav {
+  gap: 6px;
+}
+#review-page :is(#prev-candidate, #next-candidate) {
   margin-left: 0;
   min-height: 28px;
   padding: 4px 10px;
@@ -397,7 +400,7 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
   border-style: dashed;
 }
 .prediction-track-box .axis-ticks {
-  margin: 6px 0 0;
+  margin: 6px 12px 0;
 }
 #prediction-empty {
   margin-top: 6px;
@@ -511,4 +514,52 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
   #review-page #export { width: 100%; }
 }
 
-#waveform-status { margin: 0 0 8px; font-size: 12px; }
+#waveform-status { margin: 0 12px 8px; font-size: 12px; }
+#prediction-window { font-size: 12px; margin-right: 4px; }
+
+/* One time coordinate space: immutable amplitude evidence beneath decisions. */
+.prediction-shared-axis { position: relative; height: 64px; margin: 0 12px; background: #181818; }
+.prediction-shared-axis #prediction-wave { position: absolute; inset: 0; opacity: 0.72; pointer-events: none; }
+#prediction-source-window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-inline: 1px dashed rgba(245, 245, 245, 0.45);
+  background: rgba(245, 245, 245, 0.05);
+  pointer-events: none;
+  z-index: 1;
+}
+#prediction-playhead {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--text);
+  opacity: 0.85;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 3;
+}
+.prediction-shared-axis .prediction-axis { position: absolute; inset: 0; height: 64px; background: transparent; border: 0; }
+.prediction-shared-axis .prediction-axis button {
+  top: 0; height: 64px;
+  background: rgba(166,166,156,.18);
+  border: 2px solid #949987;
+  border-top: 4px solid #abb58c;
+  color: #fff;
+}
+.prediction-shared-axis .prediction-axis button[aria-pressed=true] {
+  background: rgba(198,242,78,.32);
+  border-color: var(--accent);
+  border-inline-width: 4px;
+  border-top-width: 6px;
+  color: #fff;
+}
+.prediction-shared-axis .prediction-axis button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -7px;
+}
+.prediction-shared-axis .prediction-axis button.excluded {
+  background: rgba(0,0,0,.15);
+  border: 2px dashed #57564f;
+}

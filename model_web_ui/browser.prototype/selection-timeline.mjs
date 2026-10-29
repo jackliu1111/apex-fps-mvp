@@ -55,6 +55,17 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     $('overview').value = overviewPosition;
     $('overview').setAttribute('aria-valuetext', `${overviewPosition.toFixed(2)} 秒 / ${source.duration.toFixed(2)} 秒`);
     $('overview-position').textContent = `${stamp(overviewPosition)} / ${stamp(source.duration)}`;
+    const span = predictionEnd - predictionStart;
+    const zoomed = (low > 1e-3 || high < source.duration - 1e-3) && high > predictionStart && low < predictionEnd && span > 0;
+    $('prediction-source-window').hidden = !zoomed;
+    if (zoomed) {
+      const winStart = Math.max(low, predictionStart), winEnd = Math.min(high, predictionEnd);
+      $('prediction-source-window').style.left = `${(winStart - predictionStart) / span * 100}%`;
+      $('prediction-source-window').style.width = `${(winEnd - winStart) / span * 100}%`;
+    }
+    const headVisible = span > 0 && overviewPosition >= predictionStart && overviewPosition <= predictionEnd;
+    $('prediction-playhead').hidden = !headVisible;
+    if (headVisible) $('prediction-playhead').style.left = `${(overviewPosition - predictionStart) / span * 100}%`;
   }
   function render(source) {
     if (!source) return;
@@ -68,7 +79,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     columns.forEach((peak, x) => {
       if (peak === null) return;
       const height = Math.max(1, Math.sqrt(peak) * (canvas.height - 8));
-      context.fillRect(x, (canvas.height - height) / 2, 1, height);
+      context.fillRect(x, canvas.height - height, 1, height);
     });
     canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
     const track = wave ? `音轨 ${wave.trackIndex + 1}` : '';
@@ -77,6 +88,13 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       : source.analysis.status === 'completed' ? '此录像尚无已保存波形，重新分析后生成。' : '音频波形将随分析逐步出现。';
     const [low, high] = windowFor(source);
     $('source-fit').disabled = low === 0 && high === source.duration;
+    const fullPrediction = predictionStart <= 1e-6 && predictionEnd >= source.duration - 1e-6;
+    $('prediction-window').textContent = fullPrediction ? '全片视野' : `局部 · ${stamp(predictionStart)} — ${stamp(predictionEnd)}`;
+    $('prediction-fit').disabled = fullPrediction;
+    $('prediction-zoom-out').disabled = fullPrediction;
+    $('prediction-zoom').disabled = predictionEnd - predictionStart <= Math.min(source.duration, 1) + 1e-6;
+    $('prediction-prev').disabled = predictionStart <= 1e-6;
+    $('prediction-next').disabled = predictionEnd >= source.duration - 1e-6;
     ticks($('source-ticks'), low, high); ticks($('prediction-ticks'), predictionStart, predictionEnd);
     const record = getRecord(source.id), key = `${source.id}:${!!record}:${low}:${high}`;
     if (evidenceKey !== key) { evidenceKey = key; evidence.request(record, low, high); }
@@ -150,6 +168,10 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     }
     if (!frames.length) return;
     const target = xTime(event, source), frame = frames.reduce((best, next) => Math.abs(next.time - target) < Math.abs(best.time - target) ? next : best);
+    const hostBox = $('selection-player-axis').getBoundingClientRect(), hoverWidth = $('source-hover').offsetWidth || 180;
+    const hoverLeft = Math.max(16, Math.min(Math.max(16, hostBox.width - hoverWidth - 16), event.clientX - hostBox.left - hoverWidth / 2));
+    $('source-hover').style.left = `${hoverLeft}px`;
+    $('source-hover').style.right = 'auto';
     $('source-hover').hidden = false; $('source-hover').querySelector('img').src = frame.image; $('source-hover').querySelector('span').textContent = '原片参考画面';
   };
   axis.onpointerleave = () => { $('source-hover').hidden = true; };
@@ -173,6 +195,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   }
   $('prediction-fit').onclick = () => predictionWindow(0, getSource().duration);
   $('prediction-zoom').onclick = () => { const length = (predictionEnd - predictionStart) / 2, clip = clipFor(getSource()), center = clip ? (clip.start + clip.end) / 2 : (predictionStart + predictionEnd) / 2; predictionWindow(center - length / 2, length); };
+  $('prediction-zoom-out').onclick = () => { const length = (predictionEnd - predictionStart) * 2, clip = clipFor(getSource()), center = clip ? (clip.start + clip.end) / 2 : (predictionStart + predictionEnd) / 2; predictionWindow(center - length / 2, length); };
   $('prediction-prev').onclick = () => predictionWindow(predictionStart - (predictionEnd - predictionStart) * 0.7, predictionEnd - predictionStart);
   $('prediction-next').onclick = () => predictionWindow(predictionStart + (predictionEnd - predictionStart) * 0.7, predictionEnd - predictionStart);
   const keydown = (event) => {
@@ -182,6 +205,15 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (drag) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); run(() => workspace[event.shiftKey ? 'redo' : 'undo'](source.id)); }
     else if (['Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); run(exclude); }
+    else if (event.code === 'Space' && !event.target.closest('button:not(#source-head):not(.selection-handle),summary,a')) {
+      event.preventDefault();
+      if (!$('play-pause').disabled) $('play-pause').click();
+    }
+    else if ((event.key === '[' || event.key === ']') && !event.metaKey && !event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      const button = $(event.key === '[' ? 'prev-candidate' : 'next-candidate');
+      if (button && !button.disabled) button.click();
+    }
     else if (['ArrowLeft', 'ArrowRight'].includes(event.key) && ['selection-left', 'selection-right'].includes(event.target.id)) {
       event.preventDefault(); const clip = clipFor(source); if (!clip) return;
       const key = event.target.id === 'selection-left' ? 'start' : 'end', value = bounded(clip, key, clip[key] + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 1 : 0.1));
