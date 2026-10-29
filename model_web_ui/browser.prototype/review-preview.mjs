@@ -1,10 +1,9 @@
-// Preview uses the production view and workspace, with disposable persistence.
+// Preview uses the production view and workspace, with session-only state.
 import { selectionWindow } from './selection-timeline.mjs';
 export const preview = new URLSearchParams(location.search).has('reviewPreview');
-const scenarios = { sample: '真实波形设计样本', default: '默认复核', analyzing: '分析中', saving: '保存中', error: '保存失败', empty: '无候选', many: '大量候选' };
+const scenarios = { sample: '真实波形设计样本', default: '默认复核', analyzing: '分析中', empty: '无候选', many: '大量候选' };
 let mode = new URLSearchParams(location.search).get('reviewPreview') || 'default';
 if (!Object.hasOwn(scenarios, mode)) mode = 'default';
-let releaseSave;
 let sampleFrames = [];
 // Saved reference pictures are preview-only; never masquerade as a bound video.
 export function renderReviewPreview(source, bound) {
@@ -32,13 +31,6 @@ export function renderReviewPreview(source, bound) {
   }
   document.getElementById('evidence-status').textContent = '预载真实参考帧 · 每 5 秒一张';
 }
-export const previewStorage = {
-  async load() { return null; },
-  async save() {
-    if (mode === 'error') throw new Error('模拟存储失败；编辑仍在当前页面');
-    if (mode === 'saving') await new Promise(resolve => { releaseSave = resolve; });
-  },
-};
 export async function mountReviewPreview(app) {
   const bar = document.createElement('section');
   bar.className = 'panel'; bar.setAttribute('aria-label', '复核场景预览');
@@ -48,9 +40,7 @@ export async function mountReviewPreview(app) {
   select.onchange = () => { location.search = `?reviewPreview=${select.value}`; };
   label.append(select); bar.append(label);
   const reset = document.createElement('button'); reset.textContent = '重置场景'; reset.onclick = () => location.reload(); bar.append(reset);
-  const recover = document.createElement('button'); recover.textContent = '恢复存储并重试'; recover.hidden = !['saving', 'error'].includes(mode);
-  recover.onclick = async () => { mode = 'default'; releaseSave?.(); await app.workspace.flush(); recover.hidden = true; }; bar.append(recover);
-  const note = document.createElement('p'); note.textContent = '临时场景：候选为预设数据，不运行模型；修改刷新即清空，不影响正式复核记录。正在准备 12 秒合成录像…'; bar.append(note);
+  const note = document.createElement('p'); note.textContent = '临时场景：候选为预设数据，不运行模型；修改刷新即清空，不保留跨刷新记录。正在准备 12 秒合成录像…'; bar.append(note);
   document.querySelector('#main').prepend(bar);
   if (mode === 'sample') {
     const { loadReviewFixture } = await import('./review-fixture.mjs');
@@ -66,8 +56,8 @@ export async function mountReviewPreview(app) {
     await app.openReview(id);
     const firstClip = app.workspace.getSource(id).clips[0];
     app.workspace.setReview(id, { selectedClipId: firstClip.id, position: firstClip.start, ...selectionWindow(fixture.duration, firstClip) });
-    note.textContent = '已预载真实对局参考帧和声音波形；六段区间为设计预设。定位会切换到此前最近的参考帧（每 5 秒一张），并非连续视频播放。刷新即可重置，不影响正式记录。';
-    void app.workspace.flush(); bar.dataset.ready = 'true'; return;
+    note.textContent = '已预载真实对局参考帧和声音波形；六段区间为设计预设。定位会切换到此前最近的参考帧（每 5 秒一张），并非连续视频播放。刷新即可重置，不保留跨刷新记录。';
+    bar.dataset.ready = 'true'; return;
   }
   const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
   const file = await createSyntheticFile();
@@ -83,6 +73,5 @@ export async function mountReviewPreview(app) {
     app.workspace.setReview(id, { selectedClipId: firstClip.id, position: candidates[0].start, ...selectionWindow(12, firstClip) });
     await app.player.seek(candidates[0].start);
   }
-  void app.workspace.flush();
   bar.dataset.ready = 'true';
 }

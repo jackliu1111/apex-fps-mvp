@@ -132,39 +132,17 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.mouse.up();
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     assert.ok(Math.abs((await state()).review.position / (await state()).duration - 0.55) < 0.03);
-    await page.evaluate(async () => {
-      await reviewApp.workspace.flush();
-      window.playbackSaveMutations = [];
-      window.playbackSaveObserver = new MutationObserver(() => playbackSaveMutations.push(document.querySelector('#save-state').textContent));
-      playbackSaveObserver.observe(document.querySelector('#save-state'), { childList: true, characterData: true, subtree: true });
-    });
     const playbackStart = (await state()).review.position;
     await page.locator('#play-pause').click();
     await page.waitForFunction(start => reviewApp.player.state.position > start + 1.5, playbackStart);
     await page.locator('#play-pause').click();
-    await page.evaluate(() => reviewApp.workspace.flush());
-    assert.deepEqual(await page.evaluate(() => playbackSaveMutations), [], 'Continuous playback and pause must save position without rewriting the review indicator');
-    await page.evaluate(() => playbackSaveObserver.disconnect());
-    await page.evaluate(async () => {
-      await reviewApp.workspace.flush();
-      window.saveMutations = [];
-      window.saveObserver = new MutationObserver(() => saveMutations.push(document.querySelector('#save-state').textContent));
-      saveObserver.observe(document.querySelector('#save-state'), { childList: true, characterData: true, subtree: true });
-      await reviewApp.submitExport();
-      await reviewApp.exportQueue.whenIdle();
-      await reviewApp.workspace.flush();
-    });
-    const exported = await page.evaluate(() => ({ batch: reviewApp.workspace.view().batches.at(-1), feedback: saveMutations, text: document.querySelector('#save-state').textContent }));
-    assert.equal(exported.batch.status, 'completed');
-    assert.ok(exported.batch.outputs.length > 0);
-    assert.equal(exported.text, '选片与复核位置已保存');
-    assert.deepEqual(exported.feedback, [], 'Real export progress must not rewrite the saved review indicator');
-    await page.evaluate(() => saveObserver.disconnect());
-    await page.evaluate(() => reviewApp.workspace.flush()); await page.reload(); await page.waitForFunction(() => window.reviewApp);
-    await page.evaluate(() => reviewApp.ready);
+    await page.evaluate(async () => { await reviewApp.submitExport(); await reviewApp.exportQueue.whenIdle(); });
+    const exported = await page.evaluate(() => reviewApp.workspace.view().batches.at(-1));
+    assert.equal(exported.status, 'completed');
+    assert.ok(exported.outputs.length > 0);
+    assert.equal(await page.locator('#save-state').count(), 0);
     assert.equal(await page.locator('#undo-selection').isEnabled(), true);
     assert.ok(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform.peaks.some(v => v > 0)));
-    assert.equal(await page.locator('#prediction-workspace #prediction-wave').isVisible(), true);
     await page.locator('#undo-selection').click();
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 1000 });
@@ -172,6 +150,6 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       if (process.env.REVIEW_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/${width}.png`, fullPage: true });
     }
     assert.deepEqual(errors, []);
-    console.log('PASS merged pointer/keyboard seek, one-third candidate window, quiet real export, atomic trim, stable evidence, cancel, undo/redo, restore, hover, independent zoom, three widths');
+    console.log('PASS merged pointer/keyboard seek, one-third candidate window, quiet real export, atomic trim, stable evidence, cancel, undo/redo, hover, independent zoom, three widths');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });

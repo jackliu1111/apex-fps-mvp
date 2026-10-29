@@ -175,9 +175,6 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
 #analysis-page .file[data-status="analyzing"] .file-status::before { background: var(--accent); }
 #analysis-page .file:is([data-status="complete"], [data-status="completed"]) .file-status::before { background: var(--signal-lime); }
 #analysis-page .file[data-status="failed"] .file-status::before { background: var(--negative); }
-#analysis-page .file[data-needs-source="true"] .file-status::before { background: var(--warning); }
-#analysis-page .file[data-needs-source="true"] [data-action="review"] { background: transparent; border-color: var(--control); color: var(--text); font-weight: 400; }
-#analysis-page .file[data-needs-source="true"] [data-action="relink"] { background: var(--text); border-color: var(--text); color: #111; font-weight: 600; }
 #analysis-page .workflow-guide { background: var(--surface-low); border-color: var(--border); padding: 16px 24px; align-self: start; }
 #analysis-page .workflow-guide > summary { color: var(--text); font-weight: 650; font-size: 14px; }
 #analysis-page.has-recordings .workflow-guide { padding: 12px 20px; }

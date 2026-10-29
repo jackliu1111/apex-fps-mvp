@@ -5,13 +5,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const mode = process.argv[2] || 'player';
-const modes = new Set(['player', 'concurrent', 'storage', 'export', 'export-overlap']);
+const modes = new Set(['player', 'concurrent', 'session', 'export', 'export-overlap']);
 if (!modes.has(mode)) throw new Error(`Unknown mode: ${mode}`);
 const resultPath = process.env.RESULT_PATH;
 if (!resultPath) throw new Error('Set RESULT_PATH to a new JSON output path');
 if (fs.existsSync(resultPath)) throw new Error(`Refusing to replace ${resultPath}`);
 const mediaPath = process.env.MEDIA_PATH;
-if (!['storage', 'export'].includes(mode) && (!mediaPath || !fs.statSync(mediaPath).isFile())) throw new Error('Set MEDIA_PATH to an existing local recording');
+if (!['session', 'export'].includes(mode) && (!mediaPath || !fs.statSync(mediaPath).isFile())) throw new Error('Set MEDIA_PATH to an existing local recording');
 const baseUrl = process.env.REVIEW_BASE_URL || 'http://127.0.0.1:8792/';
 const report = { date: new Date().toISOString(), mode, baseUrl, source: mediaPath || null, passed: false };
 const targetsFor = (duration) => duration > 2120 ? [300, 2100, 900] : [duration * 0.1, duration * 0.5, duration * 0.3];
@@ -142,41 +142,24 @@ async function concurrentRun(page) {
   await page.evaluate(async () => { await reviewTestPlayer.dispose(); await reviewTestQueue.dispose(); });
 }
 
-async function storageRun(page) {
-  const databaseName = `review-acceptance-${Date.now()}`;
-  report.before = await page.evaluate(async (databaseName) => {
+async function sessionRun(page) {
+  report.before = await page.evaluate(async () => {
     const { createReviewWorkspace } = await import('/review-workspace.mjs');
-    const { createIndexedDBStorage, identifyFile } = await import('/review-storage.mjs');
-    const store = createIndexedDBStorage({ databaseName });
-    const work = createReviewWorkspace({ storage: store }); await work.restore();
-    const identity = await identifyFile(new File(['content-A'], 'same-name.webm', { lastModified: 1 }));
-    const other = await identifyFile(new File(['content-B'], 'same-name.webm', { lastModified: 1 }));
-    const id = work.addSource({ ...identity, duration: 2640 });
-    work.publishCandidates(id, [{ key: 'trim', start: 600, end: 630 }, { key: 'exclude', start: 1200, end: 1220 }, { key: 'tail', start: 2600, end: 2640, provisional: true }]);
-    const clips = work.getSource(id).clips;
-    work.trim(id, clips[0].id, { start: 604, end: 622 }); work.choose(id, clips[1].id, false);
-    work.setReview(id, { position: 2100, zoomStart: 590, zoomEnd: 640, selectedClipId: work.getSource(id).clips[0].id });
-    work.updateAnalysis(id, { status: 'analyzing', processedUntil: 900 });
-    work.submitBatch(id, { audio: { policy: 'source-primary' }, output: { videoBitrate: 2000000 } });
-    work.trim(id, work.getSource(id).clips[0].id, { start: 605, end: 621 });
-    await work.flush(); const view = work.view(); await store.close(); return { view, otherId: other.id };
-  }, databaseName);
+    const work = createReviewWorkspace();
+    const id = work.addSource({ id: 'session-source', name: 'test.webm', duration: 100 });
+    work.addManual(id, { start: 5, end: 10 });
+    work.submitBatch(id);
+    return work.view();
+  });
   await page.reload();
-  report.after = await page.evaluate(async (databaseName) => {
+  report.after = await page.evaluate(async () => {
     const { createReviewWorkspace } = await import('/review-workspace.mjs');
-    const { createIndexedDBStorage } = await import('/review-storage.mjs');
-    const store = createIndexedDBStorage({ databaseName });
-    const work = createReviewWorkspace({ storage: store }); await work.restore();
-    const view = work.view(); await store.close(); return view;
-  }, databaseName);
-  assert.equal(report.before.view.save.status, 'saved');
-  assert.notEqual(report.before.view.sources[0].id, report.before.otherId);
-  assert.equal(report.after.sources[0].review.position, 2100);
-  assert.equal(report.after.sources[0].analysis.status, 'interrupted');
-  assert.deepEqual(report.after.sources[0].clips.filter((clip) => clip.selected && !clip.provisional).map((clip) => [clip.start, clip.end]), [[605, 621]]);
-  assert.deepEqual(report.after.batches[0].clips.map((clip) => [clip.start, clip.end]), [[604, 622]]);
-  assert.equal(report.after.batches[0].status, 'interrupted');
-  assert.equal(report.after.sources[0].decisions.filter((decision) => decision.kind === 'exclude').length, 1);
+    return createReviewWorkspace().view();
+  });
+  assert.equal(report.before.sources.length, 1);
+  assert.equal(report.before.batches.length, 1);
+  assert.deepEqual(report.after.sources, []);
+  assert.deepEqual(report.after.batches, []);
 }
 
 async function exportRun(page) {
@@ -296,7 +279,7 @@ async function exportOverlapRun(page) {
   try {
     await page.goto(baseUrl);
     report.moduleHashes = await page.evaluate(async (mode) => {
-      const files = mode === 'storage' ? ['review-workspace.mjs', 'review-storage.mjs']
+      const files = mode === 'session' ? ['review-workspace.mjs', 'media-identity.mjs']
         : mode === 'export' ? ['browser-export.mjs', 'export-queue.mjs']
         : mode === 'export-overlap' ? ['browser-export.mjs', 'source-player.mjs', 'media-read-source.mjs']
         : ['source-player.mjs', 'browser-analysis.mjs', 'analysis-queue.mjs', 'stream-audio.js', 'media-read-source.mjs'];
@@ -307,7 +290,7 @@ async function exportOverlapRun(page) {
         return [name, [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join('')];
       })));
     }, mode);
-    await ({ player: playerRun, concurrent: concurrentRun, storage: storageRun, export: exportRun, 'export-overlap': exportOverlapRun })[mode](page);
+    await ({ player: playerRun, concurrent: concurrentRun, session: sessionRun, export: exportRun, 'export-overlap': exportOverlapRun })[mode](page);
     report.passed = true;
   } catch (error) { report.failure = error.stack || String(error); throw error; }
   finally {

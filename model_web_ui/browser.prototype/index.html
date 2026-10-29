@@ -22,11 +22,11 @@
         <button id="nav-review" disabled>片段复核</button>
         <button id="nav-exports">导出任务</button>
       </nav>
-      <div class="save-status"><span id="save-state" role="status">正在恢复复核记录…</span><button id="retry-save" hidden>重试保存</button></div>
+      <div class="session-notice">任务仅在当前页面保留 · 刷新或关闭后需重新导入</div>
     </div>
   </header>
   <main id="main" tabindex="-1">
-    <p id="status" class="workspace-status" role="status" aria-live="polite">正在恢复复核记录…</p>
+    <p id="status" class="workspace-status" role="status" aria-live="polite">工作区已就绪</p>
     <div id="analysis-page">
       <div class="page-heading">
         <div><h1>录像工作区</h1><p class="intro">从整场对局，找到值得留下的片段。</p></div>
@@ -57,7 +57,7 @@
         <div class="settings-content">
           <div class="row settings"><label class="field">新任务模型<select id="model"><option value="efficientat">EfficientAT mn04_as</option><option value="beats">BEATs</option></select></label><span id="capabilities" class="muted"></span></div>
           <p class="muted">模型仅影响新任务。枪声候选前后各保留 5 秒，扩展后重叠、相接或间隔不超过 5 秒的范围合并为一段。检测自动使用默认且可解码的音轨，不判断是否为游戏声音；预览和导出沿用原片默认声音。</p>
-          <p class="muted">选片与观看位置自动保存。关闭页面会中断分析；刷新后可恢复选片，分析需重新开始。</p>
+          <p class="muted">任务仅在当前页面保留。请在刷新或关闭前完成导出并保存视频；重新打开需重新导入录像。</p>
           <pre id="analysis-timing"></pre><button id="analysis-report" disabled>下载当前录像分析报告</button>
         </div>
       </details>
@@ -67,7 +67,6 @@
         <div class="row review-title-group"><button id="back-analysis" class="icon-button" aria-label="返回分析队列">←</button><h1>片段复核</h1><p id="review-progress" class="muted source-progress"></p></div>
         <select id="source-select" aria-label="正在复核的录像"></select>
       </div>
-      <div id="missing-source" class="notice" hidden><span>选片已恢复，关联原录像后即可播放与导出。</span><button id="relink-current">关联原录像</button></div>
       <div class="workspace">
         <div class="preview">
           <section class="panel player-panel" aria-label="原片播放与时间轴">
@@ -142,7 +141,6 @@
       <details class="inline-details export-settings"><summary>输出规格与保存说明</summary><p class="muted">每段独立导出为<span id="output-format"></span>，声音沿用原片默认音轨。保留分辨率与帧率，重新编码不等于无损。分析释放资源后执行导出，期间可继续复核。</p><p class="muted">下载缓存最多 <span id="export-budget"></span>。大批次请选择已挂载且空间充足的外接盘目录，浏览器不能验证挂载身份。生成下载链接不表示文件已保存。</p></details>
     </section>
     <footer class="workspace-footer"><span>Apex Local Cut · 本地选片</span><span>枪声候选不代表本人开枪、命中或击杀。</span></footer>
-    <input id="relink-file" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" hidden>
   </main>
   <script type="module" src="app.js"></script>
 </body>

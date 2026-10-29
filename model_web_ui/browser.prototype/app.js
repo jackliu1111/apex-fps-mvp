@@ -1,9 +1,9 @@
-import { preview, previewStorage, mountReviewPreview, renderReviewPreview } from './review-preview.mjs';
+import { preview, mountReviewPreview, renderReviewPreview } from './review-preview.mjs';
 import { createSelectionTimeline, selectionWindow } from './selection-timeline.mjs';
 import { batchSummary, justCompleted, taskFeedback, createFrameSignal } from './task-feedback.mjs';
 import * as MB from '/assets/vendor/mediabunny.mjs';
 import { createReviewWorkspace } from './review-workspace.mjs';
-import { createIndexedDBStorage, identifyFile } from './review-storage.mjs';
+import { identifyFile } from './media-identity.mjs';
 import { createBrowserAnalysis } from './browser-analysis.mjs';
 import { createSourcePlayer } from './source-player.mjs';
 import { createExportQueue, estimateExportBytes } from './export-queue.mjs';
@@ -17,8 +17,8 @@ const seenCandidates = new Map();
 const presentedRecords = new WeakSet();
 const startingExports = new Set();
 let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
-let relinkSourceId = null, navigationError = null, restoreReady = false, makingDemo = false, directoryHandle = null, exportQueue, selectionTimeline;
-let view = { sources: [], batches: [], save: { status: 'saved' } }, playerState = { position: 0, playing: false, status: 'empty' };
+let makingDemo = false, directoryHandle = null, exportQueue, selectionTimeline;
+let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
 const statuses = { preparing: '正在准备', queued: '排队中', analyzing: '分析中', complete: '分析完成', completed: '分析完成', stopped: '已停止', failed: '失败', interrupted: '已中断' };
 const time = (seconds = 0) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
 const errorText = (error) => error?.message || String(error);
@@ -29,20 +29,7 @@ const safely = (action) => Promise.resolve().then(action).catch((error) => note(
 const element = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
 const button = (text, action) => { const node = element('button', text); node.onclick = () => safely(action); return node; };
 const setValue = (node, value) => { if (document.activeElement !== node) node.value = value; };
-function rememberNavigation() {
-  if (preview) return;
-  try { localStorage.setItem('apex-review-navigation-v1', JSON.stringify({ sourceId: activeSourceId, page: currentPage })); navigationError = null; }
-  catch (error) { navigationError = errorText(error); }
-  renderSave();
-}
-function renderSave() {
-  const labels = { saved: '选片与复核位置已保存', saving: '正在保存…', unsaved: '修改待保存', error: '尚未保存' };
-  const message = `${labels[view.save.reviewStatus || view.save.status] || '正在恢复…'}${navigationError ? '；页面位置未保存' : ''}${view.save.error ? `：${view.save.error}` : ''}`;
-  if ($('save-state').textContent !== message) $('save-state').textContent = message;
-  $('save-state').classList.toggle('error', view.save.status === 'error' || !!navigationError);
-  $('retry-save').hidden = view.save.status !== 'error' && !navigationError;
-}
-const workspace = createReviewWorkspace({ storage: preview ? previewStorage : createIndexedDBStorage(), onChange(next) { view = next; render(); } });
+const workspace = createReviewWorkspace({ onChange(next) { view = next; render(); } });
 const queue = createBrowserAnalysis({ MB,
   onWaveform(record, waveform) { if (record.sourceId) workspace.updateWaveform(record.sourceId, waveform); },
   async onPrepared(record) {
@@ -64,7 +51,7 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
   playerState = next;
   if (!loadingSource && playerSourceId && playerSourceId === activeSourceId) {
     const saved = workspace.getSource(playerSourceId).review.position;
-    if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position }, { background: true });
+    if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position });
   }
   renderPlayer();
 } });
@@ -85,7 +72,7 @@ async function chooseOutputDirectory() {
 async function submitExport() {
   const saved = source(), record = bindings.get(activeSourceId);
   if (!saved) throw new Error('请先选择要导出的录像。');
-  if (!record) { note('选片已保留，请重新选择原录像文件；关联后即可提交导出。'); requestRelink(saved.id); return; }
+  if (!record) throw new Error('当前页面没有可导出的原录像，请先导入录像。');
   const clips = saved.clips.filter((clip) => clip.selected && !clip.provisional);
   if (!clips.length) throw new Error('没有范围已确定且已选中的片段。');
   const batch = workspace.submitBatch(saved.id, { audio: { trackIndex: record.outputAudioTrackIndex, policy: 'source-primary' }, output: { ...sourceExportSettings(outputSettings, record.video), model: record.model } });
@@ -94,7 +81,7 @@ async function submitExport() {
 async function startExport(id) {
   if (startingExports.has(id) || exportQueue.getBatch(id)) return;
   const batch = view.batches.find((item) => item.id === id), record = bindings.get(batch?.sourceId);
-  if (!record) { note('请先关联这批任务的原录像，再选择目录开始导出。'); if (batch) requestRelink(batch.sourceId); return; }
+  if (!record) throw new Error('当前页面没有这批任务的原录像。');
   startingExports.add(id);
   let destination = directoryHandle;
   try {
@@ -121,7 +108,6 @@ async function startExport(id) {
 
 async function importFiles(files) {
   await ready;
-  if (!restoreReady) throw new Error('请先重试恢复已有记录，再导入录像');
   const options = { model: $('model').value, threshold: 0.2 };
   const failures = [];
   const importMessage = `正在准备 ${files.length} 份录像；每份就绪后独立进入分析。`;
@@ -147,7 +133,7 @@ async function importFiles(files) {
 async function openReview(id) {
   if (!view.sources.some((item) => item.id === id)) return;
   if (currentPage === 'review') player.pause();
-  activeSourceId = id; currentPage = 'review'; rememberNavigation();
+  activeSourceId = id; currentPage = 'review';
   seenCandidates.set(id, workspace.getSource(id).clips.filter((clip) => !clip.provisional).length);
   render();
   const record = bindings.get(id), token = ++loadToken;
@@ -165,19 +151,10 @@ async function openReview(id) {
   finally { if (token === loadToken) { loadingSource = false; renderPlayer(); } }
 }
 function showAnalysis() {
-  player.pause(); loadToken++; loadingSource = false; currentPage = 'analysis'; selectionTimeline?.suspend(); rememberNavigation(); render();
+  player.pause(); loadToken++; loadingSource = false; currentPage = 'analysis'; selectionTimeline?.suspend(); render();
 }
 function showExports() {
-  player.pause(); loadToken++; loadingSource = false; currentPage = 'exports'; selectionTimeline?.suspend(); rememberNavigation(); render();
-}
-function requestRelink(id) { relinkSourceId = id; $('relink-file').click(); }
-async function relink(file) {
-  const wanted = relinkSourceId; relinkSourceId = null;
-  if (!file || !wanted) return;
-  const identity = await identifyFile(file);
-  if (identity.id !== wanted) throw new Error('所选文件与保存的原录像身份不一致。已有选片保留，请选择原文件。');
-  await importFiles([file]);
-  if (activeSourceId === wanted && currentPage === 'review') await openReview(wanted);
+  player.pause(); loadToken++; loadingSource = false; currentPage = 'exports'; selectionTimeline?.suspend(); render();
 }
 function renderQueue() {
   const rows = view.sources.map((saved) => ({ key: saved.id, saved, record: bindings.get(saved.id) }));
@@ -193,7 +170,7 @@ function renderQueue() {
   const analyzing = rows.filter(({ record }) => record?.status === 'analyzing').length;
   const waiting = rows.filter(({ record }) => ['preparing', 'queued'].includes(record?.status)).length;
   $('queue-count').textContent = `${rows.length} 份录像`;
-  $('queue-summary').textContent = !restoreReady ? '复核记录尚未就绪，请查看保存状态。' : analyzing || waiting
+  $('queue-summary').textContent = analyzing || waiting
     ? `${analyzing} 份分析中 · ${waiting} 份待分析`
     : view.sources.length ? '当前没有正在分析的录像，可进入复核或导入新录像。'
       : rows.length ? '暂无可复核录像，请重试或导入其他录像。' : '导入录像后自动分析，候选随进度逐步出现。';
@@ -214,7 +191,6 @@ function renderQueue() {
       const actions = row.querySelector('.file-actions');
       for (const [action, label, run] of [
         ['review', '浏览原片', () => openReview(row.item.saved.id)],
-        ['relink', '关联原录像', () => requestRelink(row.item.saved.id)],
         ['stop', '停止分析', () => queue.stop(row.item.record.id)],
         ['retry', '从头重试', () => queue.retry(row.item.record.id)],
       ]) { const node = button(label, run); node.dataset.action = action; actions.append(node); }
@@ -226,7 +202,6 @@ function renderQueue() {
     const status = record?.status || saved.analysis.status;
     const completedNow = justCompleted(row.dataset.status, status);
     row.dataset.status = status;
-    row.dataset.needsSource = String(!record && !!saved);
     const duration = saved?.duration || record.duration;
     const processedUntil = record?.processedUntil ?? saved?.analysis.processedUntil ?? 0;
     const count = saved?.clips.filter((clip) => !clip.provisional).length || 0;
@@ -234,7 +209,7 @@ function renderQueue() {
     const filename = info.querySelector('strong'); filename.textContent = identity.name; filename.title = identity.name;
     info.querySelector('small').textContent = `${duration ? time(duration) : '准备媒体信息'} · ${(identity.size / 1048576).toFixed(1)} MiB`;
     const details = row.querySelector('.file-progress');
-    details.replaceChildren(element('span', `${statuses[status]}${!record && saved ? ' · 原录像待关联' : ''}`, 'file-status'), element('small', `已分析至 ${time(processedUntil)}${duration ? ` / ${time(duration)}` : ''} · ${count} 个确定范围`));
+    details.replaceChildren(element('span', `${statuses[status]}`, 'file-status'), element('small', `已分析至 ${time(processedUntil)}${duration ? ` / ${time(duration)}` : ''} · ${count} 个确定范围`));
     const meter = element('progress', undefined, 'file-meter');
     meter.max = duration > 0 ? duration : 1;
     meter.value = Math.max(0, Math.min(processedUntil, meter.max));
@@ -246,7 +221,6 @@ function renderQueue() {
     const actions = row.querySelector('.file-actions');
     actions.querySelector('[data-action=review]').hidden = !saved;
     actions.querySelector('[data-action=review]').textContent = count ? `复核 ${count} 段` : '浏览原片';
-    actions.querySelector('[data-action=relink]').hidden = !!record || !saved;
     actions.querySelector('[data-action=stop]').hidden = !record || !['preparing', 'queued', 'analyzing'].includes(status);
     actions.querySelector('[data-action=stop]').textContent = status === 'queued' ? '移出队列' : '停止分析';
     actions.querySelector('[data-action=retry]').hidden = !record || !['stopped', 'failed', 'complete'].includes(status);
@@ -318,7 +292,7 @@ function renderPlayer() {
   const stable = saved.clips.filter((item) => !item.provisional);
   $('prev-candidate').disabled = !stable.some((item) => item.start < position - 0.01);
   $('next-candidate').disabled = !stable.some((item) => item.start > position + 0.01) && saved.analysis.status !== 'analyzing';
-  $('player-status').textContent = !bound ? '关联原录像后加载画面' : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? '正在准备该位置…' : playerState.status === 'error' ? playerState.error : '';
+  $('player-status').textContent = !bound ? '暂无原录像画面' : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? '正在准备该位置…' : playerState.status === 'error' ? playerState.error : '';
   renderReviewPreview(saved, bound);
 }
 function renderReview() {
@@ -327,14 +301,13 @@ function renderReview() {
   const record = bindings.get(saved.id), selected = saved.clips.filter((clip) => clip.selected && !clip.provisional);
   const analyzing = ['analyzing', 'queued', 'preparing'].includes(saved.analysis.status);
   $('review-progress').textContent = `${saved.identity.name} · 已分析至 ${time(saved.analysis.processedUntil)} / ${time(saved.duration)} · ${statuses[saved.analysis.status]}${analyzing ? '，后续仍在分析' : ''}`;
-  $('missing-source').hidden = !!record;
   const added = saved.clips.filter((clip) => !clip.provisional).length - (seenCandidates.get(saved.id) || 0);
   $('new-candidates').textContent = added > 0 ? `新增 ${added} 段` : '';
   $('candidate-tail').textContent = analyzing ? '当前候选已到末尾，后续仍在分析。全片可继续浏览。' : '当前候选列表已到末尾。';
   const selectionSummary = `已选 ${selected.length} 段 · 共 ${selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2)} 秒${saved.hasUnexportedChanges ? ' · 有选片尚未提交导出' : ''}`;
   if ($('selection-summary').textContent !== selectionSummary) $('selection-summary').textContent = selectionSummary;
-  $('export').disabled = !selected.length;
-  $('export').textContent = record ? '提交选片导出 ↗' : '关联原录像以导出';
+  $('export').disabled = !selected.length || !record;
+  $('export').textContent = '提交选片导出 ↗';
   $('recompute').disabled = !(record?.scores || record?.windowScores);
   $('reset-decisions').disabled = !saved.decisions.length;
   $('retain-all').disabled = $('exclude-all').disabled = !saved.clips.some((clip) => !clip.provisional);
@@ -427,10 +400,10 @@ function render() {
   $('status').hidden = $('status').dataset.page !== currentPage && $('status').dataset.tone !== 'error';
   $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
   $('nav-review').setAttribute('aria-current', currentPage === 'review' ? 'page' : 'false'); $('nav-review').disabled = !view.sources.length;
-  $('files').disabled = $('import-files').disabled = !restoreReady; $('demo').disabled = !restoreReady || makingDemo;
-  $('drop-zone').setAttribute('aria-disabled', String(!restoreReady || currentPage !== 'analysis'));
-  if (!restoreReady || currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
-  renderSave(); renderQueue(); renderSources(); renderReview(); renderExports(); renderDiagnostics();
+  $('demo').disabled = makingDemo;
+  $('drop-zone').setAttribute('aria-disabled', String(currentPage !== 'analysis'));
+  if (currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
+  renderQueue(); renderSources(); renderReview(); renderExports(); renderDiagnostics();
 }
 
 async function demo() {
@@ -453,13 +426,13 @@ async function demo() {
 $('export').onclick = () => safely(submitExport);
 $('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) => note(error.name === 'AbortError' ? '尚未取得输出目录。若未弹出目录窗口，请在桌面 Chrome 中打开本页后选择。' : errorText(error), 'error')); };
 $('clear-directory').onclick = () => { directoryHandle = null; $('output-directory').textContent = '小批次生成下载链接；大批次直接写入所选目录。'; $('clear-directory').hidden = true; };
-$('import-files').onclick = () => { if (restoreReady) $('files').click(); };
+$('import-files').onclick = () => { $('files').click(); };
 $('files').onchange = () => { const files = [...$('files').files]; $('files').value = ''; safely(() => importFiles(files)); };
 const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 document.addEventListener('dragover', (event) => {
   if (!isFileDrag(event)) return;
   event.preventDefault();
-  const canImport = currentPage === 'analysis' && restoreReady && $('drop-zone').contains(event.target);
+  const canImport = currentPage === 'analysis' && $('drop-zone').contains(event.target);
   event.dataTransfer.dropEffect = canImport ? 'copy' : 'none';
   $('drop-zone').classList.toggle('drag-over', canImport);
 });
@@ -471,7 +444,6 @@ document.addEventListener('drop', (event) => {
   event.preventDefault();
   $('drop-zone').classList.remove('drag-over');
   if (currentPage !== 'analysis' || !$('drop-zone').contains(event.target)) return;
-  if (!restoreReady) { note('请先恢复复核记录，再导入录像。'); return; }
   const files = Array.from(event.dataTransfer.files);
   if (files.length) safely(() => importFiles(files));
 });
@@ -480,9 +452,6 @@ $('nav-exports').onclick = $('view-exports').onclick = showExports;
 $('nav-analysis').onclick = $('back-analysis').onclick = showAnalysis;
 $('nav-review').onclick = () => safely(() => openReview(activeSourceId || view.sources[0].id));
 $('source-select').onchange = () => safely(() => openReview($('source-select').value));
-$('relink-current').onclick = () => requestRelink(activeSourceId);
-$('relink-file').onchange = () => { const file = $('relink-file').files[0]; $('relink-file').value = ''; safely(() => relink(file)); };
-$('retry-save').onclick = () => safely(async () => { restoreReady = await workspace.retrySave(); rememberNavigation(); render(); });
 $('play-pause').onclick = () => { if (playerState.playing) player.pause(); else player.play().catch((error) => note(errorText(error))); };
 async function seek(value) {
   const saved = source(); if (!saved) return;
@@ -536,13 +505,19 @@ $('export-format').onchange = () => { outputSettings = exportSettings({ format: 
 renderOutputFormat();
 $('export-budget').textContent = `${MAX_EXPORT_MEMORY_BYTES / 1048576} MiB`;
 $('capabilities').textContent = `音频解码${typeof AudioDecoder !== 'undefined' ? '可用' : '不可用'} · 视频解码${typeof VideoDecoder !== 'undefined' ? '可用' : '不可用'} · 隔离上下文${crossOriginIsolated ? '可用' : '不可用'}`;
-window.addEventListener('pagehide', () => { player.pause(); void workspace.flush(); });
-const ready = (async () => {
-  restoreReady = await workspace.restore();
-  if (restoreReady) for (const saved of workspace.view().sources) workspace.mergeCandidates(saved.id);
-  try { const navigation = JSON.parse(preview ? 'null' : localStorage.getItem('apex-review-navigation-v1') || 'null'); if (navigation?.page === 'exports') currentPage = 'exports'; if (navigation && view.sources.some((item) => item.id === navigation.sourceId)) { activeSourceId = navigation.sourceId; if (navigation.page === 'review') currentPage = 'review'; } } catch (error) { navigationError = errorText(error); }
-  render(); note(restoreReady ? '工作区已就绪' : '无法恢复已有复核记录，请重试；原记录没有被覆盖。', restoreReady ? 'quiet' : 'error');
-})();
-window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, demo, openReview, showAnalysis, ready, bindings, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
+// Session state is intentionally not written to browser storage.
+const shouldWarnOnLeave = () => !preview && (
+  pendingImports.size > 0 || queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
+  view.sources.some(item => item.hasUnexportedChanges) ||
+  view.batches.some(batch => batch.status !== 'completed' || batch.outputs?.some(output => output.available && !output.saved))
+);
+window.addEventListener('beforeunload', event => {
+  if (!shouldWarnOnLeave()) return;
+  event.preventDefault(); event.returnValue = '';
+});
+window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
+const ready = Promise.resolve();
+render(); note('工作区已就绪', 'quiet');
+window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, demo, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
 
 if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));

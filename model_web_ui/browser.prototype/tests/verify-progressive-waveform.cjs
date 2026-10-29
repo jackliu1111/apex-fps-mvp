@@ -25,7 +25,6 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 120000 });
     const complete = await page.evaluate(async () => {
       const r = reviewApp.queue.records[0];
-      await reviewApp.workspace.flush();
       const canvas = document.querySelector('#prediction-wave');
       const bytes = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
       return { until: r.waveform.decodedUntil, duration: r.duration, passes: r.timings.decoderPasses, painted: bytes.some((v, i) => i % 4 === 3 && v > 0), peaks: r.waveform.peaks };
@@ -34,10 +33,11 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(complete.passes, 1);
     await page.locator('#prediction-zoom').click();
     await page.locator('#prediction-fit').click();
+    page.on('dialog', dialog => dialog.accept());
     await page.reload(); await page.waitForFunction(() => window.reviewApp);
     await page.evaluate(() => reviewApp.ready);
-    assert.deepEqual(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform.peaks), complete.peaks);
-    assert.equal(await page.locator('#prediction-wave').isVisible(), true);
+    assert.deepEqual(await page.evaluate(() => reviewApp.workspace.view().sources), []);
+    assert.equal(await page.locator('#analysis-page').isVisible(), true);
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ partial, complete: { ...complete, peaks: `${complete.peaks.length} buckets` }, refresh: 'passed', errors }));
   } finally { await browser.close(); }

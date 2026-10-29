@@ -123,7 +123,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.match(await row.locator('.clip-outcome').nth(0).textContent(), /已完成/);
     assert.match(await row.locator('.clip-outcome').nth(1).textContent(), /失败/);
     assert.match(await row.locator('.clip-outcome').nth(2).textContent(), /未开始/);
-    const temporaryDirectory = await page.evaluate(async () => { await reviewApp.workspace.flush(); return reviewFixDirectoryName; });
+    const temporaryDirectory = await page.evaluate(async () => { return reviewFixDirectoryName; });
     await page.reload(); await page.waitForFunction(() => !!window.reviewApp); await page.evaluate(() => reviewApp.ready);
     assert.deepEqual(await page.evaluate(() => reviewApp.workspace.view().batches.at(-1).clipResults.map((clip) => clip.status)), ['completed', 'failed', 'not-started']);
     assert.equal(await row.locator('.clip-outcome').count(), 3);

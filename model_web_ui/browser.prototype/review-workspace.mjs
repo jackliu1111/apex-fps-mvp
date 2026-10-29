@@ -12,18 +12,14 @@ const freeze = (value) => {
   return value;
 };
 
-export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayMs = 100 } = {}) {
+export function createReviewWorkspace({ onChange = () => {} } = {}) {
   const sources = new Map();
-  const dirtyWaveforms = new Map();
   const batches = [];
   let editing = false;
   const decisionState = (source) => copy({ decisions: source.decisions, selectedClipId: source.review.selectedClipId });
   const historyFor = (source) => source.history ||= { undo: [], redo: [] };
-  let sequence = 0, revision = 0, savedRevision = 0, saveStatus = 'saved', saveError = null, saveTimer = null, saving = null;
-  let reviewRevision = 0;
-  let restored = false, restoreFailed = false;
+  let sequence = 0, revision = 0;
   const requireSource = (id) => {
-    if (restoreFailed) throw new Error('请先重试恢复已有复核记录');
     const source = sources.get(id);
     if (!source) throw new Error('找不到录像的复核记录');
     return source;
@@ -54,59 +50,11 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
     if (waveform !== undefined) cloned.waveform = waveform;
     return freeze(cloned);
   };
-  // Export/analysis snapshots still persist, but do not dirty the human review indicator.
-  const reviewSaveStatus = () => saveStatus === 'error' ? 'error' : reviewRevision > savedRevision ? saveStatus : 'saved';
-  const view = () => freeze({ sources: [...sources.keys()].map(getSource), batches: copy(batches), save: { status: saveStatus, reviewStatus: reviewSaveStatus(), revision, savedRevision, error: saveError } });
-  const notify = () => onChange(view());
-  const snapshot = () => ({ version: 1, sequence, revision, sources: [...sources.values()].map(({ waveform, ...source }) => copy(source)), batches: copy(batches) });
-  const flush = async () => {
-    clearTimeout(saveTimer);
-    saveTimer = null;
-    if (restoreFailed) return false;
-    if (saving) return saving;
-    if (savedRevision === revision) return true;
-    if (!storage) {
-      saveStatus = 'error'; saveError = '未配置复核记录存储'; notify();
-      return false;
-    }
-    saving = Promise.resolve().then(async () => {
-      let pendingWaveforms = {};
-      try {
-        while (savedRevision < revision) {
-          const next = snapshot();
-          pendingWaveforms = Object.fromEntries(dirtyWaveforms);
-          dirtyWaveforms.clear();
-          if (!storage.separatedWaveforms && storage.save.length < 2) {
-            const attached = Object.fromEntries([...sources.values()].filter((item) => item.waveform !== undefined).map((item) => [item.id, item.waveform]));
-            if (Object.keys(attached).length) next.waveforms = attached;
-          }
-          saveStatus = 'saving'; saveError = null; notify();
-          await storage.save(next, pendingWaveforms);
-          savedRevision = next.revision;
-          pendingWaveforms = {};
-        }
-        saveStatus = 'saved'; notify();
-        return true;
-      } catch (error) {
-        for (const [id, waveform] of Object.entries(pendingWaveforms)) {
-          if (!dirtyWaveforms.has(id)) dirtyWaveforms.set(id, waveform);
-        }
-        saveStatus = 'error'; saveError = error?.message || String(error); notify();
-        return false;
-      } finally { saving = null; }
-    });
-    return saving;
-  };
-  const changed = (reviewChanged = true) => {
+  const view = () => freeze({ sources: [...sources.keys()].map(getSource), batches: copy(batches), revision });
+  const changed = () => {
     if (editing) return;
     revision++;
-    if (reviewChanged) reviewRevision = revision;
-    // A new progress event is not evidence that a failed write recovered.
-    if (saveStatus !== 'error') saveStatus = saving ? 'saving' : 'unsaved';
-    notify();
-    // Bound coalescing from the first dirty edit; ongoing analysis must not
-    // continually push a user's save into the future.
-    if (storage && !saving && saveTimer === null) saveTimer = setTimeout(flush, saveDelayMs);
+    onChange(view());
   };
   function setChoice(source, clip, selected) {
     let decision = source.decisions.find((item) => item.id === clip.id || sameRange(item.range, clip));
@@ -121,75 +69,20 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
   const workspace = {
     getSource,
     view,
-    flush,
-    retrySave: () => restoreFailed ? workspace.restore() : flush(),
-    async restore() {
-      if (restored) return true;
-      if (revision) throw new Error('必须在修改工作区前恢复已保存的记录');
-      try {
-        const saved = await storage?.load();
-        if (saved) {
-          if (saved.version !== 1 || !Array.isArray(saved.sources) || !Array.isArray(saved.batches)) throw new Error('无法读取此版本的复核记录');
-          const loadedSources = saved.sources.map(({ waveform, ...entry }) => {
-            const cloned = copy(entry);
-            const resolved = waveform ?? saved.waveforms?.[entry.id];
-            if (resolved !== undefined) cloned.waveform = freeze(copy(resolved));
-            return cloned;
-          });
-          const loadedBatches = copy(saved.batches);
-          if (!Number.isSafeInteger(saved.sequence) || !Number.isSafeInteger(saved.revision) || loadedSources.some((entry) => !entry.id || !entry.identity || !(entry.duration > 0) || !entry.analysis || !entry.review || !Array.isArray(entry.decisions) || !Array.isArray(entry.candidates))) throw new Error('复核记录格式损坏，请保留原记录后重试');
-          for (const entry of loadedSources) {
-            if (['preparing', 'queued', 'analyzing'].includes(entry.analysis.status)) entry.analysis.status = 'interrupted';
-
-          }
-          for (const batch of loadedBatches) {
-            const wasActive = ['queued', 'running'].includes(batch.status);
-            // Old versions treated any picker AbortError as a cancelled export,
-            // including embedded browsers that never opened the directory dialog.
-            if (batch.status === 'cancelled' && batch.error === '已取消输出目录选择，本批未开始导出。' && !batch.outputs?.length) {
-              batch.status = 'awaiting-destination';
-              batch.error = '尚未取得输出目录，导出未开始。请选择输出目录后继续。';
-            }
-            // Older records have output metadata but no per-clip outcomes.
-            batch.clipResults ||= batch.clips.map((clip, index) => {
-              const completedCount = batch.outputs?.length || 0;
-              let status = 'not-started', error = null;
-              if (index < completedCount) status = 'completed';
-              else if (index === completedCount && batch.status === 'failed') { status = 'failed'; error = batch.error; }
-              else if (index === completedCount && batch.status === 'running') status = 'interrupted';
-              return { ...clip, status, error };
-            });
-            batch.clipResults = batch.clipResults.map((result) => result.status === 'running' ? { ...result, status: 'interrupted', error: '页面关闭前尚未确认完成' } : result);
-            if (wasActive) batch.status = 'interrupted';
-            batch.outputs = (batch.outputs || []).map(({ url, ...output }) => ({ ...output, available: false }));
-          }
-          for (const entry of loadedSources) sources.set(entry.id, entry);
-          batches.push(...loadedBatches);
-          sequence = saved.sequence;
-          revision = savedRevision = saved.revision;
-        }
-        restored = true; restoreFailed = false; saveStatus = 'saved'; saveError = null; notify();
-        return true;
-      } catch (error) {
-        restoreFailed = true; saveStatus = 'error'; saveError = error?.message || String(error); notify();
-        return false;
-      }
-    },
     addSource(identity) {
-      if (restoreFailed) throw new Error('请先重试恢复已有复核记录');
-      if (typeof identity.id !== 'string' || !identity.id || !Number.isFinite(identity.duration) || !(identity.duration > 0)) throw new Error('录像身份与时长无效');
+        if (typeof identity.id !== 'string' || !identity.id || !Number.isFinite(identity.duration) || !(identity.duration > 0)) throw new Error('录像身份与时长无效');
       const { id, name, size, lastModified, fingerprint, fingerprintVersion, duration } = identity;
       const descriptor = { id, name, size, lastModified, fingerprint, fingerprintVersion };
       if (sources.has(id)) {
         const existing = sources.get(id);
-        if (JSON.stringify(existing.identity) !== JSON.stringify(descriptor) || existing.duration !== duration) throw new Error('重新关联的录像与已保存身份不一致');
+        if (JSON.stringify(existing.identity) !== JSON.stringify(descriptor) || existing.duration !== duration) throw new Error('当前页面已有同一标识的不同录像');
         return id;
       }
       sources.set(identity.id, { id: identity.id, identity: copy(descriptor), duration, candidates: [], decisions: [], review: { position: 0, selectedClipId: null, zoomStart: 0, zoomEnd: duration }, analysis: { status: 'queued', processedUntil: 0, error: null } });
       changed();
       return identity.id;
     },
-    setReview(id, patch, { background = false } = {}) {
+    setReview(id, patch) {
       const source = requireSource(id);
       if (Object.keys(patch).some((key) => !['position', 'selectedClipId', 'zoomStart', 'zoomEnd'].includes(key))) throw new Error('复核位置字段无效');
       const next = { ...source.review, ...patch };
@@ -197,13 +90,12 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       validRange(source, { start: next.zoomStart, end: next.zoomEnd });
       if (JSON.stringify(next) === JSON.stringify(source.review)) return;
       source.review = copy(next);
-      changed(!background || Object.keys(patch).some((key) => key !== 'position'));
+      changed();
     },
     updateWaveform(id, waveform) {
       const source = requireSource(id);
       source.waveform = freeze(copy(waveform));
-      dirtyWaveforms.set(id, source.waveform);
-      changed(false);
+      changed();
     },
     updateAnalysis(id, patch) {
       const source = requireSource(id);
@@ -211,12 +103,12 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       if (patch.status && !['preparing', 'queued', 'analyzing', 'completed', 'stopped', 'failed', 'interrupted'].includes(patch.status)) throw new Error('分析状态无效');
       if (patch.processedUntil !== undefined && (!Number.isFinite(patch.processedUntil) || patch.processedUntil < 0 || patch.processedUntil > source.duration)) throw new Error('分析进度须在录像内');
       Object.assign(source.analysis, copy(patch));
-      changed(false);
+      changed();
     },
     publishCandidates(id, incoming) {
       const source = requireSource(id);
       source.candidates = incoming.map((candidate) => ({ id: `auto:${candidate.id ?? candidate.key ?? `${candidate.start}:${candidate.end}`}`, ...validRange(source, candidate), provisional: !!candidate.provisional }));
-      changed(false);
+      changed();
     },
     mergeCandidates(id) {
       const source = requireSource(id), before = source.candidates;
@@ -227,7 +119,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       if (selected && !merged.some((candidate) => candidate.id === selected.id)) {
         source.review.selectedClipId = merged.find((candidate) => candidate.start <= selected.start && candidate.end >= selected.end)?.id ?? null;
       }
-      changed(false);
+      changed();
     },
     submitBatch(id, { audio = {}, output = {} } = {}) {
       const source = requireSource(id);
@@ -236,7 +128,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       const batch = { id: `batch:${++sequence}`, sourceId: id, source: copy(source.identity), clips, audio: copy(audio), output: copy(output), status: 'queued', createdAt: new Date().toISOString(), progress: 0, outputs: [], clipResults: clips.map((clip) => ({ ...clip, status: 'not-started', error: null })) };
       batches.push(batch);
       source.lastSubmittedSelection = signature(clips);
-      changed(false);
+      changed();
       return freeze(copy(batch));
     },
     updateBatch(id, patch) {
@@ -248,7 +140,7 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       if (patch.progress !== undefined && (!Number.isFinite(patch.progress) || patch.progress < 0 || patch.progress > 1)) throw new Error('导出进度无效');
       if (patch.clipResults && (!Array.isArray(patch.clipResults) || patch.clipResults.length !== batch.clips.length || patch.clipResults.some((result, index) => !sameRange(result, batch.clips[index]) || !['not-started', 'running', 'completed', 'failed', 'cancelled', 'interrupted'].includes(result.status)))) throw new Error('片段导出状态与已提交范围不一致');
       Object.assign(batch, copy(patch));
-      changed(false);
+      changed();
     },
     choose(id, clipId, selected) {
       const source = requireSource(id);

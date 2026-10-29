@@ -83,10 +83,7 @@ strong { font-weight: 600; }
 .navigation button:hover:not(:disabled) { color: var(--text); background: var(--surface-low); }
 .navigation [aria-current="page"] { color: var(--text); font-weight: 600; border-bottom-color: var(--crimson); }
 .navigation button:disabled { color: var(--faint); }
-.save-status { display: flex; gap: 10px; align-items: center; margin-left: auto; padding: 4px 10px; background: var(--surface-low); border: 1px solid var(--border); border-radius: var(--radius-control); }
-#save-state { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-#save-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
-#save-state.error::before { background: var(--negative); }
+.session-notice { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; display: flex; gap: 10px; align-items: center; margin-left: auto; padding: 4px 10px; background: var(--surface-low); border: 1px solid var(--border); border-radius: var(--radius-control); }
 main { max-width: var(--container-max); padding: 16px 32px 24px; margin: auto; }
 main:focus { outline: none; }
 .workspace-status { color: var(--muted); font-size: 13px; line-height: 1.55; min-height: 36px; padding: 7px 12px; margin: 0 0 12px; border-left: 2px solid var(--border); background: var(--surface-low); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -194,7 +191,7 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
 .workspace-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--border); color: var(--faint); font-size: 12px; }
 @media (max-width: 1100px) {
   .header-inner { gap: 18px; }
-  .save-status { max-width: 240px; }
+  .session-notice { max-width: 240px; }
   .workspace { grid-template-columns: minmax(0, 1fr) 330px; }
   .file { grid-template-columns: 1fr; }
   .file-actions { grid-column: auto; }
@@ -204,7 +201,7 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   .brand { flex: 1; }
   .navigation { order: 3; width: 100%; }
   .navigation button { min-height: 40px; padding-left: 0; padding-right: 20px; }
-  .save-status { max-width: 52%; }
+  .session-notice { max-width: 52%; }
   main { padding: 16px 24px 24px; }
   .analysis-layout, .workspace { grid-template-columns: 1fr; }
   .workflow-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -218,8 +215,7 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   .header-inner { padding: 12px 20px 6px; gap: 10px; }
   .brand { font-size: 15px; }
   .brand-secondary { display: none; }
-  .save-status { width: 100%; max-width: none; order: 2; }
-  #save-state { font-size: 12px; }
+  .session-notice { width: 100%; max-width: none; order: 2; }
   .navigation { margin-top: 2px; gap: 16px; }
   .navigation button { min-height: 44px; padding-right: 0; }
   main { padding: 16px 20px 22px; }
