@@ -7,16 +7,28 @@ export function createAudioPeaks(duration, trackIndex = 0) {
 
 export function appendAudioPeaks(wave, { buffer, timestamp }, origin, duration) {
   const start = timestamp - origin;
+  const sampleRate = buffer.sampleRate;
+  const bufferEnd = start + buffer.duration;
+
+  // 计算此 buffer 覆盖的桶范围，避免遍历所有桶
+  const firstBucket = Math.max(0, Math.floor(Math.max(0, start) / wave.step + 1e-8));
+  const lastBucket = Math.min(wave.peaks.length - 1, Math.floor(Math.min(duration, bufferEnd) / wave.step - 1e-8 + 1));
+
   for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
     const samples = buffer.getChannelData(channel);
-    for (let i = 0; i < samples.length; i++) {
-      const time = start + i / buffer.sampleRate;
-      if (time < 0 || time >= duration) continue;
-      const bucket = Math.floor(time / wave.step + 1e-8);
-      wave.peaks[bucket] = Math.max(wave.peaks[bucket] ?? 0, Math.min(1, Math.abs(samples[i])));
+    // 逐桶扫描：每个桶只在自己的采样范围内找最大值，避免逐样本计算桶索引
+    for (let bucket = firstBucket; bucket < lastBucket; bucket++) {
+      const sampleStart = Math.max(0, Math.round((bucket * wave.step - start) * sampleRate));
+      const sampleEnd = Math.min(samples.length, Math.round(((bucket + 1) * wave.step - start) * sampleRate));
+      let max = wave.peaks[bucket] ?? 0;
+      for (let i = sampleStart; i < sampleEnd; i++) {
+        const v = Math.abs(samples[i]);
+        if (v > max) max = v;
+      }
+      wave.peaks[bucket] = Math.min(1, max);
     }
   }
-  wave.decodedUntil = Math.max(wave.decodedUntil, Math.min(duration, Math.max(0, start + buffer.duration)));
+  wave.decodedUntil = Math.max(wave.decodedUntil, Math.min(duration, Math.max(0, bufferEnd)));
 }
 
 export function waveformColumns(wave, start, end, width) {

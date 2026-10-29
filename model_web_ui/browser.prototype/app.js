@@ -39,12 +39,17 @@ const queue = createBrowserAnalysis({ MB,
   },
   onCandidates(record, candidates) { if (record.sourceId) workspace.publishCandidates(record.sourceId, candidates); },
   onChange(record) {
+    let workspaceUpdated = false;
     if (record.sourceId) {
       const next = { status: record.status === 'complete' ? 'completed' : record.status, processedUntil: Math.min(record.duration, Math.max(0, record.processedUntil || 0)), error: record.error || null };
       const prior = workspace.getSource(record.sourceId).analysis;
-      if (Object.keys(next).some((key) => next[key] !== prior[key])) workspace.updateAnalysis(record.sourceId, next);
+      if (Object.keys(next).some((key) => next[key] !== prior[key])) {
+        workspace.updateAnalysis(record.sourceId, next);
+        workspaceUpdated = true;
+      }
     }
-    render(); exportQueue?.pump();
+    if (!workspaceUpdated) render();
+    exportQueue?.pump();
   },
 });
 const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next) {
@@ -186,14 +191,27 @@ function renderQueue() {
     let row = queueRows.get(item.key);
     if (!row) {
       row = element('div', undefined, 'file'); row.dataset.sourceId = item.key;
-      row.append(element('div', undefined, 'file-info'), element('div', undefined, 'file-progress'), element('div', undefined, 'row file-actions'));
-      row.querySelector('.file-info').append(createFrameSignal(), element('strong'), element('small'));
-      const actions = row.querySelector('.file-actions');
-      for (const [action, label, run] of [
-        ['review', '浏览原片', () => openReview(row.item.saved.id)],
-        ['stop', '停止分析', () => queue.stop(row.item.record.id)],
-        ['retry', '从头重试', () => queue.retry(row.item.record.id)],
-      ]) { const node = button(label, run); node.dataset.action = action; actions.append(node); }
+      const fileInfo = element('div', undefined, 'file-info');
+      const filename = element('strong');
+      const fileMeta = element('small');
+      fileInfo.append(createFrameSignal(), filename, fileMeta);
+
+      const fileProgress = element('div', undefined, 'file-progress');
+      const statusSpan = element('span', undefined, 'file-status');
+      const countSmall = element('small');
+      const meter = element('progress', undefined, 'file-meter');
+      const errorSmall = element('small', undefined, 'error');
+      const messageSmall = element('small');
+      fileProgress.append(statusSpan, countSmall, meter);
+
+      const actions = element('div', undefined, 'row file-actions');
+      const reviewBtn = button('浏览原片', () => openReview(row.item.saved.id)); reviewBtn.dataset.action = 'review';
+      const stopBtn = button('停止分析', () => queue.stop(row.item.record.id)); stopBtn.dataset.action = 'stop';
+      const retryBtn = button('从头重试', () => queue.retry(row.item.record.id)); retryBtn.dataset.action = 'retry';
+      actions.append(reviewBtn, stopBtn, retryBtn);
+
+      row.append(fileInfo, fileProgress, actions);
+      row.refs = { filename, fileMeta, fileProgress, statusSpan, countSmall, meter, errorSmall, messageSmall, reviewBtn, stopBtn, retryBtn };
       queueRows.set(item.key, row); $('queue').append(row);
     }
     row.item = item;
@@ -205,26 +223,55 @@ function renderQueue() {
     const duration = saved?.duration || record.duration;
     const processedUntil = record?.processedUntil ?? saved?.analysis.processedUntil ?? 0;
     const count = saved?.clips.filter((clip) => !clip.provisional).length || 0;
-    const info = row.querySelector('.file-info');
-    const filename = info.querySelector('strong'); filename.textContent = identity.name; filename.title = identity.name;
-    info.querySelector('small').textContent = `${duration ? time(duration) : '准备媒体信息'} · ${(identity.size / 1048576).toFixed(1)} MiB`;
-    const details = row.querySelector('.file-progress');
-    details.replaceChildren(element('span', `${statuses[status]}`, 'file-status'), element('small', `已分析至 ${time(processedUntil)}${duration ? ` / ${time(duration)}` : ''} · ${count} 个确定范围`));
-    const meter = element('progress', undefined, 'file-meter');
-    meter.max = duration > 0 ? duration : 1;
-    meter.value = Math.max(0, Math.min(processedUntil, meter.max));
+
+    const { filename, fileMeta, fileProgress, statusSpan, countSmall, meter, errorSmall, messageSmall, reviewBtn, stopBtn, retryBtn } = row.refs;
+    if (filename.textContent !== identity.name) {
+      filename.textContent = identity.name;
+      filename.title = identity.name;
+    }
+    const metaText = `${duration ? time(duration) : '准备媒体信息'} · ${(identity.size / 1048576).toFixed(1)} MiB`;
+    if (fileMeta.textContent !== metaText) fileMeta.textContent = metaText;
+
+    const statusText = `${statuses[status] || status}`;
+    if (statusSpan.textContent !== statusText) statusSpan.textContent = statusText;
+
+    const countText = `已分析至 ${time(processedUntil)}${duration ? ` / ${time(duration)}` : ''} · ${count} 个确定范围`;
+    if (countSmall.textContent !== countText) countSmall.textContent = countText;
+
+    const meterMax = duration > 0 ? duration : 1;
+    if (meter.max !== meterMax) meter.max = meterMax;
+    const meterVal = Math.max(0, Math.min(processedUntil, meterMax));
+    if (meter.value !== meterVal) meter.value = meterVal;
     meter.setAttribute('aria-label', `${identity.name} 分析进度`);
     meter.setAttribute('aria-valuetext', duration > 0 ? `已分析 ${time(processedUntil)}，全片 ${time(duration)}` : '正在准备媒体信息');
-    details.append(meter);
-    if (record?.error || saved?.analysis.error) details.append(element('small', record?.error || saved.analysis.error, 'error'));
-    if (record?.status === 'analyzing' && record.message) details.append(element('small', record.message));
-    const actions = row.querySelector('.file-actions');
-    actions.querySelector('[data-action=review]').hidden = !saved;
-    actions.querySelector('[data-action=review]').textContent = count ? `复核 ${count} 段` : '浏览原片';
-    actions.querySelector('[data-action=stop]').hidden = !record || !['preparing', 'queued', 'analyzing'].includes(status);
-    actions.querySelector('[data-action=stop]').textContent = status === 'queued' ? '移出队列' : '停止分析';
-    actions.querySelector('[data-action=retry]').hidden = !record || !['stopped', 'failed', 'complete'].includes(status);
-    actions.querySelector('[data-action=retry]').textContent = status === 'complete' ? '重新分析' : '从头重试';
+
+    const err = record?.error || saved?.analysis.error;
+    if (err) {
+      if (!errorSmall.isConnected) fileProgress.append(errorSmall);
+      if (errorSmall.textContent !== err) errorSmall.textContent = err;
+    } else if (errorSmall.isConnected) {
+      errorSmall.remove();
+    }
+
+    if (record?.status === 'analyzing' && record.message) {
+      if (!messageSmall.isConnected) fileProgress.append(messageSmall);
+      if (messageSmall.textContent !== record.message) messageSmall.textContent = record.message;
+    } else if (messageSmall.isConnected) {
+      messageSmall.remove();
+    }
+
+    reviewBtn.hidden = !saved;
+    const reviewText = count ? `复核 ${count} 段` : '浏览原片';
+    if (reviewBtn.textContent !== reviewText) reviewBtn.textContent = reviewText;
+
+    stopBtn.hidden = !record || !['preparing', 'queued', 'analyzing'].includes(status);
+    const stopText = status === 'queued' ? '移出队列' : '停止分析';
+    if (stopBtn.textContent !== stopText) stopBtn.textContent = stopText;
+
+    retryBtn.hidden = !record || !['stopped', 'failed', 'complete'].includes(status);
+    const retryText = status === 'complete' ? '重新分析' : '从头重试';
+    if (retryBtn.textContent !== retryText) retryBtn.textContent = retryText;
+
     if (completedNow) taskFeedback(row, 'completed');
     else if (record && !presentedRecords.has(record)) taskFeedback(row, 'added');
     if (record) presentedRecords.add(record);
@@ -233,7 +280,12 @@ function renderQueue() {
 function renderSources() {
   const select = $('source-select');
   const ids = view.sources.map((item) => item.id);
-  if ([...select.options].map((option) => option.value).join('|') !== ids.join('|')) select.replaceChildren(...view.sources.map((item) => new Option(item.identity.name, item.id)));
+  if ([...select.options].map((option) => option.value).join('|') !== ids.join('|')) {
+    select.replaceChildren(...view.sources.map((item) => new Option(item.identity.name, item.id)));
+  }
+  if (activeSourceId && !ids.includes(activeSourceId)) {
+    activeSourceId = ids[0] || null;
+  }
   select.value = activeSourceId || '';
 }
 function selectRange(clip, jump = true) {
@@ -403,7 +455,16 @@ function render() {
   $('demo').disabled = makingDemo;
   $('drop-zone').setAttribute('aria-disabled', String(currentPage !== 'analysis'));
   if (currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
-  renderQueue(); renderSources(); renderReview(); renderExports(); renderDiagnostics();
+
+  if (currentPage === 'analysis') {
+    renderQueue();
+  } else if (currentPage === 'review') {
+    renderSources();
+    renderReview();
+  } else if (currentPage === 'exports') {
+    renderExports();
+  }
+  renderDiagnostics();
 }
 
 async function demo() {
