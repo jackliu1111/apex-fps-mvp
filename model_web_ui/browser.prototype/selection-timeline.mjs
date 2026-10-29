@@ -11,7 +11,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   const $ = (id) => document.getElementById(id);
   const axis = $('source-axis'), predictions = $('overview-markers');
   const stamp = (t) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
-  let sourceId, predictionStart = 0, predictionEnd = 1, evidenceKey, frames = [], drag;
+  let sourceId, predictionStart = 0, predictionEnd = 1, evidenceKey, waveKey, frames = [], drag;
   let overviewTarget = null;
   const evidence = createSelectionEvidence({ MB, onResult(result) {
     frames = result.frames;
@@ -67,21 +67,38 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     $('prediction-playhead').hidden = !headVisible;
     if (headVisible) $('prediction-playhead').style.left = `${(overviewPosition - predictionStart) / span * 100}%`;
   }
+  function paintWaveform(source) {
+    if (!source) return;
+    const wave = source.waveform;
+    const canvas = $('prediction-wave'), context = canvas.getContext('2d');
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || 1200));
+    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || 64));
+    const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
+    const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${predictionStart}:${predictionEnd}:${pixelWidth}:${pixelHeight}`;
+    if (waveKey !== renderKey) {
+      waveKey = renderKey;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      const columns = waveformColumns(wave, predictionStart, predictionEnd, canvas.width);
+      const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
+      context.fillStyle = '#b4b4b4';
+      columns.forEach((peak, x) => {
+        if (peak === null) return;
+        const height = Math.max(minBar, Math.round(Math.sqrt(peak) * (canvas.height - pad)));
+        context.fillRect(x, canvas.height - height, 1, height);
+      });
+    }
+    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
+  }
   function render(source) {
     if (!source) return;
     if (sourceId !== source.id) { drag = null; overviewTarget = null; sourceId = source.id; predictionStart = 0; predictionEnd = source.duration; }
     paintSelection(source);
+    paintWaveform(source);
     const wave = source.waveform;
-    const canvas = $('prediction-wave'), context = canvas.getContext('2d');
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    const columns = waveformColumns(wave, predictionStart, predictionEnd, canvas.width);
-    context.fillStyle = '#b4b4b4';
-    columns.forEach((peak, x) => {
-      if (peak === null) return;
-      const height = Math.max(1, Math.sqrt(peak) * (canvas.height - 8));
-      context.fillRect(x, canvas.height - height, 1, height);
-    });
-    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
     const track = wave ? `音轨 ${wave.trackIndex + 1}` : '';
     $('waveform-status').textContent = wave?.decodedUntil > 0
       ? `分析音频波形 · ${track} · 已读取至 ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}`
@@ -109,9 +126,13 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (node === document.activeElement) $('prediction-workspace').focus({ preventScroll: true });
       node.remove();
     }
+    let previous = null;
     visible.forEach((item) => {
       let node = [...predictions.children].find((node) => node.dataset.clipId === item.id);
-      if (!node) { node = document.createElement('button'); node.dataset.clipId = item.id; predictions.append(node); }
+      if (!node) { node = document.createElement('button'); node.dataset.clipId = item.id; }
+      const nextSibling = previous ? previous.nextElementSibling : predictions.firstElementChild;
+      if (nextSibling !== node) predictions.insertBefore(node, nextSibling);
+      previous = node;
       const start = Math.max(item.start, predictionStart), end = Math.min(item.end, predictionEnd);
       node.style.left = `${(start - predictionStart) / (predictionEnd - predictionStart) * 100}%`;
       node.style.width = `${(end - start) / (predictionEnd - predictionStart) * 100}%`;
@@ -227,5 +248,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     }
   };
   $('selection-player-axis').onkeydown = $('prediction-workspace').onkeydown = keydown;
-  return { render, suspend() { finish(true); overviewTarget = null; evidence.cancel(); evidenceKey = null; $('source-hover').hidden = true; } };
+  window.addEventListener('resize', () => { const current = getSource(); if (current) paintWaveform(current); });
+  return { render, suspend() { finish(true); overviewTarget = null; evidence.cancel(); evidenceKey = null; waveKey = null; $('source-hover').hidden = true; } };
 }

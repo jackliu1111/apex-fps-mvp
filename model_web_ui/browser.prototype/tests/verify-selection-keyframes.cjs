@@ -41,7 +41,19 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
               } });
               evidence.request({ file, origin }, 1.1, 11.1);
             });
-            results.push({ file: file.name, baselineDecoded: baseline, keyframeDecoded: decoded.length, allKeyframes: decoded.every(chunk => chunk.type === 'key'), uniqueImages: new Set(result.frames.map(frame => frame.image)).size, displayedImages: result.frames.length });
+            const firstPassDecoded = decoded.length;
+            const secondResult = await new Promise((resolve, reject) => {
+              clearTimeout(timer);
+              timer = setTimeout(() => reject(new Error('Cached keyframe generation timed out')), 30000);
+              evidence.request({ file, origin }, 1.1, 11.1);
+              const check = setInterval(() => {
+                if (decoded.length >= firstPassDecoded && result.frames.length === 10) {
+                  clearInterval(check);
+                }
+              }, 20);
+              setTimeout(() => { clearInterval(check); resolve(result); }, 450);
+            });
+            results.push({ file: file.name, baselineDecoded: baseline, keyframeDecoded: firstPassDecoded, cachedDecodedDelta: decoded.length - firstPassDecoded, allKeyframes: decoded.every(chunk => chunk.type === 'key'), uniqueImages: new Set(result.frames.map(frame => frame.image)).size, displayedImages: secondResult.frames.length });
           } finally { clearTimeout(timer); evidence?.cancel(); }
         }
       } finally { window.VideoDecoder = Original; }
@@ -51,6 +63,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       assert.equal(result.displayedImages, 10);
       assert.equal(result.allKeyframes, true);
       assert.equal(result.keyframeDecoded, result.uniqueImages, 'Repeated sample positions reuse a decoded keyframe');
+      assert.equal(result.cachedDecodedDelta, 0, 'Repeated window request within the same file session reuses cached keyframe dataURLs without re-decoding');
       assert.ok(result.keyframeDecoded < result.baselineDecoded, 'Reference images avoid decoding the intervening frames');
     }
     console.log(JSON.stringify(results));

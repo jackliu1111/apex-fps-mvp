@@ -298,20 +298,11 @@ function renderClips(saved) {
 function renderRange(saved) {
   const clip = selectedClip(), valid = !!clip && !clip.provisional;
   $('range-label').textContent = clip ? `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} 秒 · ${(clip.end - clip.start).toFixed(2)} 秒` : '选择候选或添加手动范围';
-  const low = Math.min(saved.review.zoomStart, clip?.start ?? saved.review.zoomStart);
-  const high = Math.max(saved.review.zoomEnd, clip?.end ?? saved.review.zoomEnd);
-  const track = $('range-editor').querySelector('.local-range');
-  track.style.setProperty('--range-start', `${valid ? (clip.start - low) / (high - low) * 100 : 0}%`);
-  track.style.setProperty('--range-end', `${valid ? (clip.end - low) / (high - low) * 100 : 0}%`);
-  $('range-view-start').textContent = `${time(low)} · ${low.toFixed(2)} 秒`;
-  $('range-view-end').textContent = `${time(high)} · ${high.toFixed(2)} 秒`;
   for (const key of ['start', 'end']) {
-    const field = $(`range-${key}`), handle = $(`range-${key}-handle`);
-    field.disabled = handle.disabled = !valid; field.max = saved.duration;
-    handle.min = low; handle.max = high;
-    handle.setAttribute('aria-valuetext', clip ? `${clip[key].toFixed(2)} 秒，${key === 'start' ? '起点' : '终点'}` : '未选择片段');
+    const field = $(`range-${key}`);
+    field.disabled = !valid; field.max = saved.duration;
     $(`range-${key}-current`).disabled = !valid || (key === 'start' ? saved.review.position >= clip.end : saved.review.position <= clip.start);
-    setValue(field, clip ? clip[key].toFixed(2) : ''); setValue(handle, clip ? clip[key] : saved.review.zoomStart);
+    setValue(field, clip ? clip[key].toFixed(2) : '');
     setValue($(`zoom-${key}`), saved.review[`zoom${key === 'start' ? 'Start' : 'End'}`].toFixed(2));
   }
   $('fit-selection').disabled = !valid;
@@ -433,13 +424,7 @@ function render() {
   const activeExports = view.batches.filter((batch) => ['awaiting-destination', 'queued', 'running'].includes(batch.status)).length;
   $('nav-exports').textContent = `导出任务${activeExports ? ` · ${activeExports}` : ''}`;
   $('analysis-page').hidden = currentPage !== 'analysis'; $('review-page').hidden = currentPage !== 'review';
-  const noticeHost = currentPage === 'analysis' ? $('analysis-notice') : currentPage === 'exports' ? $('exports-section') : $('main');
   $('status').hidden = $('status').dataset.page !== currentPage && $('status').dataset.tone !== 'error';
-  if ($('status').parentElement !== noticeHost) {
-    if (currentPage === 'analysis') noticeHost.append($('status'));
-    else if (currentPage === 'exports') noticeHost.querySelector('.panel-heading').after($('status'));
-    else noticeHost.insertBefore($('status'), $('analysis-page'));
-  }
   $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
   $('nav-review').setAttribute('aria-current', currentPage === 'review' ? 'page' : 'false'); $('nav-review').disabled = !view.sources.length;
   $('files').disabled = $('import-files').disabled = !restoreReady; $('demo').disabled = !restoreReady || makingDemo;
@@ -520,28 +505,20 @@ function stepCandidate(direction) {
 $('prev-candidate').onclick = () => safely(() => stepCandidate(-1));
 $('next-candidate').onclick = () => safely(() => stepCandidate(1));
 $('manual').onclick = () => safely(() => { const saved = source(), start = Math.min(saved.review.position, Math.max(0, saved.duration - 5)); const id = workspace.addManual(saved.id, { start, end: Math.min(saved.duration, start + 5) }); selectRange(workspace.getSource(saved.id).clips.find((clip) => clip.id === id), false); });
-function trimBoundary(key, value, clamp = false) {
+function trimBoundary(key, value) {
   const saved = source(), clip = selectedClip();
   if (!clip || clip.provisional) return;
   if (value === '' || !Number.isFinite(Number(value))) throw new Error('请输入有效的切点时间');
-  let next = Number(value);
-  if (clamp) {
-    // Keep the opposite edge and playhead fixed, with a minimum gap of one input step.
-    const minimum = key === 'start' ? 0 : Math.min(saved.duration, clip.start + 0.01);
-    const maximum = key === 'start' ? Math.max(0, clip.end - 0.01) : saved.duration;
-    next = Math.max(minimum, Math.min(maximum, next));
-  }
+  const next = Number(value);
   workspace.trim(saved.id, clip.id, { start: clip.start, end: clip.end, [key]: next });
   $(`range-${key}`).value = next.toFixed(2);
-  $(`range-${key}-handle`).value = next;
 }
 for (const key of ['start', 'end']) {
-  const commit = (node, clamp) => safely(() => {
-    try { trimBoundary(key, node.value, clamp); }
-    catch (error) { const clip = selectedClip(); node.value = clip ? clip[key] : ''; throw error; }
+  const commit = (node) => safely(() => {
+    try { trimBoundary(key, node.value); }
+    catch (error) { const clip = selectedClip(); node.value = clip ? clip[key].toFixed(2) : ''; throw error; }
   });
-  $(`range-${key}`).onchange = () => commit($(`range-${key}`), false);
-  $(`range-${key}-handle`).onchange = () => commit($(`range-${key}-handle`), true);
+  $(`range-${key}`).onchange = () => commit($(`range-${key}`));
   $(`range-${key}-current`).onclick = () => safely(() => trimBoundary(key, source().review.position));
   $(`zoom-${key}`).onchange = () => safely(() => workspace.setReview(activeSourceId, { [`zoom${key === 'start' ? 'Start' : 'End'}`]: Number($(`zoom-${key}`).value) }));
 }

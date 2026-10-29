@@ -14,6 +14,7 @@ const freeze = (value) => {
 
 export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayMs = 100 } = {}) {
   const sources = new Map();
+  const dirtyWaveforms = new Map();
   const batches = [];
   let editing = false;
   const decisionState = (source) => copy({ decisions: source.decisions, selectedClipId: source.review.selectedClipId });
@@ -48,14 +49,16 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
   const signature = (clips) => JSON.stringify(clips.map(({ start, end }) => [start, end]));
   const getSource = (id) => {
     const source = requireSource(id);
-    const { history, ...visible } = source;
-    return freeze(copy({ ...visible, canUndo: !!history?.undo.length, canRedo: !!history?.redo.length, clips: clipsFor(source), hasUnexportedChanges: signature(selectedClips(source)) !== (source.lastSubmittedSelection ?? '[]') }));
+    const { history, waveform, ...visible } = source;
+    const cloned = copy({ ...visible, canUndo: !!history?.undo.length, canRedo: !!history?.redo.length, clips: clipsFor(source), hasUnexportedChanges: signature(selectedClips(source)) !== (source.lastSubmittedSelection ?? '[]') });
+    if (waveform !== undefined) cloned.waveform = waveform;
+    return freeze(cloned);
   };
   // Export/analysis snapshots still persist, but do not dirty the human review indicator.
   const reviewSaveStatus = () => saveStatus === 'error' ? 'error' : reviewRevision > savedRevision ? saveStatus : 'saved';
   const view = () => freeze({ sources: [...sources.keys()].map(getSource), batches: copy(batches), save: { status: saveStatus, reviewStatus: reviewSaveStatus(), revision, savedRevision, error: saveError } });
   const notify = () => onChange(view());
-  const snapshot = () => copy({ version: 1, sequence, revision, sources: [...sources.values()], batches });
+  const snapshot = () => ({ version: 1, sequence, revision, sources: [...sources.values()].map(({ waveform, ...source }) => copy(source)), batches: copy(batches) });
   const flush = async () => {
     clearTimeout(saveTimer);
     saveTimer = null;
@@ -67,16 +70,27 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
       return false;
     }
     saving = Promise.resolve().then(async () => {
+      let pendingWaveforms = {};
       try {
         while (savedRevision < revision) {
           const next = snapshot();
+          pendingWaveforms = Object.fromEntries(dirtyWaveforms);
+          dirtyWaveforms.clear();
+          if (!storage.separatedWaveforms && storage.save.length < 2) {
+            const attached = Object.fromEntries([...sources.values()].filter((item) => item.waveform !== undefined).map((item) => [item.id, item.waveform]));
+            if (Object.keys(attached).length) next.waveforms = attached;
+          }
           saveStatus = 'saving'; saveError = null; notify();
-          await storage.save(next);
+          await storage.save(next, pendingWaveforms);
           savedRevision = next.revision;
+          pendingWaveforms = {};
         }
         saveStatus = 'saved'; notify();
         return true;
       } catch (error) {
+        for (const [id, waveform] of Object.entries(pendingWaveforms)) {
+          if (!dirtyWaveforms.has(id)) dirtyWaveforms.set(id, waveform);
+        }
         saveStatus = 'error'; saveError = error?.message || String(error); notify();
         return false;
       } finally { saving = null; }
@@ -116,7 +130,12 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
         const saved = await storage?.load();
         if (saved) {
           if (saved.version !== 1 || !Array.isArray(saved.sources) || !Array.isArray(saved.batches)) throw new Error('无法读取此版本的复核记录');
-          const loadedSources = copy(saved.sources);
+          const loadedSources = saved.sources.map(({ waveform, ...entry }) => {
+            const cloned = copy(entry);
+            const resolved = waveform ?? saved.waveforms?.[entry.id];
+            if (resolved !== undefined) cloned.waveform = freeze(copy(resolved));
+            return cloned;
+          });
           const loadedBatches = copy(saved.batches);
           if (!Number.isSafeInteger(saved.sequence) || !Number.isSafeInteger(saved.revision) || loadedSources.some((entry) => !entry.id || !entry.identity || !(entry.duration > 0) || !entry.analysis || !entry.review || !Array.isArray(entry.decisions) || !Array.isArray(entry.candidates))) throw new Error('复核记录格式损坏，请保留原记录后重试');
           for (const entry of loadedSources) {
@@ -182,7 +201,8 @@ export function createReviewWorkspace({ storage, onChange = () => {}, saveDelayM
     },
     updateWaveform(id, waveform) {
       const source = requireSource(id);
-      source.waveform = copy(waveform);
+      source.waveform = freeze(copy(waveform));
+      dirtyWaveforms.set(id, source.waveform);
       changed(false);
     },
     updateAnalysis(id, patch) {

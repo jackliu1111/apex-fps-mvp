@@ -1,8 +1,7 @@
-/* Stitch Darkroom Review Studio: one 1120px column, video-dominant player deck,
+/* Stitch Darkroom Review Studio: unified workspace column, video-dominant player deck,
    and stacked source/prediction timelines sharing exact left and right edges. */
 body:has(#review-page:not([hidden])) .workspace-status {
-  max-width: 1120px;
-  margin: 0 auto 8px;
+  margin: 0 0 8px;
   font-size: 12px;
 }
 body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
@@ -12,7 +11,6 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
 #review-page .review-heading,
 #review-page .notice,
 #review-page .workspace {
-  max-width: 1120px;
   margin-inline: auto;
 }
 
@@ -403,7 +401,7 @@ body:has(#review-page:not([hidden])) .workspace-status[data-tone="quiet"] {
   margin: 6px 12px 0;
 }
 #prediction-empty {
-  margin-top: 6px;
+  margin: 6px 12px 0;
 }
 #prediction-empty:empty { display: none; }
 

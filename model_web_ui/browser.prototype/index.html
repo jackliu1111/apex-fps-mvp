@@ -31,7 +31,6 @@
       <div class="page-heading">
         <div><h1>录像工作区</h1><p class="intro">从整场对局，找到值得留下的片段。</p></div>
         <span class="local-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8m-4-4v4"/></svg>录像留在本机</span>
-        <div id="analysis-notice" class="task-heading-status"></div>
       </div>
       <div class="analysis-layout">
         <section class="panel queue-panel" aria-labelledby="queue-heading">
@@ -97,11 +96,7 @@
             <div class="panel-heading"><h2 id="range-heading">当前选片范围</h2><button id="fit-selection" class="quiet">放大至选片</button></div>
             <p id="range-label" class="muted">选择候选或添加手动范围</p>
             <div class="range-fields"><label class="field" for="range-start">起点 / 秒<input id="range-start" type="number" min="0" step="0.01"></label><label class="field" for="range-end">终点 / 秒<input id="range-end" type="number" min="0" step="0.01"></label></div>
-            <div class="local-range" role="group" aria-label="选片裁剪范围">
-              <div class="range-track"><span class="range-fill" aria-hidden="true"></span><input id="range-start-handle" aria-label="调整选片起点" type="range" step="0.01"><input id="range-end-handle" aria-label="调整选片终点" type="range" step="0.01"></div>
-              <div class="range-scale" aria-hidden="true"><span id="range-view-start"></span><span id="range-view-end"></span></div>
-              <div class="range-actions"><button id="range-start-current" class="quiet">当前位置设为起点</button><button id="range-end-current" class="quiet">当前位置设为终点</button></div>
-            </div>
+            <div class="range-actions"><button id="range-start-current" class="quiet">当前位置设为起点</button><button id="range-end-current" class="quiet">当前位置设为终点</button></div>
             <details class="inline-details"><summary>局部视野与切点说明</summary><div class="row settings"><label class="field">视野起点 / 秒<input id="zoom-start" type="number" min="0" step="1"></label><label class="field">视野终点 / 秒<input id="zoom-end" type="number" min="0" step="1"></label></div><p class="muted">调整范围不会移动播放位置。这里记录请求范围，实际导出边界可能受编码和包边界影响。</p></details>
           </section>
           </details>
@@ -119,7 +114,7 @@
               </div>
               <p id="waveform-status" class="muted"></p>
               <div class="prediction-shared-axis">
-                <canvas id="prediction-wave" width="1440" height="64" role="img" aria-label="分析音轨波形，随分析逐步生成" aria-describedby="waveform-status"></canvas>
+                <canvas id="prediction-wave" height="64" role="img" aria-label="分析音轨波形，随分析逐步生成" aria-describedby="waveform-status"></canvas>
                 <div id="prediction-source-window" aria-hidden="true" hidden></div>
                 <div id="overview-markers" class="prediction-axis" aria-label="预测区间，点击选择"></div>
                 <div id="prediction-playhead" aria-hidden="true" hidden></div>

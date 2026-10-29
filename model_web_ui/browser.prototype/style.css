@@ -18,6 +18,7 @@
   --radius-control: 3px;
   --gap: 14px;
   --pad: 20px;
+  --container-max: 1280px;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 14px;
   line-height: 1.55;
@@ -72,7 +73,7 @@ strong { font-weight: 600; }
 .skip-link { position: fixed; left: 24px; top: -80px; padding: 10px 18px; z-index: 60; background: var(--text); color: var(--ground); border-radius: var(--radius-control); }
 .skip-link:focus { top: 12px; }
 .app-header { background: var(--surface); border-bottom: 1px solid var(--border); }
-.header-inner { max-width: 1280px; margin: auto; min-height: 48px; padding: 0 32px; display: flex; align-items: center; gap: 28px; }
+.header-inner { max-width: var(--container-max); margin: auto; min-height: 48px; padding: 0 32px; display: flex; align-items: center; gap: 28px; }
 .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
 .brand-badge { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-low); border: 1px solid var(--border); color: var(--crimson); clip-path: polygon(0 0, 100% 0, 100% 78%, 78% 100%, 0 100%); }
 .brand-mark { width: 16px; height: 16px; stroke: none; }
@@ -86,9 +87,9 @@ strong { font-weight: 600; }
 #save-state { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 #save-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
 #save-state.error::before { background: var(--negative); }
-main { max-width: 1280px; padding: 16px 32px 24px; margin: auto; }
+main { max-width: var(--container-max); padding: 16px 32px 24px; margin: auto; }
 main:focus { outline: none; }
-.workspace-status { color: var(--muted); font-size: 13px; line-height: 1.55; min-height: 20px; margin-bottom: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.workspace-status { color: var(--muted); font-size: 13px; line-height: 1.55; min-height: 36px; padding: 7px 12px; margin: 0 0 12px; border-left: 2px solid var(--border); background: var(--surface-low); white-space: pre-wrap; overflow-wrap: anywhere; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
 .intro { color: var(--muted); margin-top: 6px; }
 .local-note { color: var(--muted); display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 12px; padding: 6px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); }
@@ -150,24 +151,6 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
 #range-editor .panel-heading { margin-bottom: 6px; }
 .range-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin: 14px 0; }
 .range-fields input { width: 100%; }
-/* Both native sliders use the same track and scale; only their thumbs take pointer input. */
-.local-range { --range-start: 0%; --range-end: 100%; }
-.range-track { position: relative; height: 42px; margin: 0 12px; }
-.range-track::before, .range-fill { position: absolute; top: 18px; height: 6px; border-radius: 2px; }
-.range-track::before { content: ""; inset-inline: 0; background: var(--control); }
-.range-fill { left: var(--range-start); right: calc(100% - var(--range-end)); background: var(--accent); }
-.range-track input[type="range"] { appearance: none; -webkit-appearance: none; position: absolute; inset: 0; width: calc(100% + 24px); margin: 0 -12px; height: 42px; padding: 0; border: 0; border-radius: 0; background: transparent; pointer-events: none; }
-.range-track input::-webkit-slider-runnable-track { height: 6px; background: transparent; }
-.range-track input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 22px; height: 30px; margin-top: -12px; border: 2px solid var(--ground); border-radius: 3px; background: var(--accent); cursor: ew-resize; pointer-events: auto; }
-.range-track input::-moz-range-track { height: 6px; background: transparent; }
-.range-track input::-moz-range-thumb { width: 20px; height: 28px; border: 2px solid var(--ground); border-radius: 3px; background: var(--accent); cursor: ew-resize; pointer-events: auto; }
-.range-track input:focus-visible { z-index: 2; outline: none; }
-.range-track input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
-.range-track input:focus-visible::-moz-range-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
-.range-track input:disabled { opacity: .35; }
-.range-track input:disabled::-webkit-slider-thumb { pointer-events: none; }
-.range-track input:disabled::-moz-range-thumb { pointer-events: none; }
-.range-scale { display: flex; justify-content: space-between; color: var(--faint); font-size: 12px; }
 .range-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .range-actions button { flex: 1; font-size: 13px; }
 .inline-details { margin-top: 14px; font-size: 13px; }
@@ -208,7 +191,7 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
 .batch-outputs { margin: 12px 0; }
 .output-item { padding: 8px 0; overflow-wrap: anywhere; }
 .output-item small { display: block; margin-top: 4px; font-size: 12px; }
-.workspace-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; max-width: 1120px; margin: 16px auto 0; padding-top: 12px; border-top: 1px solid var(--border); color: var(--faint); font-size: 12px; }
+.workspace-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--border); color: var(--faint); font-size: 12px; }
 @media (max-width: 1100px) {
   .header-inner { gap: 18px; }
   .save-status { max-width: 240px; }

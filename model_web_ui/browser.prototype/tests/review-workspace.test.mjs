@@ -336,7 +336,22 @@ test('new edits clear redo only for their source; history is bounded and no-op t
 
 test('progressive waveform survives refresh and human edits without dirtying review state', async () => {
   let snapshot;
-  const storage = { save: async value => { snapshot = value; }, load: async () => snapshot };
+  const waveforms = new Map();
+  let waveformWrites = 0;
+  const storage = {
+    separatedWaveforms: true,
+    save: async (value, pendingWaveforms = {}) => {
+      snapshot = value;
+      for (const [id, wave] of Object.entries(pendingWaveforms)) {
+        waveforms.set(id, wave);
+        waveformWrites++;
+      }
+    },
+    load: async () => snapshot && ({
+      ...snapshot,
+      sources: snapshot.sources.map((entry) => waveforms.has(entry.id) ? { ...entry, waveform: waveforms.get(entry.id) } : entry),
+    }),
+  };
   const workspace = setup({ storage });
   await workspace.flush();
   const wave = { version: 1, step: .05, peaks: [0, .5, null], decodedUntil: .1, trackIndex: 0 };
@@ -344,8 +359,13 @@ test('progressive waveform survives refresh and human edits without dirtying rev
   wave.peaks[1] = 1;
   assert.equal(workspace.getSource(source.id).waveform.peaks[1], .5);
   assert.equal(workspace.view().save.reviewStatus, 'saved');
+  await workspace.flush();
+  assert.equal(waveformWrites, 1);
+  assert.equal('waveform' in snapshot.sources[0], false, 'Workspace snapshot strips large waveform payload');
+  workspace.setReview(source.id, { position: 12.5 }, { background: true });
   workspace.addManual(source.id, { start: 10, end: 20 });
   await workspace.flush();
+  assert.equal(waveformWrites, 1, 'Playback position saves and clip edits do not rewrite unchanged waveforms');
   const restored = createReviewWorkspace({ storage });
   await restored.restore();
   assert.deepEqual(restored.getSource(source.id).waveform, { ...wave, peaks: [0, .5, null] });

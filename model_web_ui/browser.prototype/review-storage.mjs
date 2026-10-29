@@ -41,22 +41,51 @@ export function createIndexedDBStorage({ databaseName = 'apex-review-v1', key = 
     }).catch((error) => { databasePromise = null; throw error; });
     return databasePromise;
   };
+  const waveformKey = (sourceId) => `${key}:waveform:${sourceId}`;
   const transact = async (mode, operation) => {
     const db = await database();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction('workspaces', mode);
-      const request = operation(transaction.objectStore('workspaces'));
+      const store = transaction.objectStore('workspaces');
       let result;
-      request.onsuccess = () => { result = request.result; };
+      const done = (value) => { result = value; };
+      const request = operation(store, done);
+      if (request && 'onsuccess' in request && !request.onsuccess) {
+        request.onsuccess = () => { result = request.result; };
+      }
       // A successful put request is not sufficient: acknowledge the commit.
       transaction.oncomplete = () => resolve(result);
-      transaction.onabort = () => reject(transaction.error || request.error || new Error('复核记录未保存'));
-      transaction.onerror = () => reject(transaction.error || request.error || new Error('复核记录操作失败'));
+      transaction.onabort = () => reject(transaction.error || request?.error || new Error('复核记录未保存'));
+      transaction.onerror = () => reject(transaction.error || request?.error || new Error('复核记录操作失败'));
     });
   };
   return {
-    load: () => transact('readonly', (store) => store.get(key)),
-    save: (snapshot) => transact('readwrite', (store) => store.put(snapshot, key)),
+    separatedWaveforms: true,
+    load: () => transact('readonly', (store, done) => {
+      const request = store.get(key);
+      request.onsuccess = () => {
+        const snapshot = request.result;
+        if (!snapshot || !Array.isArray(snapshot.sources)) { done(snapshot); return; }
+        for (const source of snapshot.sources) {
+          if (!source?.id || source.waveform !== undefined) continue;
+          const waveRequest = store.get(waveformKey(source.id));
+          waveRequest.onsuccess = () => {
+            if (waveRequest.result !== undefined) source.waveform = waveRequest.result;
+          };
+        }
+        done(snapshot);
+      };
+      return request;
+    }),
+    save: (snapshot, waveforms = {}) => transact('readwrite', (store) => {
+      const request = store.put(snapshot, key);
+      for (const [sourceId, waveform] of Object.entries(waveforms)) {
+        store.put(waveform, waveformKey(sourceId));
+      }
+      return request;
+    }),
+    loadWaveform: (sourceId) => transact('readonly', (store) => store.get(waveformKey(sourceId))),
+    saveWaveform: (sourceId, waveform) => transact('readwrite', (store) => store.put(waveform, waveformKey(sourceId))),
     async close() { if (databasePromise) (await databasePromise).close(); databasePromise = null; },
   };
 }
