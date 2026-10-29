@@ -36,7 +36,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
             const result = await new Promise((resolve, reject) => {
               timer = setTimeout(() => reject(new Error('Keyframe generation timed out')), 30000);
               evidence = createSelectionEvidence({ MB, onResult(result) {
-                if (result.peaks) resolve(result);
+                if (result.status === '原片参考画面') resolve(result);
                 else if (result.status.includes('失败') || result.status.includes('不可用')) reject(new Error(result.status));
               } });
               evidence.request({ file, origin }, 1.1, 11.1);
