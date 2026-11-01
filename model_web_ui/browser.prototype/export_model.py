@@ -17,6 +17,14 @@ import torch
 from torchaudio.compliance import kaldi
 
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 class Fbank(torch.nn.Module):
     """Fixed 10 s Kaldi frontend using real DFT matrices, exportable to ONNX."""
 
@@ -96,8 +104,8 @@ def main():
     metadata = {'model': 'BEATs_strong_1', 'classes': classes, 'input': [1, 160000], 'output': [1, 250, 447],
                 'sampleRate': 16000, 'windowSeconds': 10, 'strideSeconds': 5, 'frameSeconds': 0.04,
                 'frontendMaxError': frontend_error, 'pythonMaxError': python_error, 'onnxMaxError': error,
-                'bytes': target.stat().st_size, 'sha256': hashlib.file_digest(target.open('rb'), 'sha256').hexdigest(),
-                'checkpointSha256': hashlib.file_digest(checkpoint.open('rb'), 'sha256').hexdigest(),
+                'bytes': target.stat().st_size, 'sha256': sha256_file(target),
+                'checkpointSha256': sha256_file(checkpoint),
                 'validation': 'Synthetic noise only; browser and Apex quality require separate validation.'}
     (args.output / 'model.json').write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + '\n')
     print(json.dumps({k: v for k, v in metadata.items() if k != 'classes'}, indent=2), flush=True)

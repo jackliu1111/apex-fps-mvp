@@ -14,6 +14,16 @@ FILES = {
     'onnxruntime.LICENSE': 'https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/LICENSE',
 }
 
+
+def sha256_file(path):
+    # Keep this compatible with Python 3.9: hashlib file_digest is 3.11+.
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--assets', type=Path, required=True)
@@ -28,8 +38,6 @@ if __name__ == '__main__':
             temporary = target.with_suffix(target.suffix + '.part')
             subprocess.run(['curl', '-L', '--fail', '--max-time', '120', '-sS', url, '-o', str(temporary)], check=True)
             temporary.rename(target)
-        with target.open('rb') as stream:
-            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-        manifest.append({'name': name, 'url': url, 'bytes': target.stat().st_size, 'sha256': digest})
+        manifest.append({'name': name, 'url': url, 'bytes': target.stat().st_size, 'sha256': sha256_file(target)})
     (vendor / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(json.dumps(manifest, indent=2))

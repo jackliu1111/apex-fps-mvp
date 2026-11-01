@@ -55,7 +55,7 @@ python3 model_web_ui/browser.prototype/serve.py \
 
 打开 **<http://127.0.0.1:8792>**，点击「导入录像」，选择本地 Apex 录像开始分析。请通过本地服务访问页面，不要直接双击 HTML 文件。
 
-已有开发环境若沿用服务默认资产目录 `/private/tmp/apex-browser-prototype-20261026/assets`，可省略 `--assets`；其他机器不能假定该目录存在。
+已有开发环境若沿用服务默认资产目录 `/private/tmp/apex-browser-prototype-20261026/assets`，可省略 `--assets`；该默认目录位于系统临时空间，重启或系统定期清理后可能只剩空目录，出现「模型清单无法读取（HTTP 404）」时应改用持久目录，或按重建说明重新生成模型资产（`serve.py` 启动时也会列出缺失文件）。其他机器不能假定该目录存在。
 
 ### 3. 可选：配置一分钟交战样本
 
@@ -110,6 +110,12 @@ CONTEXT.md                       产品术语与语义边界
 
 ```sh
 node --test model_web_ui/browser.prototype/tests/*.test.mjs
+```
+
+静态服务的资产检查单独运行：
+
+```sh
+python3 model_web_ui/browser.prototype/tests/test_serve_assets.py
 ```
 
 真实浏览器验证需要另行准备 Playwright、Chrome、模型资产及相关样本，配置与命令见[浏览器工作区说明](model_web_ui/browser.prototype/README.md)。测试记录只说明对应场景的验证结果，不代表模型识别质量或所有设备上的性能保证。
