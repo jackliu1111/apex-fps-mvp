@@ -70,17 +70,26 @@
       <div class="workspace">
         <div class="preview">
           <section class="panel player-panel" aria-label="原片播放与时间轴">
-            <div class="player-frame"><canvas id="source-canvas" width="1280" height="720" aria-label="原录像画面"></canvas><p id="player-status" role="status">选择录像开始复核</p></div>
-            <div class="row player-controls">
-              <div class="row player-transport"><button id="play-pause" disabled title="播放 / 暂停 (Space)" aria-keyshortcuts="Space">播放</button><button id="play-selection" disabled title="从当前选片起点播放，到终点自动暂停 (Shift+Space)" aria-keyshortcuts="Shift+Space">试听选片</button></div>
-              <span id="playback-time" class="playback-time"></span>
-              <div class="row candidate-nav"><button id="prev-candidate" class="quiet" disabled title="上一候选 ([)">← 上一候选</button><button id="next-candidate" class="quiet" title="下一候选 (])">下一候选 →</button></div>
-              <div class="player-audio" role="group" aria-label="试听音量">
-                <button id="player-mute" class="quiet" title="静音 (M)" aria-label="静音 (M)" aria-pressed="false" aria-keyshortcuts="M">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 4 5 9H2v6h3l6 5Z"/><path class="speaker-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="speaker-muted" d="m16 9 6 6m0-6-6 6"/></svg>
+            <div class="player-frame" id="player-frame">
+              <canvas id="source-canvas" width="1280" height="720" aria-label="原录像画面"></canvas>
+              <p id="player-status" role="status">选择录像开始复核</p>
+              <div class="row player-controls">
+                <div class="row player-transport"><button id="play-pause" disabled title="播放 / 暂停 (Space)" aria-keyshortcuts="Space">播放</button><button id="play-selection" disabled title="从当前选片起点播放，到终点自动暂停 (Shift+Space)" aria-keyshortcuts="Shift+Space">试听选片</button></div>
+                <span id="playback-time" class="playback-time"></span>
+                <div class="row candidate-nav"><button id="prev-candidate" class="quiet" disabled title="上一候选 ([)">← 上一候选</button><button id="next-candidate" class="quiet" title="下一候选 (])">下一候选 →</button></div>
+                <div class="player-audio" role="group" aria-label="试听音量">
+                  <button id="player-mute" class="quiet" title="静音 (M)" aria-label="静音 (M)" aria-pressed="false" aria-keyshortcuts="M">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 4 5 9H2v6h3l6 5Z"/><path class="speaker-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="speaker-muted" d="m16 9 6 6m0-6-6 6"/></svg>
+                  </button>
+                  <input id="player-volume" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="试听音量" aria-valuetext="50%">
+                  <output id="player-volume-value" for="player-volume">50%</output>
+                </div>
+                <button id="player-fullscreen" class="quiet" title="全屏 (F)" aria-label="全屏 (F)" aria-keyshortcuts="F">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path class="icon-fs-enter" d="M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5"/>
+                    <path class="icon-fs-exit" d="M8 3v5H3m13-5v5h5M8 21v-5H3m13 5v-5h5"/>
+                  </svg>
                 </button>
-                <input id="player-volume" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="试听音量" aria-valuetext="50%">
-                <output id="player-volume-value" for="player-volume">50%</output>
               </div>
             </div>
             <div id="selection-player-axis" tabindex="0" aria-label="原片时间轴工作区">

@@ -64,8 +64,30 @@ const queue = createBrowserAnalysis({ MB,
     exportQueue?.pump();
   },
 });
+let idleTimer = null;
+function resetPlayerIdle() {
+  if (idleTimer) clearTimeout(idleTimer);
+  const frame = $('player-frame');
+  if (!frame) return;
+  frame.dataset.idle = 'false';
+  if (playerState.playing) {
+    idleTimer = setTimeout(() => {
+      if (playerState.playing) frame.dataset.idle = 'true';
+    }, 2500);
+  }
+}
 const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next) {
   playerState = next;
+  const frame = $('player-frame');
+  if (frame) {
+    frame.dataset.playing = String(!!next.playing);
+    if (!next.playing) {
+      if (idleTimer) clearTimeout(idleTimer);
+      frame.dataset.idle = 'false';
+    } else {
+      resetPlayerIdle();
+    }
+  }
   if (!loadingSource && playerSourceId && playerSourceId === activeSourceId) {
     const saved = workspace.getSource(playerSourceId).review.position;
     if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position });
@@ -416,6 +438,8 @@ function renderPlayer() {
   const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
   $('prev-candidate').disabled = !stable.some((item) => item.start < position - 0.01);
   $('next-candidate').disabled = !stable.some((item) => item.start > position + 0.01) && saved.analysis.status !== 'analyzing';
+  const fsBtn = $('player-fullscreen');
+  if (fsBtn) fsBtn.disabled = !bound || loadingSource || playerState.status === 'error';
   $('player-status').textContent = !bound ? '暂无原录像画面' : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? '正在准备该位置…' : playerState.status === 'error' ? playerState.error : '';
   renderReviewPreview(saved, bound);
 }
@@ -596,6 +620,41 @@ $('player-volume').oninput = () => {
   player.setVolume(Number($('player-volume').value));
   if (playerState.muted && playerState.volume > 0) player.toggleMute();
 };
+const playerFrame = $('player-frame');
+if (playerFrame) {
+  playerFrame.addEventListener('mousemove', resetPlayerIdle);
+  playerFrame.addEventListener('mouseenter', resetPlayerIdle);
+  playerFrame.addEventListener('mouseleave', () => {
+    if (playerState.playing) {
+      if (idleTimer) clearTimeout(idleTimer);
+      playerFrame.dataset.idle = 'true';
+    }
+  });
+}
+function updateFullscreenState() {
+  const isFull = document.fullscreenElement === playerFrame || document.webkitFullscreenElement === playerFrame;
+  const btn = $('player-fullscreen');
+  if (btn) {
+    btn.dataset.fullscreen = String(isFull);
+    btn.title = isFull ? '退出全屏 (F)' : '全屏 (F)';
+    btn.setAttribute('aria-label', btn.title);
+  }
+  if (playerFrame) playerFrame.dataset.fullscreen = String(isFull);
+}
+function toggleFullscreen() {
+  if (!playerFrame) return;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    if (playerFrame.requestFullscreen) playerFrame.requestFullscreen().catch((err) => note(errorText(err)));
+    else if (playerFrame.webkitRequestFullscreen) playerFrame.webkitRequestFullscreen();
+  } else {
+    if (document.exitFullscreen) document.exitFullscreen().catch((err) => note(errorText(err)));
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+}
+$('player-fullscreen').onclick = () => safely(toggleFullscreen);
+$('source-canvas').ondblclick = () => safely(toggleFullscreen);
+document.addEventListener('fullscreenchange', updateFullscreenState);
+document.addEventListener('webkitfullscreenchange', updateFullscreenState);
 async function seek(value) {
   const saved = source(); if (!saved) return;
   const position = Math.max(0, Math.min(saved.duration, Number(value)));
@@ -639,6 +698,7 @@ selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, 
   playPause: () => { if (!$('play-pause').disabled) $('play-pause').click(); },
   playRange: () => { if (!$('play-selection').disabled) $('play-selection').click(); },
   toggleMute: () => player.toggleMute(),
+  toggleFullscreen: () => { if (!$('player-fullscreen').disabled) $('player-fullscreen').click(); },
   isPlayerBusy: () => loadingSource || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
 $('show-excluded').addEventListener('change', () => renderClips(source()));
 $('fit-selection').onclick = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });

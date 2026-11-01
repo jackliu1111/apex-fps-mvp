@@ -145,7 +145,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 14px; border-radi
 canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
 #player-status { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(17, 17, 17, 0.92); border-top: 1px solid var(--border); color: var(--muted); padding: 8px 14px; font-size: 13px; }
 #player-status:empty { display: none; }
-.player-controls { margin-top: 10px; gap: 8px; }
+.player-controls { gap: 8px; }
 .playback-time { font-size: 13px; color: var(--muted); }
 .candidate-nav { margin-left: auto; }
 #range-editor .panel-heading { margin-bottom: 6px; }

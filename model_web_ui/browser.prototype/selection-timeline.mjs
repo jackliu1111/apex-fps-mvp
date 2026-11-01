@@ -8,7 +8,7 @@ export function selectionWindow(duration, { start, end }) {
 }
 
 export function createSelectionTimeline({ MB, workspace, getSource, getRecord, selectRange, seek, pause, isPlayerBusy, report,
-  isActive = () => true, playPause, playRange, toggleMute }) {
+  isActive = () => true, playPause, playRange, toggleMute, toggleFullscreen }) {
   const $ = (id) => document.getElementById(id);
   const axis = $('source-axis'), predictions = $('overview-markers');
   const stamp = (t) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
@@ -396,6 +396,9 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     }
     else if (event.key.toLowerCase() === 'm') {
       event.preventDefault(); if (!event.repeat && toggleMute) run(toggleMute);
+    }
+    else if (event.key.toLowerCase() === 'f') {
+      event.preventDefault(); if (!event.repeat && toggleFullscreen) run(toggleFullscreen);
     }
     else if (event.key === '[' || event.key === ']') {
       event.preventDefault();

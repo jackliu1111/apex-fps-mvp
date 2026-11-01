@@ -106,7 +106,7 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   position: relative;
   height: clamp(320px, 39vh, 420px);
   aspect-ratio: auto;
-  margin: 16px 16px 10px;
+  margin: 16px 16px 14px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: #090b10;
@@ -154,21 +154,41 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   box-shadow: 0 0 8px var(--accent);
 }
 
-/* 3-Zone Segmented HUD Transport Dock */
+/* 3-Zone Segmented HUD Transport Dock (Video Stage Overlay) */
 #review-page .player-controls {
-  margin: 0 16px 10px;
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  margin: 0;
   min-height: 40px;
-  padding: 6px 10px 6px 8px;
-  border: 1px solid #dfe3f0;
+  padding: 6px 12px 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  z-index: 10;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#review-page .player-frame[data-idle="true"][data-playing="true"] .player-controls {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+#review-page .player-frame[data-idle="true"][data-playing="true"] {
+  cursor: none;
+}
+#review-page .player-frame:hover .player-controls,
+#review-page .player-frame .player-controls:focus-within {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 #review-page #play-pause {
   min-height: 28px;
@@ -188,9 +208,9 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   transform: translateY(-0.5px);
 }
 #review-page #play-pause:disabled {
-  background: var(--raised);
-  border-color: var(--border);
-  color: var(--faint);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.35);
   box-shadow: none;
 }
 #review-page #play-selection {
@@ -209,9 +229,9 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   color: #3730a3;
 }
 #review-page #play-selection:disabled {
-  background: var(--surface-low);
-  border-color: var(--border);
-  color: var(--faint);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.35);
 }
 #review-page #play-selection[data-playing="true"] {
   border-color: var(--accent);
@@ -220,31 +240,45 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 }
 .player-transport { gap: 8px; flex-wrap: nowrap; }
 .player-audio { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-#review-page #player-mute {
+#review-page :is(#player-mute, #player-fullscreen) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 28px;
   padding: 4px 8px;
   border-radius: 999px;
+  background: transparent;
+  border: 0;
+  color: #f1f5f9;
+  cursor: pointer;
+}
+#review-page :is(#player-mute, #player-fullscreen):hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+#review-page :is(#player-mute, #player-fullscreen):disabled {
+  color: rgba(255, 255, 255, 0.25);
+  cursor: not-allowed;
 }
 #player-mute .speaker-muted, #player-mute[data-silent="true"] .speaker-waves { display: none; }
 #player-mute[data-silent="true"] .speaker-muted { display: block; }
-#player-volume { width: 84px; min-width: 0; margin: 0; accent-color: var(--accent); }
-#player-volume-value { min-width: 4ch; color: var(--muted); font-size: 12px; text-align: right; }
+#player-fullscreen .icon-fs-exit, #player-fullscreen[data-fullscreen="true"] .icon-fs-enter { display: none; }
+#player-fullscreen[data-fullscreen="true"] .icon-fs-exit { display: block; }
+#player-volume { width: 76px; min-width: 0; margin: 0; accent-color: var(--accent); cursor: pointer; }
+#player-volume-value { min-width: 4ch; color: #cbd5e1; font-size: 12px; text-align: right; }
 #review-page .playback-time {
   margin-inline: auto;
-  padding: 4px 16px;
-  background: #f4f6fb;
-  border: 1px solid #e2e5f0;
+  padding: 4px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  color: #4338ca;
+  color: #e0e7ff;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-variant-numeric: tabular-nums;
   font-size: 12.5px;
   font-weight: 650;
   letter-spacing: 0.02em;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 #review-page .candidate-nav {
   display: inline-flex;
@@ -252,8 +286,8 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   gap: 2px;
   padding: 2px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.05);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 #review-page :is(#prev-candidate, #next-candidate) {
   margin-left: 0;
@@ -264,16 +298,45 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   background: transparent;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text);
+  color: #f1f5f9;
 }
 #review-page :is(#prev-candidate, #next-candidate):hover:not(:disabled) {
-  background: #ffffff;
-  color: #4338ca;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 #review-page :is(#prev-candidate, #next-candidate):disabled {
-  color: var(--faint);
+  color: rgba(255, 255, 255, 0.3);
   background: transparent;
+}
+
+/* Fullscreen support */
+#review-page .player-frame:fullscreen,
+#review-page .player-frame:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#review-page .player-frame:fullscreen #source-canvas,
+#review-page .player-frame:-webkit-full-screen #source-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+#review-page .player-frame:fullscreen .player-controls,
+#review-page .player-frame:-webkit-full-screen .player-controls {
+  left: 32px;
+  right: 32px;
+  bottom: 28px;
+  max-width: 1100px;
+  margin-inline: auto;
 }
 
 /* 4. Upper Track — Source Evidence & Trim Axis */
