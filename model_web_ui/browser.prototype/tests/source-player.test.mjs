@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createSourcePlayer } from '../source-player.mjs';
 
 // Media decoding, the display surface and time are external system boundaries.
-function fixture({ duration = 120, origin = 2, waitForFrame, waitForOpen } = {}) {
-  const drawn = [], closed = [], scheduled = [];
+function fixture({ duration = 120, origin = 2, waitForFrame, waitForOpen, waitForResume } = {}) {
+  const drawn = [], closed = [], scheduled = [], connections = [], gains = [], gainWrites = [];
   let now = 0;
   const frames = new Map();
   const track = { canDecode: async () => true, getFirstTimestamp: async () => origin,
@@ -36,8 +36,15 @@ function fixture({ duration = 120, origin = 2, waitForFrame, waitForOpen } = {})
     },
   };
   const context = { currentTime: 0, state: 'suspended', destination: {},
-    async resume() { this.state = 'running'; }, async close() { this.state = 'closed'; },
-    createBufferSource() { return { connect() {}, disconnect() {}, start(...args) { scheduled.push(args); }, stop() {} }; } };
+    async resume() { if (waitForResume) await waitForResume(); this.state = 'running'; }, async close() { this.state = 'closed'; },
+    createGain() {
+      const gain = { gain: { value: 1, cancelScheduledValues() {},
+        setValueAtTime(value, at) { this.value = value; gainWrites.push({ value, at }); },
+        linearRampToValueAtTime(value, at) { this.value = value; gainWrites.push({ value, at }); } },
+      connect(target) { connections.push({ from: gain, target }); }, disconnect() {} };
+      gains.push(gain); return gain;
+    },
+    createBufferSource() { const node = { connect(target) { connections.push({ from: node, target }); }, disconnect() {}, start(...args) { scheduled.push(args); }, stop() {} }; return node; } };
   const canvas = { width: 0, height: 0, getContext: () => ({ clearRect() {}, drawImage: (image) => drawn.push(image.time) }) };
   const clock = {
     now: () => now * 1000,
@@ -45,7 +52,7 @@ function fixture({ duration = 120, origin = 2, waitForFrame, waitForOpen } = {})
     cancel: (id) => frames.delete(id),
   };
   const player = createSourcePlayer({ MB, canvas, createAudioContext: () => context, clock });
-  return { player, drawn, closed, scheduled, context,
+  return { player, drawn, closed, scheduled, context, connections, gains, gainWrites,
     async advance(seconds) { now += seconds; if (context.state === 'running') context.currentTime += seconds;
       const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((fn) => fn(now * 1000));
       for (let i = 0; i < 12; i++) await Promise.resolve();
@@ -177,5 +184,129 @@ test('playing while a candidate seek is still decoding joins the in-flight seek'
   assert.equal(player.state.metrics.seeks, seeksDuringJump, 'In-flight seek is not aborted and restarted by play()');
   assert.equal(player.state.playing, true);
   assert.deepEqual(drawn, [2, 42]);
+  await player.dispose();
+});
+
+test('session volume and mute apply before audio exists and every source routes through gain', async () => {
+  const { player, gains, gainWrites, connections, context, advance } = fixture();
+  assert.equal(player.state.volume, 0.5);
+  player.setVolume(0.25);
+  player.toggleMute();
+  assert.equal(gains.length, 0, 'Audio is initialized only by a playback gesture');
+  await player.load({ file: new Blob(['source']) });
+  await player.play(); await advance(0.1);
+  assert.equal(gains.length, 1);
+  assert.deepEqual(connections[0], { from: gains[0], target: context.destination });
+  assert.ok(connections.length > 1);
+  assert.ok(connections.slice(1).every(connection => connection.target === gains[0]));
+  assert.equal(gains[0].gain.value, 0);
+  player.toggleMute();
+  assert.equal(player.state.volume, 0.25);
+  assert.equal(gains[0].gain.value, 0.25);
+  assert.deepEqual(gainWrites.at(-1), { value: 0.25, at: context.currentTime + 0.015 });
+  player.setVolume(2); assert.equal(player.state.volume, 1);
+  player.setVolume(-1); assert.equal(player.state.volume, 0);
+  assert.throws(() => player.setVolume(NaN), /音量无效/);
+  player.setVolume(0.35); player.toggleMute();
+  await player.load({ file: new Blob(['another source']) });
+  await player.play();
+  assert.equal(player.state.volume, 0.35);
+  assert.equal(player.state.muted, true);
+  assert.equal(gains.length, 2, 'Reload creates a gain for the new audio context');
+  assert.equal(gains[1].gain.value, 0);
+  player.toggleMute(); assert.equal(gains[1].gain.value, 0.35);
+  await player.dispose();
+});
+
+test('range playback starts at its beginning and clips scheduled audio before parking at its end', async () => {
+  const { player, advance, scheduled, drawn } = fixture();
+  await player.load({ file: new Blob(['source']), position: 50 });
+  await player.playRange({ start: 10.1, end: 10.35 });
+  assert.equal(player.state.playing, true);
+  assert.equal(player.state.position, 10.1);
+  assert.deepEqual(player.state.playRange, { start: 10.1, end: 10.35 });
+  await advance(0.05);
+  assert.ok(scheduled.length > 0);
+  assert.ok(scheduled.every(([startAt, , duration]) => duration > 0 && startAt + duration <= 0.250001),
+    'Audio nodes cannot sound beyond the range even when the animation callback is delayed');
+  await advance(1);
+  assert.equal(player.state.playing, false);
+  assert.equal(player.state.status, 'paused');
+  assert.equal(player.state.position, 10.35);
+  assert.equal(player.state.target, 10.35);
+  assert.equal(player.state.playRange, null);
+  assert.ok(drawn.at(-1) - 2 <= 10.35);
+  await player.play(); await advance(0.2);
+  assert.ok(player.state.position > 10.35, 'Normal playback is no longer bounded by the completed audition');
+  await player.dispose();
+});
+
+test('manual seeking, pause and source reload clear the audition range', async () => {
+  const { player, advance } = fixture();
+  await player.load({ file: new Blob(['source']) });
+  await player.playRange({ start: 10, end: 12 });
+  await player.seek(20);
+  assert.equal(player.state.playRange, null);
+  await advance(0.3);
+  assert.equal(player.state.playing, true);
+  assert.ok(player.state.position > 20);
+  await player.playRange({ start: 10, end: 12 });
+  player.pause();
+  assert.equal(player.state.playRange, null);
+  await player.play(); await advance(3);
+  assert.equal(player.state.playing, true);
+  assert.ok(player.state.position > 12);
+  await player.playRange({ start: 10, end: 12 });
+  await player.load({ file: new Blob(['new source']), position: 30 });
+  assert.equal(player.state.playRange, null);
+  assert.equal(player.state.playing, false);
+  assert.equal(player.state.position, 30);
+  await player.dispose();
+});
+
+test('the latest audition wins while an earlier start frame is decoding', async () => {
+  const gate = Promise.withResolvers();
+  const { player, drawn, advance } = fixture({ waitForFrame: time => time === 12 ? gate.promise : undefined });
+  await player.load({ file: new Blob(['source']) });
+  const first = player.playRange({ start: 10, end: 12 });
+  await Promise.resolve(); await Promise.resolve();
+  const latest = player.playRange({ start: 20, end: 21 });
+  gate.resolve(); await Promise.all([first, latest]);
+  assert.deepEqual(drawn, [2, 22]);
+  assert.equal(player.state.position, 20);
+  assert.deepEqual(player.state.playRange, { start: 20, end: 21 });
+  await advance(1.5);
+  assert.equal(player.state.position, 21);
+  assert.equal(player.state.playing, false);
+  await player.dispose();
+});
+
+test('pausing an audition while audio is resuming cannot restart it later', async () => {
+  const gate = Promise.withResolvers();
+  const { player, scheduled } = fixture({ waitForResume: () => gate.promise });
+  await player.load({ file: new Blob(['source']) });
+  const audition = player.playRange({ start: 10, end: 12 });
+  for (let i = 0; i < 12; i++) await Promise.resolve();
+  assert.equal(player.state.status, 'paused');
+  player.pause();
+  gate.resolve(); await audition;
+  assert.equal(player.state.playing, false);
+  assert.equal(player.state.playRange, null);
+  assert.deepEqual(scheduled, []);
+  await player.dispose();
+});
+
+test('ordinary play replaces an audition and invalid ranges preserve the current position', async () => {
+  const { player, advance } = fixture();
+  await player.load({ file: new Blob(['source']), position: 50 });
+  for (const range of [{ start: NaN, end: 2 }, { start: 10, end: 10 }, { start: -1, end: 2 }, { start: 1, end: 121 }]) {
+    await assert.rejects(player.playRange(range), /试听范围无效/);
+  }
+  assert.equal(player.state.position, 50);
+  await player.playRange({ start: 10, end: 12 });
+  await player.play(); await advance(3);
+  assert.equal(player.state.playRange, null);
+  assert.equal(player.state.playing, true);
+  assert.ok(player.state.position > 12);
   await player.dispose();
 });

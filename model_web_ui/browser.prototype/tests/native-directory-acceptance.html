@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ADR 6 原生目录验收</title><link rel="stylesheet" href="native-directory-acceptance.css"></head>
+<body><main><h1>ADR 6 原生目录验收</h1>
+<p>真实系统目录选择器、真实媒体编码、真实磁盘文件。测试只延迟文件操作以稳定观察竞态，不伪造权限、写入或关闭结果。</p>
+<section><button id="prepare">1 · 生成 12 秒小样本</button><button id="choose">2 · 原生选择输出目录</button><button id="permission">检查当前原生权限</button><p id="source">尚未生成样本</p><p id="directory">尚未选择目录</p></section>
+<section><h2>开始独立批次</h2><button id="normal">三段正常导出</button><button id="write">三段：暂停首次写入</button><button id="close">单段：暂停文件关闭</button><button id="closed">单段：关闭成功后暂停返回</button><button id="between">三段：第二段权限检查前暂停</button></section>
+<section><h2>当前操作</h2><button id="cancel">取消当前批次</button><button id="release">释放暂停点</button><button id="resume">原生重新选目录并恢复</button><button id="inspect">读回所有已保存文件</button><button id="snapshot">保存当前证据</button><p id="gate">没有暂停点</p><p id="status">工作区已就绪</p></section>
+<h2>当前结果</h2><pre id="state"></pre><h2>最近事件</h2><pre id="events"></pre>
+</main><script type="module" src="native-directory-acceptance.mjs"></script></body></html>

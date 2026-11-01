@@ -136,10 +136,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.locator('#play-pause').click();
     await page.waitForFunction(start => reviewApp.player.state.position > start + 1.5, playbackStart);
     await page.locator('#play-pause').click();
-    await page.evaluate(async () => { await reviewApp.submitExport(); await reviewApp.exportQueue.whenIdle(); });
+    await page.evaluate(async () => {
+      const root = await navigator.storage.getDirectory();
+      const directory = await root.getDirectoryHandle('selection-timeline-export', { create: true });
+      window.showDirectoryPicker = async () => directory;
+      await reviewApp.submitExport(); await reviewApp.exportQueue.whenIdle();
+    });
     const exported = await page.evaluate(() => reviewApp.workspace.view().batches.at(-1));
     assert.equal(exported.status, 'completed');
     assert.ok(exported.outputs.length > 0);
+    await page.locator('.batch-review').first().click();
     assert.equal(await page.locator('#save-state').count(), 0);
     assert.equal(await page.locator('#undo-selection').isEnabled(), true);
     assert.ok(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform.peaks.some(v => v > 0)));

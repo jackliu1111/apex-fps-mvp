@@ -5,6 +5,7 @@ const scenarios = { sample: '真实波形设计样本', default: '默认复核',
 let mode = new URLSearchParams(location.search).get('reviewPreview') || 'default';
 if (!Object.hasOwn(scenarios, mode)) mode = 'default';
 let sampleFrames = [];
+
 // Saved reference pictures are preview-only; never masquerade as a bound video.
 export function renderReviewPreview(source, bound) {
   if (!preview || mode !== 'sample' || source?.id !== 'combat-design-sample' || bound || !sampleFrames.length) return;
@@ -31,16 +32,20 @@ export function renderReviewPreview(source, bound) {
   }
   document.getElementById('evidence-status').textContent = '预载真实参考帧 · 每 5 秒一张';
 }
+
 export async function mountReviewPreview(app) {
   const bar = document.createElement('section');
-  bar.className = 'panel'; bar.setAttribute('aria-label', '复核场景预览');
-  const label = document.createElement('label'); label.textContent = '场景预览 · ';
+  bar.className = 'panel review-preview-banner'; bar.setAttribute('aria-label', '复核场景预览');
+  const controls = document.createElement('div');
+  controls.className = 'preview-controls';
+  const label = document.createElement('label'); label.textContent = '场景预览';
   const select = document.createElement('select'); select.setAttribute('aria-label', '切换复核场景');
   for (const [key, name] of Object.entries(scenarios)) select.add(new Option(name, key, false, key === mode));
   select.onchange = () => { location.search = `?reviewPreview=${select.value}`; };
-  label.append(select); bar.append(label);
-  const reset = document.createElement('button'); reset.textContent = '重置场景'; reset.onclick = () => location.reload(); bar.append(reset);
-  const note = document.createElement('p'); note.textContent = '临时场景：候选为预设数据，不运行模型；修改刷新即清空，不保留跨刷新记录。正在准备 12 秒合成录像…'; bar.append(note);
+  label.append(select); controls.append(label);
+  const reset = document.createElement('button'); reset.textContent = '重置场景'; reset.onclick = () => location.reload(); controls.append(reset);
+  bar.append(controls);
+  const note = document.createElement('p'); note.textContent = '临时场景：候选为预设数据，不运行模型；修改刷新即清空。'; bar.append(note);
   document.querySelector('#main').prepend(bar);
   if (mode === 'sample') {
     const { loadReviewFixture } = await import('./review-fixture.mjs');
@@ -56,7 +61,7 @@ export async function mountReviewPreview(app) {
     await app.openReview(id);
     const firstClip = app.workspace.getSource(id).clips[0];
     app.workspace.setReview(id, { selectedClipId: firstClip.id, position: firstClip.start, ...selectionWindow(fixture.duration, firstClip) });
-    note.textContent = '已预载真实对局参考帧和声音波形；六段区间为设计预设。定位会切换到此前最近的参考帧（每 5 秒一张），并非连续视频播放。刷新即可重置，不保留跨刷新记录。';
+    note.textContent = '已预载真实对局参考帧和声音波形；六段区间为设计预设。定位会切换到此前最近的参考帧（每 5 秒一张），并非连续视频播放。';
     bar.dataset.ready = 'true'; return;
   }
   const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
@@ -67,7 +72,7 @@ export async function mountReviewPreview(app) {
   app.workspace.updateAnalysis(id, { status: mode === 'analyzing' ? 'analyzing' : 'completed', processedUntil: mode === 'analyzing' ? 6 : 12 });
   app.bindings.set(id, { file, duration: 12, origin: 0, status: 'complete', candidates, timings: {} });
   await app.openReview(id);
-  note.textContent = '临时场景：12 秒合成录像，可真实播放与调整选片；候选和分析进度为预设，不代表识别结果。修改刷新即清空。';
+  note.textContent = '临时场景：12 秒合成录像，可真实播放与调整选片；候选和分析进度为预设，不代表识别结果。';
   if (candidates.length) {
     const firstClip = app.workspace.getSource(id).clips[0];
     app.workspace.setReview(id, { selectedClipId: firstClip.id, position: candidates[0].start, ...selectionWindow(12, firstClip) });

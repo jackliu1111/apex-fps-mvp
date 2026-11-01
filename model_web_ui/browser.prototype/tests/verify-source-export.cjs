@@ -1,5 +1,6 @@
 // Small synthetic fixtures: verifies encoded dimensions and frame timestamps,
-// without loading a model or writing large media files.
+// with real OPFS directory writes/readback, without a model or large media files.
+// The native directory picker and a user-selected OS folder are not exercised.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 (async () => {
@@ -11,7 +12,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       const MB = await import('/assets/vendor/mediabunny.mjs');
       const { createBrowserConverter } = await import('/browser-export.mjs');
       const { sourceExportSettings } = await import('/export-policy.mjs');
-      const { estimateExportBytes } = await import('/export-queue.mjs');
+      const directoryHandle = await (await navigator.storage.getDirectory()).getDirectoryHandle('source-export-test', { create: true });
       const results = [];
       for (const spec of [{ width: 3840, height: 2160, fps: 60 }, { width: 1920, height: 1080, fps: 30000 / 1001 }, { width: 640, height: 360, fps: 30, variable: true }]) {
         const canvas = document.createElement('canvas'); Object.assign(canvas, { width: spec.width, height: spec.height });
@@ -35,26 +36,28 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         const sourceTrack = await input.getPrimaryVideoTrack();
         const settings = sourceExportSettings({}, sourceTrack);
         const batch = { output: settings, audio: { trackIndex: 0 }, clips: [{ start: 0, end: 1 }] };
-        const exported = await createBrowserConverter({ MB })({ batch, clip: batch.clips[0], source: { file } });
-        const probe = new MB.Input({ source: new MB.BlobSource(exported.blob), formats: MB.ALL_FORMATS });
+        const exported = await createBrowserConverter({ MB })({ batch, clip: batch.clips[0], source: { file, directoryHandle } });
+        const savedFile = await (await directoryHandle.getFileHandle(exported.name)).getFile();
+        const probe = new MB.Input({ source: new MB.BlobSource(savedFile), formats: MB.ALL_FORMATS });
         const targetTrack = await probe.getPrimaryVideoTrack();
         const targetAudio = await probe.getPrimaryAudioTrack();
         const timestamps = async (track) => { const values = []; for await (const packet of new MB.EncodedPacketSink(track).packets()) values.push(packet.timestamp); return values.sort((a,b) => a-b); };
         const sourceTimes = await timestamps(sourceTrack), targetTimes = await timestamps(targetTrack);
-        results.push({ spec, videoCodec: targetTrack.codec, audioCodec: targetAudio.codec, mimeType: exported.blob.type, name: exported.name, width: targetTrack.displayWidth, height: targetTrack.displayHeight, sourceTimes, targetTimes, bytes: exported.bytes, estimate: estimateExportBytes(batch), tenSecondEstimate: estimateExportBytes({ ...batch, clips: [{ start: 0, end: 10 }] }), bitrate: settings.videoBitrate });
+        results.push({ spec, videoCodec: targetTrack.codec, audioCodec: targetAudio.codec, saved: exported.saved, downloadBlob: Boolean(exported.blob), savedBytes: savedFile.size, name: exported.name, width: targetTrack.displayWidth, height: targetTrack.displayHeight, sourceTimes, targetTimes, bytes: exported.bytes, bitrate: settings.videoBitrate });
         input.dispose(); probe.dispose();
+        await directoryHandle.removeEntry(exported.name);
       }
       return results;
     });
     for (const result of results) {
       assert.equal(result.videoCodec, 'avc'); assert.equal(result.audioCodec, 'aac');
-      assert.equal(result.mimeType, 'video/mp4'); assert.ok(result.name.endsWith('.mp4'));
+      assert.equal(result.saved, true); assert.equal(result.downloadBlob, false); assert.ok(result.name.endsWith('.mp4'));
+      assert.equal(result.savedBytes, result.bytes);
       assert.equal(result.width, result.spec.width); assert.equal(result.height, result.spec.height);
       assert.equal(result.targetTimes.length, result.sourceTimes.length);
       result.sourceTimes.forEach((time, i) => assert.ok(Math.abs(result.targetTimes[i] - time) < 0.002, 'Source frame timestamps preserved'));
       assert.ok(result.bytes < 100 * 1024 * 1024);
-      if (result.spec.width === 3840) assert.ok(result.tenSecondEstimate > 64 * 1024 * 1024, '4K batches request a directory before encoding');
-      console.log(JSON.stringify({ ...result, sourceTimes: undefined, targetTimes: undefined, frames: result.targetTimes.length, timestampCheck: 'passed' }));
+      console.log(JSON.stringify({ ...result, sourceTimes: undefined, targetTimes: undefined, frames: result.targetTimes.length, timestampCheck: 'passed', directoryWriteReadback: 'OPFS passed' }));
     }
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

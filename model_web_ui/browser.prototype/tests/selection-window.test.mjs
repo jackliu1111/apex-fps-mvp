@@ -113,6 +113,7 @@ test('selection timeline animates local zoom transitions and switches to compact
     getContext() {
       return { clearRect() {}, fillRect() {} };
     },
+    addEventListener(type, fn) { this[`on${type}`] = fn; },
     querySelector() { return makeNode(); },
     focus() {},
   });
@@ -128,6 +129,11 @@ test('selection timeline animates local zoom transitions and switches to compact
   globalThis.document = {
     getElementById: getNode,
     createElement: (tag) => makeNode(tag),
+    querySelector(selector) {
+      if (selector === '.prediction-shared-axis') return getNode('prediction-shared-axis');
+      assert.equal(selector, 'dialog[open], [role="dialog"][aria-modal="true"]:not([hidden])');
+      return null;
+    },
     activeElement: null,
   };
   globalThis.window = {

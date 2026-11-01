@@ -68,7 +68,7 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
     signal.throwIfAborted();
     return metadata.get(model);
   }
-  function infer(waveform, model, signal, progress) {
+  function infer(waveform, model, signal, progress, manifest) {
     signal.throwIfAborted();
     if (worker && workerModel !== model) releaseWorker();
     if (!worker) {
@@ -92,7 +92,7 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
       const abort = () => { releaseWorker(); finish(reject, signal.reason); };
       activeRequest = { id, progress, resolve: (value) => finish(resolve, value), reject: (error) => finish(reject, error) };
       signal.addEventListener('abort', abort, { once: true });
-      try { worker.postMessage({ id, waveform, model }, [waveform.buffer]); }
+      try { worker.postMessage({ id, waveform, model, manifest: { sha256: manifest.sha256, bytes: manifest.bytes } }, [waveform.buffer]); }
       catch (error) { releaseWorker(); finish(reject, error); }
     });
   }
@@ -154,7 +154,7 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
           if (decoded.error) throw decoded.error;
           check();
           const inferenceStarted = performance.now();
-          const inference = infer(decoded.value, record.model, signal, progress);
+          const inference = infer(decoded.value, record.model, signal, progress, manifest);
           ahead = index + 1 < windows ? prefetch() : null;
           const { values, timings } = await inference; check();
           metrics.inferenceRoundTripMs += performance.now() - inferenceStarted;

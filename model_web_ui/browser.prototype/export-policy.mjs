@@ -1,5 +1,7 @@
-// One policy for submission estimates, cache limits and actual browser encoding.
-export const MAX_EXPORT_MEMORY_BYTES = 64 * 1024 * 1024;
+// Shared limits for streaming writes, disk reuse indexes and browser encoding.
+export const EXPORT_WRITE_CHUNK_BYTES = 256 * 1024;
+// Bound encoded bytes waiting on disk writes; codec and source caches are separate.
+export const MAX_EXPORT_BUFFER_BYTES = 64 * 1024 * 1024;
 export const MAX_REUSABLE_ARTIFACTS = 128;
 export const DEFAULT_EXPORT_SETTINGS = Object.freeze({ format: 'mp4', videoCodec: 'avc', audioCodec: 'aac', width: null, height: null, videoBitrate: null, audioBitrate: 192000 });
 

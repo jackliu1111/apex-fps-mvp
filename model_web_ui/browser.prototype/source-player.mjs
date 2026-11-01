@@ -7,10 +7,11 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
   let input, videoSink, audioTrack, origin = 0, videoIterator;
   let revision = 0, loadRevision = 0, pendingSeek = false, seeking;
   const openingInputs = new Set();
-  let audioContext, audioSink, audioIterator, nextAudio, audioFilling = false;
+  let audioContext, gainNode, audioSink, audioIterator, nextAudio, audioFilling = false;
   let nextFrame, videoReading = false, animation, wantPlay = false, basePosition = 0, baseClock = 0, lastEmit = 0;
   const audioNodes = new Set();
   let state = { status: 'empty', duration: 0, target: 0, position: 0, actual: null, playing: false, error: null,
+    volume: 0.5, muted: false, playRange: null,
     audioPolicy: 'source-primary', metrics: { framesDisplayed: 0, seeks: 0, lastSeekMs: null, maxFrameLagMs: 0 } };
   const emit = (patch = {}) => { state = { ...state, ...patch }; onState(structuredClone(state)); };
   const draw = (frame) => {
@@ -19,8 +20,25 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
     state.actual = Math.max(0, frame.timestamp - origin);
     state.metrics.framesDisplayed++;
   };
+  const playbackEnd = () => state.playRange?.end ?? state.duration;
   const currentPosition = () => state.playing
-    ? Math.min(state.duration, basePosition + Math.max(0, audioContext.currentTime - baseClock)) : state.position;
+    ? Math.min(playbackEnd(), basePosition + Math.max(0, audioContext.currentTime - baseClock)) : state.position;
+  function updateGain() {
+    if (!gainNode) return;
+    const now = audioContext.currentTime;
+    gainNode.gain.cancelScheduledValues(now);
+    gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+    gainNode.gain.linearRampToValueAtTime(state.muted ? 0 : state.volume, now + 0.015);
+  }
+  function prepareAudio() {
+    if (!audioContext) {
+      audioContext = createAudioContext({ sampleRate: audioTrack?.sampleRate });
+      gainNode = audioContext.createGain();
+      gainNode.gain.setValueAtTime(state.muted ? 0 : state.volume, audioContext.currentTime);
+      gainNode.connect(audioContext.destination);
+    }
+    return audioContext;
+  }
   function stopPlayback() {
     if (animation !== undefined) clock.cancel(animation);
     animation = undefined;
@@ -33,7 +51,7 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
     if (revision !== ownRevision) return;
     const position = currentPosition();
     revision++; wantPlay = false; stopPlayback();
-    emit({ status: 'error', playing: false, position, error: error.message || String(error) });
+    emit({ status: 'error', playing: false, position, playRange: null, error: error.message || String(error) });
   }
   async function warmNextFrame(ownRevision) {
     if (videoReading || nextFrame || !videoIterator || state.playing || pendingSeek) return;
@@ -75,17 +93,18 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
         if (ownRevision !== revision || !sample) return;
         nextAudio = sample;
         const sourceStart = sample.timestamp - origin;
+        if (sourceStart >= playbackEnd()) return;
         if (sourceStart > currentPosition() + 0.5) return;
         nextAudio = null;
         const offset = Math.max(0, currentPosition() - sourceStart);
-        if (offset >= sample.buffer.duration) continue;
+        const duration = Math.min(sample.buffer.duration - offset, playbackEnd() - sourceStart - offset);
+        if (duration <= 0) continue;
         const node = audioContext.createBufferSource(); node.buffer = sample.buffer;
-        node.connect(audioContext.destination);
+        node.connect(gainNode);
         audioNodes.add(node);
         node.onended = () => { audioNodes.delete(node); node.disconnect(); };
         const startAt = baseClock + (sourceStart - basePosition);
-        node.start(Math.max(audioContext.currentTime, startAt), offset,
-          Math.min(sample.buffer.duration - offset, state.duration - sourceStart - offset));
+        node.start(Math.max(audioContext.currentTime, startAt), offset, duration);
       }
     } catch (error) { fail(error, ownRevision); }
     finally { audioFilling = false; }
@@ -93,9 +112,12 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
   function tick(ownRevision) {
     if (ownRevision !== revision || !state.playing) return;
     state.position = currentPosition();
-    if (state.position >= state.duration) {
+    if (state.position >= playbackEnd()) {
+      const end = playbackEnd(), ranged = !!state.playRange;
+      if (nextFrame && nextFrame.timestamp - origin <= end) draw(nextFrame);
       wantPlay = false; revision++; stopPlayback();
-      emit({ status: 'ended', playing: false, position: state.duration, target: state.duration }); return;
+      void videoIterator?.return().catch(() => {}); videoIterator = null;
+      emit({ status: ranged ? 'paused' : 'ended', playing: false, position: end, target: end, playRange: null }); return;
     }
     if (nextFrame && nextFrame.timestamp - origin <= state.position) { draw(nextFrame); nextFrame = null; }
     if (state.actual !== null) state.metrics.maxFrameLagMs = Math.max(state.metrics.maxFrameLagMs, (state.position - state.actual) * 1000);
@@ -106,7 +128,7 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
   function startPlayback(ownRevision) {
     if (!wantPlay || ownRevision !== revision) return;
     basePosition = state.position; baseClock = audioContext.currentTime;
-    if (audioSink) audioIterator = audioSink.buffers(origin + basePosition, origin + state.duration);
+    if (audioSink) audioIterator = audioSink.buffers(origin + basePosition, origin + playbackEnd());
     emit({ status: 'playing', playing: true });
     tick(ownRevision);
   }
@@ -134,13 +156,13 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
     }
     return player.state;
   }
-  function seek(seconds) {
+  function seekTo(seconds, playRange = null) {
     if (!Number.isFinite(seconds)) return Promise.reject(new Error('定位时间无效'));
     if (!videoSink) return Promise.reject(new Error('请先关联原录像'));
     const target = Math.max(0, Math.min(state.duration, seconds));
     revision++; pendingSeek = true; state.metrics.seeks++;
     stopPlayback();
-    emit({ target, position: target, playing: false, status: 'seeking' });
+    emit({ target, position: target, playing: false, status: 'seeking', playRange });
     if (!seeking) seeking = drainSeeks().finally(() => { seeking = null; });
     return seeking;
   }
@@ -149,6 +171,7 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
     for (const opening of openingInputs) opening.dispose();
     openingInputs.clear();
     await seeking?.catch(() => {}); await videoIterator?.return(); videoIterator = null;
+    gainNode?.disconnect(); gainNode = null;
     await audioContext?.close(); audioContext = null;
     input?.dispose(); input = null; videoSink = null; audioSink = null;
   }
@@ -174,7 +197,7 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
       videoSink = new MB.CanvasSink(video, { width: canvas.width, height: canvas.height, fit: 'contain', poolSize: 2 });
       audioSink = audio ? new MB.AudioBufferSink(audio) : null;
       emit({ duration, playing: false });
-      return await seek(source.position || 0);
+      return await seekTo(source.position || 0);
     } catch (error) {
       if (ownLoad !== loadRevision) return player.state;
       emit({ status: 'error', playing: false, error: error.message || String(error) });
@@ -184,32 +207,63 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
       if (input !== opened) opened.dispose();
     }
   }
+  async function seekAndStart(seconds, range) {
+    const context = prepareAudio();
+    wantPlay = false;
+    const positioned = seekTo(seconds, range);
+    const ownRevision = revision;
+    await Promise.all([positioned, context.resume()]);
+    if (ownRevision !== revision || !videoSink) return player.state;
+    wantPlay = true;
+    startPlayback(ownRevision);
+    return player.state;
+  }
   const player = {
-    load, seek,
+    load, seek: (seconds) => seekTo(seconds),
+    setVolume(value) {
+      if (!Number.isFinite(value)) throw new Error('音量无效');
+      state.volume = Math.max(0, Math.min(1, value));
+      updateGain(); emit();
+      return player.state;
+    },
+    toggleMute() {
+      state.muted = !state.muted;
+      updateGain(); emit();
+      return player.state;
+    },
+    async playRange({ start, end }) {
+      if (!videoSink) throw new Error('请先关联原录像');
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end > state.duration || end <= start) {
+        throw new Error('试听范围无效');
+      }
+      return seekAndStart(start, { start, end });
+    },
     async play() {
       if (!videoSink) throw new Error('请先关联原录像');
-      audioContext ||= createAudioContext({ sampleRate: audioTrack?.sampleRate });
+      if (state.playing && !state.playRange) return player.state;
+      if (state.playRange) return seekAndStart(currentPosition());
+      const context = prepareAudio();
       const ownRevision = revision;
       wantPlay = true;
-      await audioContext.resume();
+      await context.resume();
       if (!wantPlay || ownRevision !== revision) return player.state;
       if (seeking && state.position < state.duration) return seeking;
       if (!pendingSeek && videoIterator && state.position < state.duration && state.actual !== null) {
         startPlayback(ownRevision);
         return player.state;
       }
-      return seek(state.position >= state.duration ? 0 : state.position);
+      return seekTo(state.position >= state.duration ? 0 : state.position);
     },
     pause() {
       const position = currentPosition();
       const wasActive = state.playing || seeking || pendingSeek;
-      wantPlay = false;
+      wantPlay = false; revision++;
       if (wasActive) {
-        revision++; pendingSeek = false; stopPlayback();
+        pendingSeek = false; stopPlayback();
         void videoIterator?.return().catch(() => {});
         videoIterator = null;
       }
-      emit({ position, target: position, playing: false, status: videoSink ? 'paused' : 'empty' });
+      emit({ position, target: position, playing: false, playRange: null, status: videoSink ? 'paused' : 'empty' });
       return player.state;
     },
     get state() { return structuredClone(state); },

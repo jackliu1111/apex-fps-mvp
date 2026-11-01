@@ -1,0 +1,388 @@
+{
+  "validatedAt": "2026-10-30T03:00:38.780914+00:00",
+  "passed": true,
+  "failures": [],
+  "scope": "Native macOS directory picker and user-visible disk files; production converter and queue with test-only delay gates, not OPFS and not permission mocks.",
+  "evidenceLimits": [
+    "Permission was revoked in browser, native queryPermission returned prompt; this is not an operating-system ACL removal or unplugged-volume test.",
+    "Delay gates make write/close/permission timing deterministic without changing native operation results.",
+    "No claim of Edge, mobile, long-duration or external-volume acceptance."
+  ],
+  "durationMeasurementNote": "All ffprobe container durations are 2.000 seconds, matching the requested 2-second ranges; completed browser checks report 1.980 seconds. The initial validation assumption that ffprobe must equal the browser value within 0.010 seconds failed for all eight files and was corrected to compare the independent container duration with the submitted range. Saved files cancelled during post-save checking have null browser duration, but independent ffprobe validates them.",
+  "origin": "http://127.0.0.1:18807",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "source": {
+    "name": "browser-synthetic.webm",
+    "size": 460386
+  },
+  "snapshots": [
+    {
+      "path": "docs/review/evidence/adr6-native-directory-20261030/native-state.json",
+      "sha256": "2ce4a3cb6f11c9189b6f1ff7a5b0c7939e36e35a13a41a99a599742069e6ac8b",
+      "originalPath": "/private/tmp/adr6-native-20261030/native-state.json"
+    },
+    {
+      "path": "docs/review/evidence/adr6-native-directory-20261030/permission-revoked-state.json",
+      "sha256": "3c93a72f97873c970b71fe3a2b7e4c4934ac6642860a8676f27093ed796d23fd",
+      "originalPath": "/private/tmp/adr6-native-20261030/permission-revoked-state.json"
+    },
+    {
+      "path": "docs/review/evidence/adr6-native-directory-20261030/saved-before-reselection.json",
+      "sha256": "945b9134cb10b19a67a7edcb87eb2cb172db872bb319f98cc144b57f10c5293a",
+      "originalPath": "/private/tmp/adr6-native-20261030/saved-before-reselection.json"
+    }
+  ],
+  "jobTransitions": {
+    "native-1-none": [
+      "queued",
+      "running",
+      "completed"
+    ],
+    "native-2-first-write": [
+      "queued",
+      "running",
+      "cancelled"
+    ],
+    "native-3-first-close": [
+      "queued",
+      "running",
+      "completed"
+    ],
+    "native-4-after-close": [
+      "queued",
+      "running",
+      "completed"
+    ],
+    "native-5-second-permission": [
+      "queued",
+      "running",
+      "awaiting-destination",
+      "queued",
+      "running",
+      "completed"
+    ]
+  },
+  "checks": [
+    {
+      "check": "secure context and unmodified native picker",
+      "passed": true
+    },
+    {
+      "check": "native picker invocations had user activation",
+      "passed": true
+    },
+    {
+      "check": "native picker cancellation observed",
+      "passed": true
+    },
+    {
+      "check": "no page or unhandled promise errors",
+      "passed": true
+    },
+    {
+      "check": "normal batch saved all three files",
+      "passed": true
+    },
+    {
+      "check": "write cancellation has no saved output",
+      "passed": true
+    },
+    {
+      "check": "write cancellation preserves remaining not-started clips",
+      "passed": true
+    },
+    {
+      "check": "only created partial file was removed",
+      "passed": true
+    },
+    {
+      "check": "native-3-first-close saved despite cancellation",
+      "passed": true
+    },
+    {
+      "check": "native-3-first-close never published cancelled",
+      "passed": true,
+      "observed": [
+        "queued",
+        "running",
+        "completed"
+      ]
+    },
+    {
+      "check": "native-4-after-close saved despite cancellation",
+      "passed": true
+    },
+    {
+      "check": "native-4-after-close never published cancelled",
+      "passed": true,
+      "observed": [
+        "queued",
+        "running",
+        "completed"
+      ]
+    },
+    {
+      "check": "permission loss genuinely returned prompt",
+      "passed": true
+    },
+    {
+      "check": "permission loss pauses after first saved file",
+      "passed": true
+    },
+    {
+      "check": "reselection resumes only remaining clips",
+      "passed": true
+    },
+    {
+      "check": "first recovered output identical to paused record",
+      "passed": true
+    },
+    {
+      "check": "recovery created exactly three unique files",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+      "passed": true
+    },
+    {
+      "check": "file matches saved size: native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm",
+      "passed": true
+    },
+    {
+      "check": "VP8 Opus and requested container duration: native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm",
+      "passed": true
+    },
+    {
+      "check": "exactly eight harness files and no duplicate paths or partials",
+      "passed": true,
+      "observed": {
+        "expectedHarnessFiles": 8,
+        "actualHarnessFiles": 8
+      }
+    },
+    {
+      "check": "two product smoke MP4s saved in distinct selected directories",
+      "passed": true,
+      "observed": [
+        {
+          "path": "/private/tmp/adr6-native-20261030/Directory-A/native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177-01-dceee717-13e2-47db-b6f5-b55f9e17bb1c.mp4",
+          "bytes": 75654,
+          "duration": 1.984,
+          "codecs": {
+            "video": "h264",
+            "audio": "aac"
+          }
+        },
+        {
+          "path": "/private/tmp/adr6-native-20261030/Directory-B/native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177-01-74106499-2cdd-411a-bdc1-15e471434d13.mp4",
+          "bytes": 75654,
+          "duration": 1.984,
+          "codecs": {
+            "video": "h264",
+            "audio": "aac"
+          }
+        }
+      ]
+    },
+    {
+      "check": "first file hash unchanged through revocation and recovery",
+      "passed": true,
+      "observed": {
+        "beforeSha256": "7eac279c71716f684d44a94e7da33dc125700fff872e4379650b4d15f234fd0c",
+        "afterSha256": "7eac279c71716f684d44a94e7da33dc125700fff872e4379650b4d15f234fd0c",
+        "bytes": 57297
+      }
+    }
+  ],
+  "fileCount": 8,
+  "totalBytes": 456710,
+  "files": [
+    {
+      "batch": "native-1-none",
+      "path": "/private/tmp/adr6-native-20261030/Directory-A/native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+      "bytes": 57297,
+      "sha256": "7eac279c71716f684d44a94e7da33dc125700fff872e4379650b4d15f234fd0c",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": 1.98,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    },
+    {
+      "batch": "native-1-none",
+      "path": "/private/tmp/adr6-native-20261030/Directory-A/native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+      "bytes": 57090,
+      "sha256": "9102771e0e1e414ed0093b31277341f75331f7f9ea7db3d0f8dc15d3c9a535c5",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": 1.98,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    },
+    {
+      "batch": "native-1-none",
+      "path": "/private/tmp/adr6-native-20261030/Directory-A/native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm",
+      "bytes": 56671,
+      "sha256": "d58da398d9ba8cf805b927f3b87d32168c068e8069777238494c05e51c798e5c",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": 1.98,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    },
+    {
+      "batch": "native-3-first-close",
+      "path": "/private/tmp/adr6-native-20261030/Directory-A/native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm",
+      "bytes": 57297,
+      "sha256": "7eac279c71716f684d44a94e7da33dc125700fff872e4379650b4d15f234fd0c",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": null,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    },
+    {
+      "batch": "native-4-after-close",
+      "path": "/private/tmp/adr6-native-20261030/Directory-A/native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm",
+      "bytes": 57297,
+      "sha256": "7eac279c71716f684d44a94e7da33dc125700fff872e4379650b4d15f234fd0c",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": null,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    },
+    {
+      "batch": "native-5-second-permission",
+      "path": "/private/tmp/adr6-native-20261030/Directory-A/native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+      "bytes": 57297,
+      "sha256": "7eac279c71716f684d44a94e7da33dc125700fff872e4379650b4d15f234fd0c",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": 1.98,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    },
+    {
+      "batch": "native-5-second-permission",
+      "path": "/private/tmp/adr6-native-20261030/Directory-B/native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+      "bytes": 57090,
+      "sha256": "9102771e0e1e414ed0093b31277341f75331f7f9ea7db3d0f8dc15d3c9a535c5",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": 1.98,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    },
+    {
+      "batch": "native-5-second-permission",
+      "path": "/private/tmp/adr6-native-20261030/Directory-B/native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm",
+      "bytes": 56671,
+      "sha256": "d58da398d9ba8cf805b927f3b87d32168c068e8069777238494c05e51c798e5c",
+      "ffprobeContainerDurationSeconds": 2.0,
+      "browserMeasuredDurationSeconds": 1.98,
+      "requestedDurationSeconds": 2,
+      "codecs": {
+        "video": "vp8",
+        "audio": "opus"
+      }
+    }
+  ],
+  "productSmokeEvidenceBoundary": "Native product UI actions and two completed batch rows were observed by the primary agent. This validator independently checks the two resulting MP4 disk files; harness JSON does not contain product UI transitions.",
+  "additionalProductSmokeFiles": [
+    {
+      "path": "/private/tmp/adr6-native-20261030/Directory-A/native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177-01-dceee717-13e2-47db-b6f5-b55f9e17bb1c.mp4",
+      "bytes": 75654,
+      "sha256": "c7b7c680fd905022df97baca14dd27cf71145435decc70597e6ab17fe297c367",
+      "ffprobeContainerDurationSeconds": 1.984,
+      "codecs": {
+        "video": "h264",
+        "audio": "aac"
+      }
+    },
+    {
+      "path": "/private/tmp/adr6-native-20261030/Directory-B/native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177-01-74106499-2cdd-411a-bdc1-15e471434d13.mp4",
+      "bytes": 75654,
+      "sha256": "8f6ebaf7252517bb023b8ff5cdf5f19998d15501759cdd1d189e40404140f6ac",
+      "ffprobeContainerDurationSeconds": 1.984,
+      "codecs": {
+        "video": "h264",
+        "audio": "aac"
+      }
+    }
+  ],
+  "allMediaFileCount": 10,
+  "allMediaBytes": 608018,
+  "moduleSha256": {
+    "model_web_ui/browser.prototype/browser-export.mjs": "056cc47f28be2902074be510177d2515c4fabf6783117bd45b31b2ef40f80b94",
+    "model_web_ui/browser.prototype/export-queue.mjs": "5f8b67b1f8606e7430e169ef54e7188a631851ad77235b052a2fcdf4bc122837",
+    "model_web_ui/browser.prototype/tests/native-directory-acceptance.mjs": "f0ef9da3b17b6ce92a75660f0c7e96c4744f4288a71d224c2c758d2a18de6784"
+  }
+}

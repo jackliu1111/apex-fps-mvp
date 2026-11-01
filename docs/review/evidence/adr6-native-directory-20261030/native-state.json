@@ -1,0 +1,5856 @@
+{
+  "at": "2026-10-30T02:56:41.852Z",
+  "origin": "http://127.0.0.1:18807",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "secureContext": true,
+  "pickerIsNative": true,
+  "source": {
+    "name": "browser-synthetic.webm",
+    "size": 460386
+  },
+  "directory": "Directory-B",
+  "currentId": "native-5-second-permission",
+  "gateMode": "none",
+  "gate": null,
+  "jobs": [
+    {
+      "id": "native-1-none",
+      "status": "completed",
+      "progress": 1,
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "bytes": 57297,
+          "start": 0,
+          "end": 2,
+          "requestedDuration": 2,
+          "measuredDuration": 1.98,
+          "verificationError": null,
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-A"
+          },
+          "reused": false
+        },
+        {
+          "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+          "bytes": 57090,
+          "start": 3,
+          "end": 5,
+          "requestedDuration": 2,
+          "measuredDuration": 1.98,
+          "verificationError": null,
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-A"
+          },
+          "reused": false
+        },
+        {
+          "name": "native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm",
+          "bytes": 56671,
+          "start": 6,
+          "end": 8,
+          "requestedDuration": 2,
+          "measuredDuration": 1.98,
+          "verificationError": null,
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-A"
+          },
+          "reused": false
+        }
+      ],
+      "error": null,
+      "destination": {
+        "mode": "directory",
+        "name": "Directory-A"
+      },
+      "clipResults": [
+        {
+          "start": 0,
+          "end": 2,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 0
+        },
+        {
+          "start": 3,
+          "end": 5,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 1
+        },
+        {
+          "start": 6,
+          "end": 8,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 2
+        }
+      ],
+      "waitingReason": null
+    },
+    {
+      "id": "native-2-first-write",
+      "status": "cancelled",
+      "progress": 0.3195,
+      "outputs": [],
+      "error": "本批导出已取消",
+      "destination": {
+        "mode": "directory",
+        "name": "Directory-A"
+      },
+      "clipResults": [
+        {
+          "start": 0,
+          "end": 2,
+          "status": "cancelled",
+          "error": "本批导出已取消"
+        },
+        {
+          "start": 3,
+          "end": 5,
+          "status": "not-started",
+          "error": null
+        },
+        {
+          "start": 6,
+          "end": 8,
+          "status": "not-started",
+          "error": null
+        }
+      ],
+      "waitingReason": null
+    },
+    {
+      "id": "native-3-first-close",
+      "status": "completed",
+      "progress": 1,
+      "outputs": [
+        {
+          "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm",
+          "bytes": 57297,
+          "start": 0,
+          "end": 2,
+          "requestedDuration": 2,
+          "measuredDuration": null,
+          "verificationError": "本批导出已取消",
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-A"
+          },
+          "reused": false
+        }
+      ],
+      "error": null,
+      "destination": {
+        "mode": "directory",
+        "name": "Directory-A"
+      },
+      "clipResults": [
+        {
+          "start": 0,
+          "end": 2,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 0
+        }
+      ],
+      "waitingReason": null
+    },
+    {
+      "id": "native-4-after-close",
+      "status": "completed",
+      "progress": 1,
+      "outputs": [
+        {
+          "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm",
+          "bytes": 57297,
+          "start": 0,
+          "end": 2,
+          "requestedDuration": 2,
+          "measuredDuration": null,
+          "verificationError": "本批导出已取消",
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-A"
+          },
+          "reused": false
+        }
+      ],
+      "error": null,
+      "destination": {
+        "mode": "directory",
+        "name": "Directory-A"
+      },
+      "clipResults": [
+        {
+          "start": 0,
+          "end": 2,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 0
+        }
+      ],
+      "waitingReason": null
+    },
+    {
+      "id": "native-5-second-permission",
+      "status": "completed",
+      "progress": 1,
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "bytes": 57297,
+          "start": 0,
+          "end": 2,
+          "requestedDuration": 2,
+          "measuredDuration": 1.98,
+          "verificationError": null,
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-A"
+          },
+          "reused": false
+        },
+        {
+          "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+          "bytes": 57090,
+          "start": 3,
+          "end": 5,
+          "requestedDuration": 2,
+          "measuredDuration": 1.98,
+          "verificationError": null,
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-B"
+          },
+          "reused": false
+        },
+        {
+          "name": "native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm",
+          "bytes": 56671,
+          "start": 6,
+          "end": 8,
+          "requestedDuration": 2,
+          "measuredDuration": 1.98,
+          "verificationError": null,
+          "actualRange": null,
+          "saved": true,
+          "available": true,
+          "destination": {
+            "mode": "directory",
+            "name": "Directory-B"
+          },
+          "reused": false
+        }
+      ],
+      "error": null,
+      "destination": {
+        "mode": "directory",
+        "name": "Directory-A"
+      },
+      "clipResults": [
+        {
+          "start": 0,
+          "end": 2,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 0
+        },
+        {
+          "start": 3,
+          "end": 5,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 1
+        },
+        {
+          "start": 6,
+          "end": 8,
+          "status": "completed",
+          "error": null,
+          "outputIndex": 2
+        }
+      ],
+      "waitingReason": null,
+      "pendingDestination": {
+        "mode": "directory",
+        "name": "Directory-B"
+      }
+    }
+  ],
+  "observations": [],
+  "events": [
+    {
+      "at": "2026-10-30T02:52:00.486Z",
+      "type": "harness-ready"
+    },
+    {
+      "at": "2026-10-30T02:52:06.367Z",
+      "type": "picker-open",
+      "userActivation": true
+    },
+    {
+      "at": "2026-10-30T02:52:06.724Z",
+      "type": "source-ready",
+      "name": "browser-synthetic.webm",
+      "size": 460386
+    },
+    {
+      "at": "2026-10-30T02:52:21.560Z",
+      "type": "picker-rejected",
+      "name": "AbortError",
+      "message": "Failed to execute 'showDirectoryPicker' on 'Window': The user aborted a request."
+    },
+    {
+      "at": "2026-10-30T02:52:21.560Z",
+      "type": "action-error",
+      "name": "AbortError",
+      "message": "Failed to execute 'showDirectoryPicker' on 'Window': The user aborted a request."
+    },
+    {
+      "at": "2026-10-30T02:52:27.875Z",
+      "type": "picker-open",
+      "userActivation": true
+    },
+    {
+      "at": "2026-10-30T02:53:02.930Z",
+      "type": "picker-selected",
+      "directory": "Directory-A",
+      "permission": "granted"
+    },
+    {
+      "at": "2026-10-30T02:53:08.727Z",
+      "type": "batch-submit",
+      "batch": {
+        "id": "native-1-none",
+        "sourceId": "native-1-none",
+        "audio": {
+          "trackIndex": 1
+        },
+        "output": {
+          "format": "webm",
+          "width": 640,
+          "height": 360,
+          "videoBitrate": 600000,
+          "audioBitrate": 64000
+        },
+        "clips": [
+          {
+            "start": 0,
+            "end": 2
+          },
+          {
+            "start": 3,
+            "end": 5
+          },
+          {
+            "start": 6,
+            "end": 8
+          }
+        ]
+      },
+      "directory": "Directory-A"
+    },
+    {
+      "at": "2026-10-30T02:53:08.728Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "queued",
+      "clips": [
+        "not-started",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.728Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "not-started",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.731Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "granted",
+      "permissionChecks": 1
+    },
+    {
+      "at": "2026-10-30T02:53:08.731Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.744Z",
+      "type": "native-create",
+      "directory": "Directory-A",
+      "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.747Z",
+      "type": "native-writer-open",
+      "directory": "Directory-A",
+      "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.763Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.769Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.769Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.770Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.771Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.772Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.773Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.773Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.773Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.773Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.773Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.773Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.773Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.774Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.774Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.774Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.774Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.774Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.775Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.776Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.777Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.778Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.779Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.779Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.780Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.780Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.781Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.789Z",
+      "type": "native-write",
+      "directory": "Directory-A",
+      "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+      "position": 0,
+      "bytes": 57297
+    },
+    {
+      "at": "2026-10-30T02:53:08.797Z",
+      "type": "native-close-success",
+      "directory": "Directory-A",
+      "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.797Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.798Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.798Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "granted",
+      "permissionChecks": 2
+    },
+    {
+      "at": "2026-10-30T02:53:08.798Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "running",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.801Z",
+      "type": "native-create",
+      "directory": "Directory-A",
+      "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.801Z",
+      "type": "native-writer-open",
+      "directory": "Directory-A",
+      "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.807Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "running",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.835Z",
+      "type": "native-write",
+      "directory": "Directory-A",
+      "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+      "position": 0,
+      "bytes": 57090
+    },
+    {
+      "at": "2026-10-30T02:53:08.837Z",
+      "type": "native-close-success",
+      "directory": "Directory-A",
+      "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.837Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "running",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.838Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.838Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "granted",
+      "permissionChecks": 3
+    },
+    {
+      "at": "2026-10-30T02:53:08.838Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "running"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.839Z",
+      "type": "native-create",
+      "directory": "Directory-A",
+      "name": "native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.839Z",
+      "type": "native-writer-open",
+      "directory": "Directory-A",
+      "name": "native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.845Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "running"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.867Z",
+      "type": "native-write",
+      "directory": "Directory-A",
+      "name": "native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm",
+      "position": 0,
+      "bytes": 56671
+    },
+    {
+      "at": "2026-10-30T02:53:08.869Z",
+      "type": "native-close-success",
+      "directory": "Directory-A",
+      "name": "native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:08.869Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "running"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.870Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.870Z",
+      "type": "queue-state",
+      "id": "native-1-none",
+      "status": "completed",
+      "clips": [
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-1-none-01-b3517e1e-b3e3-4294-adb4-92e6707ec177.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-02-6b90e74a-600b-41d1-b596-74f6881c0f1d.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-1-none-03-2352a9de-1f69-48f8-9724-84fc30eaa72f.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:08.870Z",
+      "type": "queue-idle",
+      "id": "native-1-none"
+    },
+    {
+      "at": "2026-10-30T02:53:19.454Z",
+      "type": "batch-submit",
+      "batch": {
+        "id": "native-2-first-write",
+        "sourceId": "native-2-first-write",
+        "audio": {
+          "trackIndex": 1
+        },
+        "output": {
+          "format": "webm",
+          "width": 640,
+          "height": 360,
+          "videoBitrate": 600000,
+          "audioBitrate": 64000
+        },
+        "clips": [
+          {
+            "start": 0,
+            "end": 2
+          },
+          {
+            "start": 3,
+            "end": 5
+          },
+          {
+            "start": 6,
+            "end": 8
+          }
+        ]
+      },
+      "directory": "Directory-A"
+    },
+    {
+      "at": "2026-10-30T02:53:19.454Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "queued",
+      "clips": [
+        "not-started",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.454Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "not-started",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.458Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "granted",
+      "permissionChecks": 1
+    },
+    {
+      "at": "2026-10-30T02:53:19.458Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.461Z",
+      "type": "native-create",
+      "directory": "Directory-A",
+      "name": "native-2-first-write-01-f8abc963-32b0-48d5-9a45-9699262b7c16.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:19.461Z",
+      "type": "native-writer-open",
+      "directory": "Directory-A",
+      "name": "native-2-first-write-01-f8abc963-32b0-48d5-9a45-9699262b7c16.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:19.471Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.474Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.475Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.475Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.476Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.476Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.476Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.477Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.477Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.477Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.478Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.479Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.481Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.481Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.481Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.481Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.482Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.483Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.483Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.483Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.483Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.484Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.485Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.486Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.486Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.487Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.488Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.488Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.489Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:19.495Z",
+      "type": "gate-enter",
+      "gate": "first-write",
+      "directory": "Directory-A",
+      "name": "native-2-first-write-01-f8abc963-32b0-48d5-9a45-9699262b7c16.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:23.651Z",
+      "type": "user-cancel",
+      "id": "native-2-first-write"
+    },
+    {
+      "at": "2026-10-30T02:53:23.653Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:23.653Z",
+      "type": "native-abort-success",
+      "directory": "Directory-A",
+      "name": "native-2-first-write-01-f8abc963-32b0-48d5-9a45-9699262b7c16.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:23.657Z",
+      "type": "native-remove-success",
+      "directory": "Directory-A",
+      "name": "native-2-first-write-01-f8abc963-32b0-48d5-9a45-9699262b7c16.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:23.657Z",
+      "type": "queue-state",
+      "id": "native-2-first-write",
+      "status": "cancelled",
+      "clips": [
+        "cancelled",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": "本批导出已取消"
+    },
+    {
+      "at": "2026-10-30T02:53:23.657Z",
+      "type": "queue-idle",
+      "id": "native-2-first-write"
+    },
+    {
+      "at": "2026-10-30T02:53:28.283Z",
+      "type": "gate-release",
+      "gate": "first-write",
+      "directory": "Directory-A",
+      "name": "native-2-first-write-01-f8abc963-32b0-48d5-9a45-9699262b7c16.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:37.967Z",
+      "type": "batch-submit",
+      "batch": {
+        "id": "native-3-first-close",
+        "sourceId": "native-3-first-close",
+        "audio": {
+          "trackIndex": 1
+        },
+        "output": {
+          "format": "webm",
+          "width": 640,
+          "height": 360,
+          "videoBitrate": 600000,
+          "audioBitrate": 64000
+        },
+        "clips": [
+          {
+            "start": 0,
+            "end": 2
+          }
+        ]
+      },
+      "directory": "Directory-A"
+    },
+    {
+      "at": "2026-10-30T02:53:37.967Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "queued",
+      "clips": [
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.967Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.969Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "granted",
+      "permissionChecks": 1
+    },
+    {
+      "at": "2026-10-30T02:53:37.969Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.971Z",
+      "type": "native-create",
+      "directory": "Directory-A",
+      "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:37.972Z",
+      "type": "native-writer-open",
+      "directory": "Directory-A",
+      "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:37.987Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.993Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.995Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.995Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.995Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.996Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.997Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.997Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.997Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.998Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.998Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:37.999Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.000Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.000Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.001Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.002Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.002Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.004Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.004Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.005Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.006Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.006Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.007Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:38.014Z",
+      "type": "native-write",
+      "directory": "Directory-A",
+      "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm",
+      "position": 0,
+      "bytes": 57297
+    },
+    {
+      "at": "2026-10-30T02:53:38.014Z",
+      "type": "gate-enter",
+      "gate": "first-close",
+      "directory": "Directory-A",
+      "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:44.517Z",
+      "type": "user-cancel",
+      "id": "native-3-first-close"
+    },
+    {
+      "at": "2026-10-30T02:53:44.518Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:50.487Z",
+      "type": "gate-release",
+      "gate": "first-close",
+      "directory": "Directory-A",
+      "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:50.494Z",
+      "type": "native-close-success",
+      "directory": "Directory-A",
+      "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm"
+    },
+    {
+      "at": "2026-10-30T02:53:50.495Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:50.495Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "running",
+      "clips": [
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:50.495Z",
+      "type": "queue-state",
+      "id": "native-3-first-close",
+      "status": "completed",
+      "clips": [
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-3-first-close-01-bd97819b-97f2-4504-9355-6970b7d296f7.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:53:50.495Z",
+      "type": "queue-idle",
+      "id": "native-3-first-close"
+    },
+    {
+      "at": "2026-10-30T02:54:00.226Z",
+      "type": "batch-submit",
+      "batch": {
+        "id": "native-4-after-close",
+        "sourceId": "native-4-after-close",
+        "audio": {
+          "trackIndex": 1
+        },
+        "output": {
+          "format": "webm",
+          "width": 640,
+          "height": 360,
+          "videoBitrate": 600000,
+          "audioBitrate": 64000
+        },
+        "clips": [
+          {
+            "start": 0,
+            "end": 2
+          }
+        ]
+      },
+      "directory": "Directory-A"
+    },
+    {
+      "at": "2026-10-30T02:54:00.226Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "queued",
+      "clips": [
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.226Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.228Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "granted",
+      "permissionChecks": 1
+    },
+    {
+      "at": "2026-10-30T02:54:00.228Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.230Z",
+      "type": "native-create",
+      "directory": "Directory-A",
+      "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:00.231Z",
+      "type": "native-writer-open",
+      "directory": "Directory-A",
+      "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:00.241Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.248Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.248Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.248Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.249Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.249Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.249Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.249Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.249Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.249Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.249Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.251Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.251Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.252Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.255Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.255Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.258Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.259Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.260Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.261Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.262Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.263Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.264Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:00.271Z",
+      "type": "native-write",
+      "directory": "Directory-A",
+      "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm",
+      "position": 0,
+      "bytes": 57297
+    },
+    {
+      "at": "2026-10-30T02:54:00.274Z",
+      "type": "native-close-success",
+      "directory": "Directory-A",
+      "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:00.274Z",
+      "type": "gate-enter",
+      "gate": "after-close",
+      "directory": "Directory-A",
+      "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:06.177Z",
+      "type": "user-cancel",
+      "id": "native-4-after-close"
+    },
+    {
+      "at": "2026-10-30T02:54:06.177Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:06.267Z",
+      "type": "gate-release",
+      "gate": "after-close",
+      "directory": "Directory-A",
+      "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:06.267Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "running"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:06.267Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "running",
+      "clips": [
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:06.267Z",
+      "type": "queue-state",
+      "id": "native-4-after-close",
+      "status": "completed",
+      "clips": [
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-4-after-close-01-cb571555-1f5e-468a-a88d-7d8917650532.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:06.267Z",
+      "type": "queue-idle",
+      "id": "native-4-after-close"
+    },
+    {
+      "at": "2026-10-30T02:54:11.554Z",
+      "type": "batch-submit",
+      "batch": {
+        "id": "native-5-second-permission",
+        "sourceId": "native-5-second-permission",
+        "audio": {
+          "trackIndex": 1
+        },
+        "output": {
+          "format": "webm",
+          "width": 640,
+          "height": 360,
+          "videoBitrate": 600000,
+          "audioBitrate": 64000
+        },
+        "clips": [
+          {
+            "start": 0,
+            "end": 2
+          },
+          {
+            "start": 3,
+            "end": 5
+          },
+          {
+            "start": 6,
+            "end": 8
+          }
+        ]
+      },
+      "directory": "Directory-A"
+    },
+    {
+      "at": "2026-10-30T02:54:11.555Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "queued",
+      "clips": [
+        "not-started",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.555Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "not-started",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.557Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "granted",
+      "permissionChecks": 1
+    },
+    {
+      "at": "2026-10-30T02:54:11.557Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.560Z",
+      "type": "native-create",
+      "directory": "Directory-A",
+      "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:11.560Z",
+      "type": "native-writer-open",
+      "directory": "Directory-A",
+      "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:11.575Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.581Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.581Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.581Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.582Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.583Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.583Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.583Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.583Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.583Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.583Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.584Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.584Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.584Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.585Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.585Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.585Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.585Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.586Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.587Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.588Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.588Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.588Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.588Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.588Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.589Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.589Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.590Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.591Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.592Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.593Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.594Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.594Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.595Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.602Z",
+      "type": "native-write",
+      "directory": "Directory-A",
+      "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+      "position": 0,
+      "bytes": 57297
+    },
+    {
+      "at": "2026-10-30T02:54:11.605Z",
+      "type": "native-close-success",
+      "directory": "Directory-A",
+      "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm"
+    },
+    {
+      "at": "2026-10-30T02:54:11.605Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "running",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.606Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:54:11.606Z",
+      "type": "gate-enter",
+      "gate": "second-permission",
+      "directory": "Directory-A"
+    },
+    {
+      "at": "2026-10-30T02:54:36.913Z",
+      "type": "manual-native-permission",
+      "directory": "Directory-A",
+      "result": "prompt"
+    },
+    {
+      "at": "2026-10-30T02:54:37.018Z",
+      "type": "gate-release",
+      "gate": "second-permission",
+      "directory": "Directory-A"
+    },
+    {
+      "at": "2026-10-30T02:54:37.020Z",
+      "type": "native-permission",
+      "directory": "Directory-A",
+      "result": "prompt",
+      "permissionChecks": 2
+    },
+    {
+      "at": "2026-10-30T02:54:37.020Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "awaiting-destination",
+      "clips": [
+        "completed",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": "无法确认输出目录权限：输出目录写入权限不可用，请重新选择目录"
+    },
+    {
+      "at": "2026-10-30T02:54:37.020Z",
+      "type": "queue-idle",
+      "id": "native-5-second-permission"
+    },
+    {
+      "at": "2026-10-30T02:54:54.896Z",
+      "type": "picker-open",
+      "userActivation": true
+    },
+    {
+      "at": "2026-10-30T02:55:03.027Z",
+      "type": "picker-rejected",
+      "name": "AbortError",
+      "message": "Failed to execute 'showDirectoryPicker' on 'Window': The user aborted a request."
+    },
+    {
+      "at": "2026-10-30T02:55:03.027Z",
+      "type": "action-error",
+      "name": "AbortError",
+      "message": "Failed to execute 'showDirectoryPicker' on 'Window': The user aborted a request."
+    },
+    {
+      "at": "2026-10-30T02:55:09.884Z",
+      "type": "picker-open",
+      "userActivation": true
+    },
+    {
+      "at": "2026-10-30T02:55:38.307Z",
+      "type": "picker-rejected",
+      "name": "AbortError",
+      "message": "Failed to execute 'showDirectoryPicker' on 'Window': The user aborted a request."
+    },
+    {
+      "at": "2026-10-30T02:55:38.308Z",
+      "type": "action-error",
+      "name": "AbortError",
+      "message": "Failed to execute 'showDirectoryPicker' on 'Window': The user aborted a request."
+    },
+    {
+      "at": "2026-10-30T02:55:43.754Z",
+      "type": "picker-open",
+      "userActivation": true
+    },
+    {
+      "at": "2026-10-30T02:55:59.169Z",
+      "type": "picker-selected",
+      "directory": "Directory-B",
+      "permission": "granted"
+    },
+    {
+      "at": "2026-10-30T02:55:59.169Z",
+      "type": "user-resume",
+      "id": "native-5-second-permission",
+      "directory": "Directory-B"
+    },
+    {
+      "at": "2026-10-30T02:55:59.169Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "queued",
+      "clips": [
+        "completed",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.169Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "not-started",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.174Z",
+      "type": "native-permission",
+      "directory": "Directory-B",
+      "result": "granted",
+      "permissionChecks": 1
+    },
+    {
+      "at": "2026-10-30T02:55:59.174Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "running",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.178Z",
+      "type": "native-create",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm"
+    },
+    {
+      "at": "2026-10-30T02:55:59.178Z",
+      "type": "native-writer-open",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm"
+    },
+    {
+      "at": "2026-10-30T02:55:59.192Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "running",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.223Z",
+      "type": "native-write",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+      "position": 0,
+      "bytes": 57090
+    },
+    {
+      "at": "2026-10-30T02:55:59.227Z",
+      "type": "native-close-success",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm"
+    },
+    {
+      "at": "2026-10-30T02:55:59.227Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "running",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.228Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "not-started"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.228Z",
+      "type": "native-permission",
+      "directory": "Directory-B",
+      "result": "granted",
+      "permissionChecks": 2
+    },
+    {
+      "at": "2026-10-30T02:55:59.228Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "running"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.229Z",
+      "type": "native-create",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm"
+    },
+    {
+      "at": "2026-10-30T02:55:59.230Z",
+      "type": "native-writer-open",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm"
+    },
+    {
+      "at": "2026-10-30T02:55:59.234Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "running"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.256Z",
+      "type": "native-write",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm",
+      "position": 0,
+      "bytes": 56671
+    },
+    {
+      "at": "2026-10-30T02:55:59.258Z",
+      "type": "native-close-success",
+      "directory": "Directory-B",
+      "name": "native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm"
+    },
+    {
+      "at": "2026-10-30T02:55:59.258Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "running"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.259Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "running",
+      "clips": [
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        },
+        {
+          "name": "native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        }
+      ],
+      "error": null
+    },
+    {
+      "at": "2026-10-30T02:55:59.259Z",
+      "type": "queue-state",
+      "id": "native-5-second-permission",
+      "status": "completed",
+      "clips": [
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "outputs": [
+        {
+          "name": "native-5-second-permission-01-df9481a1-5d14-4d98-80ce-c1af37fd66df.webm",
+          "saved": true,
+          "directory": "Directory-A"
+        },
+        {
+          "name": "native-5-second-permission-02-75504113-4fa4-4ae4-9be5-ed1aea66c78d.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        },
+        {
+          "name": "native-5-second-permission-03-8f622252-a17e-4395-b3ce-87fa21dbb016.webm",
+          "saved": true,
+          "directory": "Directory-B"
+        }
+      ],
+      "error": null
+    }
+  ]
+}

@@ -13,7 +13,7 @@ test('automatic ranges can merge without changing manual decisions or submitted 
   const workspace = setup();
   workspace.publishCandidates(source.id, [{ key: 'one', start: 395, end: 425 }, { key: 'two', start: 425, end: 445 }, { key: 'three', start: 450, end: 495 }]);
   workspace.trim(source.id, 'auto:one', { start: 400, end: 420 });
-  workspace.choose(source.id, 'auto:three', false);
+  workspace.exclude(source.id, 'auto:three');
   workspace.setReview(source.id, { selectedClipId: 'auto:two', position: 430 });
   const batch = workspace.submitBatch(source.id);
   const before = workspace.getSource(source.id);
@@ -43,15 +43,15 @@ test('a trimmed selection keeps its exact range when candidates move, split or d
   assert.deepEqual(workspace.getSource(source.id).clips.map(({ start, end }) => [start, end]), [[604, 622]]);
 });
 
-test('excluded ranges stay hidden when identical and overlapping new suggestions require explicit selection', () => {
+test('excluded ranges stay distinct from overlapping supplemental suggestions and retained ranges', () => {
   const workspace = setup();
   workspace.publishCandidates(source.id, [{ start: 1200, end: 1220 }, { start: 1800, end: 1815 }]);
   let clips = workspace.getSource(source.id).clips;
-  workspace.choose(source.id, clips[0].id, false);
-  workspace.choose(source.id, clips[1].id, true);
+  workspace.exclude(source.id, clips[0].id);
+  workspace.addManual(source.id, clips[1]);
   workspace.publishCandidates(source.id, [{ start: 1200, end: 1220 }, { start: 1195, end: 1235 }, { start: 1795, end: 1840 }]);
   clips = workspace.getSource(source.id).clips;
-  assert.deepEqual(clips.map(({ start, end, selected }) => [start, end, selected]), [[1195, 1235, false], [1795, 1840, false], [1800, 1815, true]]);
+  assert.deepEqual(clips.map(({ start, end, selected, excluded }) => [start, end, selected, excluded]), [[1195, 1235, false, false], [1200, 1220, false, true], [1795, 1840, false, false], [1800, 1815, true, false]]);
   workspace.choose(source.id, clips[0].id, true);
   workspace.publishCandidates(source.id, [{ start: 1195, end: 1235 }]);
   assert.equal(workspace.getSource(source.id).clips.filter((clip) => clip.selected).length, 2);
@@ -119,23 +119,28 @@ test('bulk choices preserve existing decisions, skip provisional suggestions and
   const manual = workspace.addManual(source.id, { start: 10, end: 20 });
   assert.equal(workspace.addManual(source.id, { start: 10, end: 20 }), manual, 'Adding an identical human range selects the existing range');
   workspace.publishCandidates(source.id, [{ key: 'exclude', start: 30, end: 40 }, { key: 'normal', start: 50, end: 60 }, { key: 'pending', start: 70, end: 80, provisional: true }]);
-  workspace.choose(source.id, 'auto:exclude', false);
+  workspace.exclude(source.id, 'auto:exclude');
   workspace.publishCandidates(source.id, [{ key: 'overlap', start: 28, end: 42 }, { key: 'normal', start: 50, end: 60 }, { key: 'pending', start: 70, end: 80, provisional: true }]);
   workspace.chooseAll(source.id, true);
+  const selectedRevision = workspace.view().revision;
   workspace.chooseAll(source.id, true);
+  assert.equal(workspace.view().revision, selectedRevision, 'Selecting an already selected set creates no empty undo step');
   const retained = workspace.getSource(source.id);
-  assert.deepEqual(retained.clips.filter((clip) => clip.manual).map(({ start, end }) => [start, end]), [[10, 20], [28, 42], [50, 60]]);
+  assert.deepEqual(retained.clips.filter((clip) => clip.selected && !clip.provisional).map(({ start, end }) => [start, end]), [[10, 20], [28, 42], [50, 60]]);
+  assert.equal(retained.decisions.length, 2, 'Bulk selection never promotes automatic candidates into human decisions');
   assert.ok(retained.decisions.some((decision) => decision.kind === 'exclude' && decision.range.start === 30));
   assert.equal(retained.decisions.some((decision) => decision.range.start === 70), false);
   workspace.chooseAll(source.id, false);
   assert.equal(workspace.getSource(source.id).clips.filter((clip) => clip.selected && !clip.provisional).length, 0);
-  workspace.publishCandidates(source.id, [{ start: 8, end: 22 }, { start: 48, end: 62 }]);
-  assert.ok(workspace.getSource(source.id).clips.every((clip) => clip.supplemental && !clip.selected));
+  assert.equal(workspace.getSource(source.id).clips.length, retained.clips.length, 'Deselecting keeps every candidate and decision');
+  assert.deepEqual(workspace.getSource(source.id).decisions, retained.decisions);
+  workspace.chooseAll(source.id, true);
+  assert.deepEqual(workspace.getSource(source.id).clips, retained.clips, 'All stable non-excluded clips can be selected again');
 });
 
 import { createExportQueue } from '../export-queue.mjs';
 
-test('partial export outcomes and downloads remain available during the session', async () => {
+test('partial export outcomes and saved destinations remain available during the session', async () => {
   const workspace = setup();
   for (const start of [10, 20, 30]) workspace.addManual(source.id, { start, end: start + 5 });
   const batch = workspace.submitBatch(source.id, { output: { width: 640, height: 360, videoBitrate: 2000000 } });
@@ -143,15 +148,17 @@ test('partial export outcomes and downloads remain available during the session'
     onChange: ({ id, waitingReason, ...patch }) => workspace.updateBatch(id, patch),
     convert: async ({ clip }) => {
       if (clip.start === 20) throw new Error('unsupported frame');
-      return { blob: new Blob(['video']), start: clip.start, end: clip.end, name: 'completed.webm' };
+      return { saved: true, bytes: 5, start: clip.start, end: clip.end, name: 'completed.webm' };
     },
   });
-  queue.enqueue(batch, { file: new Blob(['source']) }); await queue.whenIdle();
+  queue.enqueue(batch, { file: new Blob(['source']), directoryHandle: { name: 'Clips', queryPermission: async () => 'granted' } }); await queue.whenIdle();
   const restored = workspace.view().batches[0];
   assert.deepEqual(restored.clipResults.map((clip) => clip.status), ['completed', 'failed', 'not-started']);
   assert.equal(restored.clipResults[1].error, 'unsupported frame');
   assert.equal(restored.outputs[0].available, true);
-  assert.match(restored.outputs[0].url, /^blob:/);
+  assert.equal(restored.outputs[0].saved, true);
+  assert.deepEqual(restored.outputs[0].destination, { mode: 'directory', name: 'Clips' });
+  assert.equal(restored.outputs[0].url, undefined);
   await queue.dispose();
 });
 
@@ -161,7 +168,7 @@ test('undo affects only human decisions while analysis, view and exports advance
   workspace.setReview(source.id, { selectedClipId: 'auto:one' });
   const manual = workspace.trim(source.id, 'auto:one', { start: 12, end: 28 });
   const batch = workspace.submitBatch(source.id);
-  workspace.choose(source.id, manual, false);
+  workspace.exclude(source.id, manual);
   workspace.publishCandidates(source.id, [{ id: 'one', start: 10, end: 30 }, { id: 'two', start: 40, end: 50 }]);
   workspace.setReview(source.id, { position: 100, zoomStart: 5, zoomEnd: 60 });
   assert.equal(workspace.undo(source.id), true);
@@ -209,4 +216,82 @@ test('waveforms stay immutable during edits and a new workspace starts empty', (
   const fresh = createReviewWorkspace();
   assert.deepEqual(fresh.view().sources, []);
   assert.deepEqual(fresh.view().batches, []);
+});
+
+test('checkbox choices preserve candidate identity, focused editing and decisions across candidate updates', () => {
+  const workspace = setup();
+  workspace.publishCandidates(source.id, [{ id: 'one', start: 10, end: 20 }, { id: 'two', start: 30, end: 40 }]);
+  workspace.setReview(source.id, { selectedClipId: 'auto:one', position: 12, zoomStart: 5, zoomEnd: 25 });
+  const before = workspace.getSource(source.id);
+  const batch = workspace.submitBatch(source.id);
+  workspace.choose(source.id, 'auto:one', false);
+  const unchecked = workspace.getSource(source.id);
+  assert.deepEqual(unchecked.clips.map(c => c.id), before.clips.map(c => c.id));
+  assert.equal(unchecked.clips[0].selected, false);
+  assert.equal(unchecked.clips[0].excluded, false);
+  assert.deepEqual(unchecked.decisions, []);
+  assert.deepEqual(unchecked.review, before.review);
+  assert.deepEqual(workspace.submitBatch(source.id).clips.map(c => [c.start, c.end]), [[30, 40]]);
+  assert.deepEqual(workspace.view().batches[0], batch);
+  workspace.publishCandidates(source.id, [{ id: 'renamed', start: 10, end: 20 }, { id: 'two', start: 30, end: 40 }]);
+  assert.equal(workspace.getSource(source.id).clips[0].selected, false, 'The same range keeps its checkbox choice even when its candidate key changes');
+  workspace.choose(source.id, 'auto:renamed', true);
+  assert.equal(workspace.getSource(source.id).clips[0].selected, true);
+  assert.deepEqual(workspace.getSource(source.id).decisions, []);
+});
+
+test('deselected manual trims survive retuning, with atomic bulk undo and independent sources and exports', () => {
+  const workspace = setup();
+  workspace.addSource({ ...source, id: 'other' });
+  workspace.publishCandidates(source.id, [{ id: 'one', start: 10, end: 20 }, { id: 'two', start: 30, end: 40 }]);
+  workspace.publishCandidates('other', [{ id: 'one', start: 10, end: 20 }]);
+  workspace.choose(source.id, 'auto:one', false);
+  const manualId = workspace.trim(source.id, 'auto:one', { start: 12, end: 18 });
+  assert.equal(workspace.getSource(source.id).clips.find(c => c.id === manualId).selected, false);
+  const decisions = workspace.getSource(source.id).decisions;
+  workspace.chooseAll(source.id, true);
+  const batch = workspace.submitBatch(source.id);
+  workspace.chooseAll(source.id, false);
+  assert.throws(() => workspace.submitBatch(source.id), /没有范围已确定/);
+  assert.equal(workspace.getSource(source.id).clips.length, 2);
+  workspace.undo(source.id);
+  assert.equal(workspace.getSource(source.id).clips.every(c => c.selected), true);
+  workspace.redo(source.id);
+  assert.equal(workspace.getSource(source.id).clips.every(c => !c.selected), true);
+  workspace.publishCandidates(source.id, [{ id: 'moved', start: 8, end: 22 }]);
+  const retuned = workspace.getSource(source.id);
+  assert.deepEqual(retuned.decisions, decisions);
+  assert.equal(retuned.clips.find(c => c.id === manualId).selected, false);
+  assert.equal(retuned.clips.find(c => !c.manual).supplemental, true);
+  assert.equal(retuned.clips.every(c => !c.selected && !c.excluded), true);
+  assert.equal(workspace.getSource('other').clips[0].selected, true);
+  assert.deepEqual(workspace.view().batches[0], batch);
+  workspace.resetDecisions(source.id);
+  assert.equal(workspace.getSource(source.id).clips[0].selected, true);
+  workspace.undo(source.id);
+  assert.deepEqual(workspace.getSource(source.id).clips, retuned.clips);
+});
+
+test('only explicit exclusion hides a range, and bulk selection cannot restore it', () => {
+  const workspace = setup();
+  workspace.publishCandidates(source.id, [{ id: 'one', start: 10, end: 20 }, { id: 'pending', start: 30, end: 40, provisional: true }]);
+  workspace.choose(source.id, 'auto:one', false);
+  const excludedId = workspace.exclude(source.id, 'auto:one');
+  workspace.chooseAll(source.id, false);
+  workspace.chooseAll(source.id, true);
+  const excluded = workspace.getSource(source.id);
+  assert.equal(excluded.clips.find(c => c.id === excludedId).excluded, true);
+  assert.equal(excluded.clips.find(c => c.id === excludedId).selected, false);
+  assert.throws(() => workspace.submitBatch(source.id));
+  assert.throws(() => workspace.choose(source.id, excludedId, true));
+  assert.throws(() => workspace.trim(source.id, excludedId, { start: 11, end: 19 }));
+  assert.throws(() => workspace.exclude(source.id, 'auto:pending'));
+  workspace.publishCandidates(source.id, [{ id: 'again', start: 10, end: 20 }]);
+  assert.equal(workspace.getSource(source.id).clips.length, 1, 'Identical suggestions do not duplicate excluded placeholders');
+  workspace.restoreExcluded(source.id, excludedId);
+  assert.deepEqual(workspace.getSource(source.id).clips.map(c => [c.id, c.selected, c.excluded]), [[excludedId, true, false]]);
+  workspace.undo(source.id);
+  assert.equal(workspace.getSource(source.id).clips[0].excluded, true);
+  workspace.redo(source.id);
+  assert.equal(workspace.getSource(source.id).clips[0].selected, true);
 });

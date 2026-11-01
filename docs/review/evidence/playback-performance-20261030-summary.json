@@ -1,0 +1,3198 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Archived measurement summary; raw samples and harness remain in temporary directory. No optimization implemented.",
+  "baseline": {
+    "commit": "636d177c7b062b5af68893acca54a54c2b7f628d",
+    "files": {
+      "analysis-queue.mjs": "aea5fde75c9cc58c3bdc81310a3c79e78aded479a681ffb3d22d85e970727976",
+      "app.js": "9088980fc3b12519a6bce9cba974806bd67c7e5bf7bf507e597b1470ba4fcc00",
+      "audio-peaks.mjs": "f4b0035a307e3690ad7c9da14247ea47dabe22db083e0f106657a16eac067c87",
+      "browser-analysis.mjs": "3f928aefe715da8b0987b62fccd38ff07b807026e48721f97ba6ed7caa0f9926",
+      "browser-export.mjs": "c9d9b11ac11a1371a2e04a9ee349c52b95d913f64d5569a465f7b30ad2fc7109",
+      "candidate-ranges.mjs": "9e00da35ca327fe177190d25ff57eb50dbad4f1cd1bb222c23d1936dc84ced32",
+      "download_runtime.py": "94ee8c8a44d69b757bed1498ba6901f7c260bbc5d3a01355278bac409526c9c6",
+      "efficientat-frontend.js": "6d8e8ddfde7df8e924c8ba6fbe084ac9ecf9a7fa912728777e7575566747d86b",
+      "export-policy.mjs": "d39dfa03d1719a8674df329acfea3a88fb3262e18dd5145a0ba08ab25ff0ff94",
+      "export-queue.mjs": "37813c7c948178798d2c5ac97fadf2715d54a6eb71654887695a59ffcb243f81",
+      "export_efficientat.py": "5b69ce3f7e779bb8b94b5a6ad0b598e2aad7b3847eee680ccfe11b84525315de",
+      "export_model.py": "81afd32579e7f18850722fb1b64cdd360781001133bb10bd92b3e4774a19be10",
+      "index.html": "b9c063a0f11cdc3258974527bd591b748a4c602fb2401a8fb4b58c335972d0c1",
+      "inference-worker.js": "c976e91e99b51283aabd2e17b4e8020c9144c0948c49f85f070d15cea4f98a58",
+      "media-identity.mjs": "18ae0d09fd5dd9c30bc41da7f7eb8de7f1544e9124ecadb9e74ca5a891d236c9",
+      "media-read-source.mjs": "1534694e40ced435d3b625f4a7e8c4882c54747f6bcf12c5840d5f3e9af96e64",
+      "review-fixture.mjs": "7266f1cf4de832039b655d506ce6aa674373ff4725d2739bc1aaa5a2871c5a24",
+      "review-preview.mjs": "4b8d696e63086eeddf931112fdb069e2391335cd89ba3d252958a4dc01793ba2",
+      "review-workspace.mjs": "9131c91db124d73d6846d57fd692cd2c2e0cc0906667ef6f99f23525f6f8bfdb",
+      "selection-design/design.css": "0e40fe3e2b341f5b24af9559ac16b9767e185d753478a8d80de12f34a7db69ac",
+      "selection-design/design.js": "88e8795a873ab11164a7d0b231ae47d509960343672ede5d73d03e2cfd5e6924",
+      "selection-design/index.html": "fab25c25841b4c6f523d3b4acb3222e61c6883462cae4a3b67e2e1742b16e689",
+      "selection-evidence.mjs": "6db60ef0afbfdac24ee28cfd8c02a4c5062960fdcd2c908841de0c5087c9b52c",
+      "selection-timeline.css": "354aa3cdba5e2e7f8f4b73ad1279725b4b2e548465d4cece6ba93fee39c7b838",
+      "selection-timeline.mjs": "9d42903c8a9c881a4b564b7196985bd4463062e946de0616d22d8b4b93eaa786",
+      "serve.py": "f96a930be157c916ef8357fba544eed65daf5f8373bc6161adf48bf69b6e9a4e",
+      "source-player.mjs": "47891419b756206349e2480074b1760cf6e16323208f22702ba73253cf56b261",
+      "stream-audio.js": "0140123abafe3f3567a1bec0adf57dcb11740b8939239d35b00d1314aacc6f2d",
+      "style.css": "68372992bbdfe11ce07f8652e789cdebd96d6e579695e88c62cc3d52184c25be",
+      "tactical-theme.css": "ad9a52cb3df84c147f5ee8606a2b85224bba374a6aa3f3aef23616273382c211",
+      "task-feedback.mjs": "0c9a38e24c2c39494e540823d048fedebf37e3242659d974dc263db907157a34",
+      "tests/analysis-queue.test.mjs": "b91ffdec5f6d5637f5fbd52dd0c25a106d3fa820d49306e6b74c672141ed720f",
+      "tests/audio-peaks.test.mjs": "183ca5af5d8000ff242f6efb4362e30a2eedb52a40f47b7e77adb11b740ca94b",
+      "tests/browser-analysis.test.mjs": "e428ee2baf8eddbbba3e2cfd4fd02f4bef4eb1ac96fb656609e5b8ae890af95c",
+      "tests/browser-export.test.mjs": "645c4a8c267fd2fc9a8430cb27a2fbfb9367e1f658e7a7661adebf7a00109d53",
+      "tests/export-queue.test.mjs": "822a4f4f9e4050bafa4f5fad084c9112dbbe655c70dc65b9e82dc77492c2788b",
+      "tests/media-identity.test.mjs": "a3d0234895c76f997325b4436bafbdc4906993bda08fe2c9d390260b169bc2a9",
+      "tests/player-harness.html": "22c4c2ea6f685043a090a4ea61dadee384ffc4b45e0546a2e546c4281dac689c",
+      "tests/review-workspace.test.mjs": "74ca439e11b3f011c7b03b317ac8a2b56c85696dfe57f4c3e74b7f59520021fa",
+      "tests/selection-window.test.mjs": "8af9aff8e42f59f8f6d634279f6a616c8822c7e160ded25cfb9d53324dace595",
+      "tests/source-player.test.mjs": "27579de7e7c81ba78b7118f6a4bf0fdde0f978094cc027c8e16ddc6bba81f4d4",
+      "tests/synthetic-media.mjs": "6e189f0ee8f522c1e0ec36af10eca5ec7c196b6eff337ca3e1cbdd9823851f99",
+      "tests/task-feedback.test.mjs": "d1f6ae967beafae458e68cfafb56757ba1f61147293c1c41d4d2642988994e0f"
+    }
+  },
+  "rawArtifacts": {
+    "results.json": {
+      "path": "/private/tmp/apex-playback-audit-20261030/results.json",
+      "bytes": 365027,
+      "sha256": "a8929e1a9e2a0a5264438b22ed3e7fff85e66c4847d35dd9a7ffc33088d64f5d"
+    },
+    "comparison.json": {
+      "path": "/private/tmp/apex-playback-audit-20261030/comparison.json",
+      "bytes": 205000,
+      "sha256": "5e87198959a4cd88eb8909d6ce34931a6ee654c5babb2af138f35547594c8f3d"
+    }
+  },
+  "runs": [
+    {
+      "date": "2026-10-30T02:17:31.912Z",
+      "commit": "636d177c7b062b5af68893acca54a54c2b7f628d",
+      "browser": "156.0.8078.48",
+      "headless": true,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "media": [
+        "/Volumes/EXTERNALUSB/共享/2026-10-11 08-43-38.mkv",
+        "/Volumes/EXTERNALUSB/共享/2026-10-11 09-45-26.mkv",
+        "/Volumes/EXTERNALUSB/共享/2026-10-11 10-09-53.mkv"
+      ],
+      "scenarios": [
+        {
+          "name": "one-real-recording-no-candidates",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 137,
+              "mean": 0.04364964387712687,
+              "p50": 0.04499995708465576,
+              "p95": 0.0700000524520874,
+              "max": 0.08500003814697266
+            },
+            "setReview": {
+              "n": 44,
+              "mean": 1.1836363591931083,
+              "p50": 1.100000023841858,
+              "p95": 1.9249999523162842,
+              "max": 2.2899999618530273
+            }
+          },
+          "rafMs": {
+            "n": 905,
+            "mean": 16.726646408876658,
+            "p50": 16.665000000000873,
+            "p95": 16.670000000000073,
+            "max": 100
+          },
+          "rafOver50": 1,
+          "longTasks": {
+            "count": 1,
+            "totalMs": 117,
+            "maxMs": 117
+          },
+          "lagMs": {
+            "n": 151,
+            "mean": 10.865342163353207,
+            "p50": 12.333333333344854,
+            "p95": 16.333333333363953,
+            "max": 16.333333333363953
+          },
+          "progress": {
+            "wallSeconds": 14.959915000081063,
+            "videoSeconds": 14.833000000000027,
+            "displayedFrames": 890
+          },
+          "maxStationaryMs": 59.675000071525574,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              13845.319000000078
+            ],
+            [
+              "(program) @ :0",
+              505.95899999999983
+            ],
+            [
+              "drawImage @ :0",
+              142.53099999999998
+            ],
+            [
+              "createAudioContext @ source-player.mjs:4",
+              116.44999999999999
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              87.516
+            ],
+            [
+              "decode @ :0",
+              56.70600000000001
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              41.034
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              38.983
+            ],
+            [
+              "(garbage collector) @ :0",
+              35.618
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              31.095999999999997
+            ],
+            [
+              "fillAudio @ source-player.mjs:68",
+              30.512999999999998
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              23.407
+            ],
+            [
+              "slice @ :0",
+              16.408
+            ],
+            [
+              "toAudioBuffer @ mediabunny.mjs:4402",
+              15.066999999999998
+            ],
+            [
+              "toDataURL @ :0",
+              11.648
+            ],
+            [
+              "clearRect @ :0",
+              8.543
+            ],
+            [
+              "requestAnimationFrame @ :0",
+              8.422
+            ],
+            [
+              "toEncodedAudioChunk @ mediabunny.mjs:3445",
+              7.905000000000001
+            ],
+            [
+              "now @ source-player.mjs:5",
+              7.874
+            ],
+            [
+              "readCluster @ mediabunny.mjs:9558",
+              6.051
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "next @ mediabunny.mjs:373",
+              176.966
+            ],
+            [
+              " @ source-player.mjs:104",
+              171.101
+            ],
+            [
+              "tick @ source-player.mjs:93",
+              168.096
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              150.37699999999998
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              141.56
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              133.44000000000003
+            ],
+            [
+              "createAudioContext @ source-player.mjs:4",
+              116.44999999999999
+            ],
+            [
+              "play @ source-player.mjs:189",
+              116.44999999999999
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              106.69800000000002
+            ],
+            [
+              "onState @ app.js:55",
+              103.706
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              98.74900000000001
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              97.82100000000001
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              94.81600000000002
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              87.516
+            ],
+            [
+              "decode @ mediabunny.mjs:5203",
+              83.114
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              75.53399999999999
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              75.53399999999999
+            ],
+            [
+              "_runWorker @ mediabunny.mjs:15546",
+              66.20599999999999
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              65.342
+            ],
+            [
+              "readCluster @ mediabunny.mjs:9558",
+              62.4
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              61.144999999999996
+            ],
+            [
+              "requestSlice @ mediabunny.mjs:16281",
+              59.288
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              56.268
+            ],
+            [
+              "_read @ mediabunny.mjs:15542",
+              56.268
+            ],
+            [
+              "getNextPacket @ mediabunny.mjs:10826",
+              42.916999999999994
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 0,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 0
+          },
+          "sampleValidation": {
+            "samples": 151,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "one-real-recording-recorded-28-candidates",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 139,
+              "mean": 0.14812950264635705,
+              "p50": 0.1499999761581421,
+              "p95": 0.2200000286102295,
+              "max": 0.26499998569488525
+            },
+            "setReview": {
+              "n": 45,
+              "mean": 2.4516666703754,
+              "p50": 2.5600000619888306,
+              "p95": 3.240000009536743,
+              "max": 3.3450000286102295
+            }
+          },
+          "rafMs": {
+            "n": 903,
+            "mean": 16.63099114062646,
+            "p50": 16.665000000000873,
+            "p95": 16.67000000000189,
+            "max": 16.67000000000553
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 6.093333333338175,
+            "p50": 6.3333333333162045,
+            "p95": 10.333333333335304,
+            "max": 12.999999999976808
+          },
+          "progress": {
+            "wallSeconds": 14.90047000002861,
+            "videoSeconds": 14.899999999999977,
+            "displayedFrames": 894
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              13475.718000000037
+            ],
+            [
+              "(program) @ :0",
+              658.6169999999998
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              169.553
+            ],
+            [
+              "drawImage @ :0",
+              147.79600000000002
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              52.577000000000005
+            ],
+            [
+              "(garbage collector) @ :0",
+              49.744
+            ],
+            [
+              "decode @ :0",
+              41.884
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              40.458000000000006
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              32.699
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              29.927
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              28.234999999999996
+            ],
+            [
+              "slice @ :0",
+              17.676000000000002
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              16.567
+            ],
+            [
+              "createBufferSource @ :0",
+              13.908
+            ],
+            [
+              "paintSelection @ selection-timeline.mjs:99",
+              13.285
+            ],
+            [
+              "tick @ :5",
+              11.709
+            ],
+            [
+              "arrayBuffer @ :0",
+              11.407
+            ],
+            [
+              "EncodedAudioChunk @ :0",
+              9.016
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              8.432
+            ],
+            [
+              "AudioBuffer @ :0",
+              8.334
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "tick @ source-player.mjs:93",
+              383.90299999999996
+            ],
+            [
+              " @ source-player.mjs:104",
+              383.90299999999996
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              315.47700000000003
+            ],
+            [
+              "onState @ app.js:55",
+              309.46700000000004
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              268.418
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              263.212
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              171.758
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              158.486
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              141.96100000000004
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              138.955
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              123.18699999999997
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              112.54799999999997
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              112.54799999999997
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              105.38299999999998
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              105.38299999999998
+            ],
+            [
+              "renderReview @ app.js:354",
+              103.18399999999998
+            ],
+            [
+              "render @ app.js:450",
+              103.18399999999998
+            ],
+            [
+              "onChange @ app.js:32",
+              103.18399999999998
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              90.79
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              69.541
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              65.27199999999999
+            ],
+            [
+              "readCluster @ mediabunny.mjs:9558",
+              62.245999999999995
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              58.601000000000006
+            ],
+            [
+              "decode @ mediabunny.mjs:5203",
+              58.540000000000006
+            ],
+            [
+              "_read @ mediabunny.mjs:15542",
+              56.759
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 28,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 28
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "three-real-recordings-active-recorded-28-candidates",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 139,
+              "mean": 0.12690647214436704,
+              "p50": 0.14499998092651367,
+              "p95": 0.2049999237060547,
+              "max": 0.26499998569488525
+            },
+            "setReview": {
+              "n": 45,
+              "mean": 2.038222222858005,
+              "p50": 2.490000009536743,
+              "p95": 2.9850000143051147,
+              "max": 3.899999976158142
+            }
+          },
+          "rafMs": {
+            "n": 903,
+            "mean": 16.645669988973328,
+            "p50": 16.665000000000873,
+            "p95": 16.67000000000553,
+            "max": 16.67000000000553
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 9.688888888887655,
+            "p50": 9.999999999990905,
+            "p95": 14.000000000010004,
+            "max": 16.666666666708352
+          },
+          "progress": {
+            "wallSeconds": 14.900225000023841,
+            "videoSeconds": 14.916999999999973,
+            "displayedFrames": 895
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              13653.850000000044
+            ],
+            [
+              "(program) @ :0",
+              564.5060000000004
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              146.873
+            ],
+            [
+              "drawImage @ :0",
+              136.82099999999994
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              54.911
+            ],
+            [
+              "(garbage collector) @ :0",
+              43.50300000000001
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              41.814
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              40.75
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              38.27499999999999
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              31.055
+            ],
+            [
+              "slice @ :0",
+              26.099
+            ],
+            [
+              "decode @ :0",
+              23.075
+            ],
+            [
+              "EncodedAudioChunk @ :0",
+              17.518
+            ],
+            [
+              "createBufferSource @ :0",
+              16.282
+            ],
+            [
+              "fillAudio @ source-player.mjs:68",
+              14.927
+            ],
+            [
+              "paintSelection @ selection-timeline.mjs:99",
+              10.529
+            ],
+            [
+              "get state @ source-player.mjs:215",
+              8.213999999999999
+            ],
+            [
+              "fetchPacketInCluster @ mediabunny.mjs:10925",
+              8.08
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              7.949
+            ],
+            [
+              "stamp @ selection-timeline.mjs:13",
+              6.196
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "tick @ source-player.mjs:93",
+              326.6509999999999
+            ],
+            [
+              " @ source-player.mjs:104",
+              326.6509999999999
+            ],
+            [
+              "onState @ app.js:55",
+              252.48800000000003
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              252.48800000000003
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              229.28200000000012
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              226.84600000000015
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              147.72399999999996
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              146.873
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              126.936
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              126.936
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              119.289
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              116.28500000000001
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              116.28500000000001
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              104.523
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              87.238
+            ],
+            [
+              "decode @ mediabunny.mjs:5203",
+              77.98600000000002
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              71.28399999999999
+            ],
+            [
+              "_read @ mediabunny.mjs:15542",
+              71.28399999999999
+            ],
+            [
+              "requestSlice @ mediabunny.mjs:16281",
+              71.28399999999999
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              70.78599999999999
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              70.78599999999999
+            ],
+            [
+              "readCluster @ mediabunny.mjs:9558",
+              70.09899999999999
+            ],
+            [
+              " @ mediabunny.mjs:4740",
+              70.038
+            ],
+            [
+              "getNextPacket @ mediabunny.mjs:4644",
+              69.175
+            ],
+            [
+              "render @ app.js:450",
+              67.779
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 28,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 0,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 0,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 28
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "three-real-recordings-300-injected-ranges-each",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 137,
+              "mean": 0.48072992363115297,
+              "p50": 0.46999990940093994,
+              "p95": 0.684999942779541,
+              "max": 1.100000023841858
+            },
+            "setReview": {
+              "n": 45,
+              "mean": 15.73722222381168,
+              "p50": 16.274999976158142,
+              "p95": 18.65499997138977,
+              "max": 20.37000000476837
+            }
+          },
+          "rafMs": {
+            "n": 876,
+            "mean": 17.176364155289242,
+            "p50": 16.665000000000873,
+            "p95": 16.67000000000553,
+            "max": 33.34000000000378
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 5.164444444444598,
+            "p50": 4.9999999999954525,
+            "p95": 9.999999999990905,
+            "max": 12.999999999976808
+          },
+          "progress": {
+            "wallSeconds": 14.89947000002861,
+            "videoSeconds": 14.882999999999981,
+            "displayedFrames": 893
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              11608.696000000062
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1367.2400000000007
+            ],
+            [
+              "(program) @ :0",
+              789.3339999999998
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              450.6339999999996
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              270.06200000000007
+            ],
+            [
+              "(garbage collector) @ :0",
+              86.19200000000001
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              71.743
+            ],
+            [
+              "drawImage @ :0",
+              40.065
+            ],
+            [
+              "renderClips @ app.js:300",
+              35.719
+            ],
+            [
+              "setAttribute @ :0",
+              31.494
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              29.148000000000003
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              26.499
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              25.143
+            ],
+            [
+              "decode @ :0",
+              21.017
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              20.927999999999997
+            ],
+            [
+              "slice @ :0",
+              18.192999999999998
+            ],
+            [
+              "freeze @ review-workspace.mjs:7",
+              12.523999999999997
+            ],
+            [
+              "requestAnimationFrame @ :0",
+              12.241
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              12.136000000000001
+            ],
+            [
+              "arrayBuffer @ :0",
+              9.083
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "tick @ source-player.mjs:93",
+              2321.1210000000024
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              2315.1660000000024
+            ],
+            [
+              "onState @ app.js:55",
+              2312.1580000000026
+            ],
+            [
+              " @ source-player.mjs:104",
+              2307.3750000000023
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              2147.9180000000024
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              2147.9180000000024
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1840.3520000000024
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              699.1859999999994
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              699.1859999999994
+            ],
+            [
+              "renderReview @ app.js:354",
+              643.0269999999996
+            ],
+            [
+              "render @ app.js:450",
+              643.0269999999996
+            ],
+            [
+              "onChange @ app.js:32",
+              643.0269999999996
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              450.6339999999996
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              270.06200000000007
+            ],
+            [
+              "getSource @ review-workspace.mjs:46",
+              110.483
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              71.743
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              60.60900000000001
+            ],
+            [
+              "decode @ mediabunny.mjs:5203",
+              57.598000000000006
+            ],
+            [
+              "view @ review-workspace.mjs:53",
+              56.159000000000006
+            ],
+            [
+              "renderClips @ app.js:300",
+              53.757000000000005
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              48.601000000000006
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              44.667
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              43.074000000000005
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              43.074000000000005
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              43.074000000000005
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 300,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 300
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "three-real-recordings-300-injected-ranges-each-repeat",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 138,
+              "mean": 0.5028623178385306,
+              "p50": 0.4750000238418579,
+              "p95": 0.7400000095367432,
+              "max": 0.8700000047683716
+            },
+            "setReview": {
+              "n": 45,
+              "mean": 16.656000004874336,
+              "p50": 16.77999997138977,
+              "p95": 19.800000071525574,
+              "max": 20.80999994277954
+            }
+          },
+          "rafMs": {
+            "n": 877,
+            "mean": 17.15921892814788,
+            "p50": 16.66500000000815,
+            "p95": 16.670000000012806,
+            "max": 33.3350000000064
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 8.41333333334281,
+            "p50": 8.999999999957708,
+            "p95": 14.000000000010004,
+            "max": 16.66666666665151
+          },
+          "progress": {
+            "wallSeconds": 14.899615000009536,
+            "videoSeconds": 14.899999999999977,
+            "displayedFrames": 894
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              11454.612000000054
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1402.970000000001
+            ],
+            [
+              "(program) @ :0",
+              877.2259999999991
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              504.3979999999996
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              275.55600000000004
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              67.41999999999999
+            ],
+            [
+              "(garbage collector) @ :0",
+              63.370999999999995
+            ],
+            [
+              "drawImage @ :0",
+              56.39399999999999
+            ],
+            [
+              "renderClips @ app.js:300",
+              29.288
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              29.278000000000002
+            ],
+            [
+              "decode @ :0",
+              23.526999999999997
+            ],
+            [
+              "setAttribute @ :0",
+              23.383
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              22.514000000000003
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              22.102999999999998
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              20.756999999999998
+            ],
+            [
+              " @ review-workspace.mjs:36",
+              11.266
+            ],
+            [
+              "requestAnimationFrame @ :0",
+              11.135
+            ],
+            [
+              "slice @ :0",
+              9.073
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              9.053
+            ],
+            [
+              "stamp @ selection-timeline.mjs:13",
+              9.015
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "tick @ source-player.mjs:93",
+              2428.2820000000015
+            ],
+            [
+              " @ source-player.mjs:104",
+              2417.626000000002
+            ],
+            [
+              "onState @ app.js:55",
+              2415.706000000002
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              2415.706000000002
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              2261.635000000004
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              2256.301000000004
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1936.7140000000034
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              732.3180000000002
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              732.3180000000002
+            ],
+            [
+              "render @ app.js:450",
+              682.1950000000003
+            ],
+            [
+              "onChange @ app.js:32",
+              682.1950000000003
+            ],
+            [
+              "renderReview @ app.js:354",
+              676.8840000000002
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              504.3979999999996
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              275.55600000000004
+            ],
+            [
+              "getSource @ review-workspace.mjs:46",
+              87.74400000000001
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              67.41999999999999
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              58.61999999999999
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              53.32499999999999
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              53.32499999999999
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              50.44200000000001
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              48.675999999999995
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              47.31799999999999
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              47.31799999999999
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              47.31799999999999
+            ],
+            [
+              "view @ review-workspace.mjs:53",
+              47.10399999999999
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 300,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 300
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "three-real-recordings-restored-28-candidates",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 136,
+              "mean": 0.1678676368559108,
+              "p50": 0.16499996185302734,
+              "p95": 0.2250000238418579,
+              "max": 0.2999999523162842
+            },
+            "setReview": {
+              "n": 44,
+              "mean": 2.581704556941986,
+              "p50": 2.625,
+              "p95": 3.1050000190734863,
+              "max": 3.409999966621399
+            }
+          },
+          "rafMs": {
+            "n": 903,
+            "mean": 16.644878183889762,
+            "p50": 16.66500000000815,
+            "p95": 16.669999999998254,
+            "max": 16.670000000012806
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 6.37999999999882,
+            "p50": 6.3333333333162045,
+            "p95": 9.999999999990905,
+            "max": 12.666666666689252
+          },
+          "progress": {
+            "wallSeconds": 14.903289999961853,
+            "videoSeconds": 14.916999999999973,
+            "displayedFrames": 895
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              13323.590000000097
+            ],
+            [
+              "(program) @ :0",
+              763.1109999999998
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              192.99099999999993
+            ],
+            [
+              "drawImage @ :0",
+              190.69899999999998
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              48.821999999999996
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              39.82799999999999
+            ],
+            [
+              "decode @ :0",
+              38.759
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              34.606
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              34.016000000000005
+            ],
+            [
+              "slice @ :0",
+              31.064999999999998
+            ],
+            [
+              "(garbage collector) @ :0",
+              29.799999999999997
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              22.243000000000002
+            ],
+            [
+              "createBufferSource @ :0",
+              17.725
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              17.217
+            ],
+            [
+              "arrayBuffer @ :0",
+              15.136
+            ],
+            [
+              "requestAnimationFrame @ :0",
+              14.05
+            ],
+            [
+              "paintSelection @ selection-timeline.mjs:99",
+              13.081999999999997
+            ],
+            [
+              "AudioBuffer @ :0",
+              11.372000000000002
+            ],
+            [
+              "now @ source-player.mjs:5",
+              9.024000000000001
+            ],
+            [
+              "fillAudio @ source-player.mjs:68",
+              8.997
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              " @ source-player.mjs:104",
+              410.07699999999994
+            ],
+            [
+              "tick @ source-player.mjs:93",
+              407.04599999999994
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              326.616
+            ],
+            [
+              "onState @ app.js:55",
+              320.617
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              286.304
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              283.293
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              226.772
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              198.15200000000002
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              192.99099999999993
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              192.82699999999997
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              178.802
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              164.799
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              164.799
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              99.297
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              99.297
+            ],
+            [
+              "render @ app.js:450",
+              94.675
+            ],
+            [
+              "onChange @ app.js:32",
+              94.675
+            ],
+            [
+              "renderReview @ app.js:354",
+              89.049
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              82.856
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              80.217
+            ],
+            [
+              "_runWorker @ mediabunny.mjs:15546",
+              67.94999999999999
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              64.841
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              62.727999999999994
+            ],
+            [
+              "_read @ mediabunny.mjs:15542",
+              62.727999999999994
+            ],
+            [
+              "requestSlice @ mediabunny.mjs:16281",
+              62.727999999999994
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 28,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 0,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 0,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 28
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "three-real-recordings-live-analysis-and-playback",
+          "seconds": 20,
+          "methods": {
+            "getSource": {
+              "n": 326,
+              "mean": 0.017515343025418146,
+              "p50": 0.015000104904174805,
+              "p95": 0.034999966621398926,
+              "max": 0.04499995708465576
+            },
+            "setReview": {
+              "n": 61,
+              "mean": 0.4252458986688833,
+              "p50": 0.43999993801116943,
+              "p95": 0.5,
+              "max": 0.5600000619888306
+            }
+          },
+          "rafMs": {
+            "n": 1202,
+            "mean": 16.639251247908238,
+            "p50": 16.66500000000815,
+            "p95": 16.669999999998254,
+            "max": 16.670000000012806
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 200,
+            "mean": 9.210000000010439,
+            "p50": 11.666666666656056,
+            "p95": 15.666666666675155,
+            "max": 15.666666666731999
+          },
+          "progress": {
+            "wallSeconds": 19.89947500002384,
+            "videoSeconds": 19.899999999999977,
+            "displayedFrames": 1194
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              18063.336000000025
+            ],
+            [
+              "(program) @ :0",
+              913.0620000000009
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              187.33499999999992
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              165.302
+            ],
+            [
+              "(garbage collector) @ :0",
+              138.503
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              122.328
+            ],
+            [
+              "slice @ :0",
+              38.827000000000005
+            ],
+            [
+              "drawImage @ :0",
+              35.541
+            ],
+            [
+              "appendAudioPeaks @ audio-peaks.mjs:8",
+              30.067
+            ],
+            [
+              "decode @ :0",
+              28.806
+            ],
+            [
+              "toAudioBuffer @ mediabunny.mjs:4402",
+              21.180999999999997
+            ],
+            [
+              "arrayBuffer @ :0",
+              18.09
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              15.068
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              14.447000000000001
+            ],
+            [
+              "AudioBuffer @ :0",
+              12.029
+            ],
+            [
+              "paintSelection @ selection-timeline.mjs:99",
+              11.986
+            ],
+            [
+              "copyToChannel @ :0",
+              9.07
+            ],
+            [
+              "get state @ source-player.mjs:215",
+              8.789000000000001
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              8.433
+            ],
+            [
+              "freeze @ review-workspace.mjs:7",
+              8.227
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "_runWorker @ mediabunny.mjs:15546",
+              232.03399999999996
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              215.54500000000002
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              187.33499999999992
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              145.61700000000002
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              142.611
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              125.33800000000001
+            ],
+            [
+              "render @ app.js:450",
+              106.77300000000001
+            ],
+            [
+              "renderReview @ app.js:354",
+              101.43900000000001
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              94.82700000000001
+            ],
+            [
+              "tick @ source-player.mjs:93",
+              93.782
+            ],
+            [
+              " @ source-player.mjs:104",
+              93.782
+            ],
+            [
+              "onChange @ app.js:32",
+              91.82900000000001
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              87.39
+            ],
+            [
+              "onState @ app.js:55",
+              73.889
+            ],
+            [
+              "readCluster @ mediabunny.mjs:9558",
+              71.244
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              71.21100000000001
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              68.186
+            ],
+            [
+              "getNextPacket @ mediabunny.mjs:10826",
+              65.19200000000001
+            ],
+            [
+              "getNextPacket @ mediabunny.mjs:4644",
+              65.19200000000001
+            ],
+            [
+              " @ mediabunny.mjs:4740",
+              65.19200000000001
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              59.14600000000001
+            ],
+            [
+              "_read @ mediabunny.mjs:15542",
+              59.14600000000001
+            ],
+            [
+              "requestSlice @ mediabunny.mjs:16281",
+              59.14600000000001
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              58.431999999999995
+            ],
+            [
+              "drain @ media-read-source.mjs:8",
+              56.91700000000001
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 1,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 0,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 0,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 1
+          },
+          "sampleValidation": {
+            "samples": 200,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 30,
+            "analysisProcessedUntilLast": 265,
+            "analysisStatusLast": "analyzing"
+          }
+        }
+      ],
+      "errors": [],
+      "metadata": {
+        "name": "2026-10-11 08-43-38.mkv",
+        "bytes": 30258792852,
+        "duration": 2639.449666666,
+        "origin": 0,
+        "width": 3840,
+        "height": 2160,
+        "codec": "avc"
+      },
+      "open": {
+        "ms": 653.8200000524521,
+        "state": {
+          "status": "paused",
+          "duration": 2639.449666666,
+          "target": 300,
+          "position": 300,
+          "actual": 300,
+          "playing": false,
+          "error": null,
+          "audioPolicy": "source-primary",
+          "metrics": {
+            "framesDisplayed": 1,
+            "seeks": 1,
+            "lastSeekMs": 642.7700001001358,
+            "maxFrameLagMs": 0
+          }
+        }
+      },
+      "seeks": [
+        {
+          "target": 2100,
+          "ms": 511.34500002861023,
+          "actual": 2100
+        },
+        {
+          "target": 900,
+          "ms": 643.9700000286102,
+          "actual": 900
+        },
+        {
+          "target": 300,
+          "ms": 168.10000002384186,
+          "actual": 300
+        }
+      ],
+      "completed": true
+    },
+    {
+      "date": "2026-10-30T02:20:35.825Z",
+      "commit": "636d177c7b062b5af68893acca54a54c2b7f628d",
+      "browser": "156.0.8078.48",
+      "headless": true,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "media": [
+        "/Volumes/EXTERNALUSB/共享/2026-10-11 08-43-38.mkv",
+        "/Volumes/EXTERNALUSB/共享/2026-10-11 09-45-26.mkv",
+        "/Volumes/EXTERNALUSB/共享/2026-10-11 10-09-53.mkv"
+      ],
+      "scenarios": [
+        {
+          "name": "active-28-inactive-300-each",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 137,
+              "mean": 0.12197080493843468,
+              "p50": 0.12999999523162842,
+              "p95": 0.20500004291534424,
+              "max": 0.24500000476837158
+            },
+            "setReview": {
+              "n": 45,
+              "mean": 3.0375555594762167,
+              "p50": 3.75,
+              "p95": 4.300000071525574,
+              "max": 4.5950000286102295
+            }
+          },
+          "rafMs": {
+            "n": 904,
+            "mean": 16.736344026548668,
+            "p50": 16.665000000000873,
+            "p95": 16.670000000000073,
+            "max": 99.99499999999989
+          },
+          "rafOver50": 1,
+          "longTasks": {
+            "count": 1,
+            "totalMs": 116,
+            "maxMs": 116
+          },
+          "lagMs": {
+            "n": 151,
+            "mean": 10.331125827816466,
+            "p50": 10.666666666679703,
+            "p95": 14.666666666641959,
+            "max": 15.666666666675155
+          },
+          "progress": {
+            "wallSeconds": 14.96216000008583,
+            "videoSeconds": 14.882999999999981,
+            "displayedFrames": 893
+          },
+          "maxStationaryMs": 62.18500006198883,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              13611.744000000075
+            ],
+            [
+              "(program) @ :0",
+              603.1759999999995
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              140.605
+            ],
+            [
+              "createAudioContext @ source-player.mjs:4",
+              111.41400000000002
+            ],
+            [
+              "drawImage @ :0",
+              91.607
+            ],
+            [
+              "(garbage collector) @ :0",
+              72.108
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              48.431
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              38.934999999999995
+            ],
+            [
+              "decode @ :0",
+              37.11
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              34.68300000000001
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              29.890000000000004
+            ],
+            [
+              "fillAudio @ source-player.mjs:68",
+              28.596000000000004
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              27.078
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              26.636
+            ],
+            [
+              "toDataURL @ :0",
+              21.066000000000003
+            ],
+            [
+              "slice @ :0",
+              18.221999999999998
+            ],
+            [
+              "clearRect @ :0",
+              15.982
+            ],
+            [
+              "requestAnimationFrame @ :0",
+              12.003
+            ],
+            [
+              "structuredClone @ :0",
+              11.361
+            ],
+            [
+              "toAudioBuffer @ mediabunny.mjs:4402",
+              8.072
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "tick @ source-player.mjs:93",
+              357.37799999999993
+            ],
+            [
+              " @ source-player.mjs:104",
+              357.37799999999993
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              282.6720000000001
+            ],
+            [
+              "onState @ app.js:55",
+              279.66300000000007
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              209.20299999999992
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              201.4699999999999
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              140.605
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              127.541
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              126.063
+            ],
+            [
+              "play @ source-player.mjs:189",
+              114.43100000000001
+            ],
+            [
+              "createAudioContext @ source-player.mjs:4",
+              111.41400000000002
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              101.95
+            ],
+            [
+              "render @ app.js:450",
+              90.452
+            ],
+            [
+              "onChange @ app.js:32",
+              90.452
+            ],
+            [
+              "renderReview @ app.js:354",
+              85.501
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              78.779
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              78.12899999999999
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              78.12899999999999
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              73.05799999999999
+            ],
+            [
+              "_runWorker @ mediabunny.mjs:15546",
+              59.95699999999999
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              58.727000000000004
+            ],
+            [
+              "decode @ mediabunny.mjs:5203",
+              58.45000000000001
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              55.705
+            ],
+            [
+              "_read @ mediabunny.mjs:15542",
+              55.705
+            ],
+            [
+              "requestSlice @ mediabunny.mjs:16281",
+              55.705
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 28,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 300,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 28,
+            "visiblePredictionButtons": 56,
+            "visibleTimelineCandidates": 28
+          },
+          "sampleValidation": {
+            "samples": 151,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "active-300-inactive-empty",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 138,
+              "mean": 0.5233333352683247,
+              "p50": 0.5099999904632568,
+              "p95": 0.7599999904632568,
+              "max": 0.9500000476837158
+            },
+            "setReview": {
+              "n": 45,
+              "mean": 15.74611111217075,
+              "p50": 15.735000014305115,
+              "p95": 18.454999923706055,
+              "max": 19.43500006198883
+            }
+          },
+          "rafMs": {
+            "n": 879,
+            "mean": 17.11299772468714,
+            "p50": 16.665000000000873,
+            "p95": 16.67000000000189,
+            "max": 33.335000000002765
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 6.348888888894635,
+            "p50": 3.6666666666747005,
+            "p95": 16.666666666708352,
+            "max": 16.666666666708352
+          },
+          "progress": {
+            "wallSeconds": 14.900495000004769,
+            "videoSeconds": 14.882999999999981,
+            "displayedFrames": 893
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              11496.39700000002
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1446.0610000000024
+            ],
+            [
+              "(program) @ :0",
+              825.0740000000003
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              475.6619999999999
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              260.92799999999994
+            ],
+            [
+              "(garbage collector) @ :0",
+              109.78800000000001
+            ],
+            [
+              "drawImage @ :0",
+              59.56099999999999
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              44.742
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              29.685000000000002
+            ],
+            [
+              "setAttribute @ :0",
+              27.054999999999996
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              26.98
+            ],
+            [
+              "freeze @ review-workspace.mjs:7",
+              26.918
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              23.636
+            ],
+            [
+              "renderClips @ app.js:300",
+              20.592
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              20.27
+            ],
+            [
+              "slice @ :0",
+              14.497999999999998
+            ],
+            [
+              "decode @ :0",
+              12.152999999999999
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              12.077
+            ],
+            [
+              "arrayBuffer @ :0",
+              12.072
+            ],
+            [
+              " @ review-workspace.mjs:36",
+              9.113
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "emit @ source-player.mjs:15",
+              2390.0539999999996
+            ],
+            [
+              "onState @ app.js:55",
+              2384.4429999999993
+            ],
+            [
+              "tick @ source-player.mjs:93",
+              2377.8539999999994
+            ],
+            [
+              " @ source-player.mjs:104",
+              2368.8249999999994
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              2233.449000000001
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              2233.449000000001
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1936.7550000000022
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              693.2869999999997
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              693.2869999999997
+            ],
+            [
+              "render @ app.js:450",
+              663.1719999999998
+            ],
+            [
+              "onChange @ app.js:32",
+              663.1719999999998
+            ],
+            [
+              "renderReview @ app.js:354",
+              657.1359999999999
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              475.6619999999999
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              260.92799999999994
+            ],
+            [
+              "getSource @ review-workspace.mjs:46",
+              98.59500000000004
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              73.737
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              62.57799999999999
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              62.57799999999999
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              59.55899999999999
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              56.55499999999999
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              56.55499999999999
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              50.20600000000001
+            ],
+            [
+              "_runWorker @ mediabunny.mjs:15546",
+              48.06
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              47.765
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              47.426
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 0,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 0,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 300,
+            "visiblePredictionButtons": 600,
+            "visibleTimelineCandidates": 300
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "active-300-prediction-axis-zoomed",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 137,
+              "mean": 0.8045620370085222,
+              "p50": 0.8050000667572021,
+              "p95": 1.1449999809265137,
+              "max": 1.2350000143051147
+            },
+            "setReview": {
+              "n": 45,
+              "mean": 4.60211111969418,
+              "p50": 4.789999961853027,
+              "p95": 6.365000009536743,
+              "max": 7.235000014305115
+            }
+          },
+          "rafMs": {
+            "n": 904,
+            "mean": 16.632146017799336,
+            "p50": 16.665000000000873,
+            "p95": 16.67000000000553,
+            "max": 16.67000000000553
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 10.464444444449251,
+            "p50": 11.333333333311657,
+            "p95": 15.333333333330756,
+            "max": 16.66666666665151
+          },
+          "progress": {
+            "wallSeconds": 14.899460000038147,
+            "videoSeconds": 14.899999999999977,
+            "displayedFrames": 894
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              13209.968999999997
+            ],
+            [
+              "(program) @ :0",
+              769.532
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              242.2099999999999
+            ],
+            [
+              "drawImage @ :0",
+              131.836
+            ],
+            [
+              "getSource @ review-workspace.mjs:46",
+              73.78500000000001
+            ],
+            [
+              "renderClips @ app.js:300",
+              50.37400000000001
+            ],
+            [
+              "decode @ :0",
+              49.353
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              44.055
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              40.094
+            ],
+            [
+              "(garbage collector) @ :0",
+              37.480000000000004
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              33.46399999999999
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              25.744000000000003
+            ],
+            [
+              "freeze @ review-workspace.mjs:7",
+              22.618
+            ],
+            [
+              "createBufferSource @ :0",
+              18.871
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              17.149
+            ],
+            [
+              "slice @ :0",
+              14.469000000000001
+            ],
+            [
+              "connect @ :0",
+              11.402
+            ],
+            [
+              "clipsFor @ review-workspace.mjs:32",
+              11.336
+            ],
+            [
+              "paintSelection @ selection-timeline.mjs:99",
+              10.871
+            ],
+            [
+              "arrayBuffer @ :0",
+              10.836
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "tick @ source-player.mjs:93",
+              597.9359999999998
+            ],
+            [
+              " @ source-player.mjs:104",
+              594.9109999999998
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              540.6679999999999
+            ],
+            [
+              "onState @ app.js:55",
+              534.6569999999998
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              312.56699999999995
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              306.622
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              242.2099999999999
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              210.67099999999996
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              210.67099999999996
+            ],
+            [
+              "render @ app.js:450",
+              177.61099999999993
+            ],
+            [
+              "onChange @ app.js:32",
+              177.61099999999993
+            ],
+            [
+              "renderReview @ app.js:354",
+              171.84799999999993
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              163.80700000000002
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              140.19400000000002
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              140.19400000000002
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              128.784
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              125.88199999999999
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              125.88199999999999
+            ],
+            [
+              "getSource @ review-workspace.mjs:46",
+              123.4
+            ],
+            [
+              " @ mediabunny.mjs:4825",
+              97.769
+            ],
+            [
+              "decode @ mediabunny.mjs:5203",
+              89.09799999999998
+            ],
+            [
+              "renderClips @ app.js:300",
+              72.51200000000001
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              69.36
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              54.73
+            ],
+            [
+              "readCluster @ mediabunny.mjs:9558",
+              48.818
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 0,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 0,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 300,
+            "visiblePredictionButtons": 319,
+            "visibleTimelineCandidates": 19
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        },
+        {
+          "name": "active-300-full-axis-again",
+          "seconds": 15,
+          "methods": {
+            "getSource": {
+              "n": 140,
+              "mean": 0.4558571423803057,
+              "p50": 0.45500004291534424,
+              "p95": 0.5749999284744263,
+              "max": 0.9249999523162842
+            },
+            "setReview": {
+              "n": 46,
+              "mean": 14.780760876510454,
+              "p50": 14.985000014305115,
+              "p95": 19.139999985694885,
+              "max": 20.985000014305115
+            }
+          },
+          "rafMs": {
+            "n": 887,
+            "mean": 16.980242390127305,
+            "p50": 16.665000000000873,
+            "p95": 16.67000000000553,
+            "max": 33.3350000000064
+          },
+          "rafOver50": 0,
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "lagMs": {
+            "n": 150,
+            "mean": 10.006666666674468,
+            "p50": 14.000000000010004,
+            "p95": 16.666666666708352,
+            "max": 16.666666666708352
+          },
+          "progress": {
+            "wallSeconds": 14.925359999895095,
+            "videoSeconds": 14.915999999999997,
+            "displayedFrames": 895
+          },
+          "maxStationaryMs": 0,
+          "cpuSelfTop": [
+            [
+              "(idle) @ :0",
+              11562.800000000087
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1399.339
+            ],
+            [
+              "(program) @ :0",
+              892.0200000000001
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              440.05799999999994
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              285.4429999999999
+            ],
+            [
+              "drawImage @ :0",
+              64.38300000000001
+            ],
+            [
+              "(garbage collector) @ :0",
+              58.94199999999999
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              41.063
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              29.226999999999997
+            ],
+            [
+              "setAttribute @ :0",
+              25.403
+            ],
+            [
+              "renderClips @ app.js:300",
+              23.831999999999997
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              21.115
+            ],
+            [
+              "read @ mediabunny.mjs:15819",
+              17.581
+            ],
+            [
+              "freeze @ review-workspace.mjs:7",
+              15.134
+            ],
+            [
+              "supplyWorkerData @ mediabunny.mjs:15996",
+              14.815000000000001
+            ],
+            [
+              "createBufferSource @ :0",
+              14.722
+            ],
+            [
+              "EncodedVideoChunk @ :0",
+              14.602999999999998
+            ],
+            [
+              "slice @ :0",
+              14.599
+            ],
+            [
+              "arrayBuffer @ :0",
+              12.041
+            ],
+            [
+              "decode @ :0",
+              11.266000000000002
+            ]
+          ],
+          "cpuInclusiveApp": [
+            [
+              "onState @ app.js:55",
+              2299.022
+            ],
+            [
+              "emit @ source-player.mjs:15",
+              2299.022
+            ],
+            [
+              "tick @ source-player.mjs:93",
+              2296.7400000000007
+            ],
+            [
+              " @ source-player.mjs:104",
+              2286.073000000001
+            ],
+            [
+              "renderPlayer @ app.js:340",
+              2183.3960000000006
+            ],
+            [
+              "render @ selection-timeline.mjs:180",
+              2177.3540000000007
+            ],
+            [
+              " @ selection-timeline.mjs:226",
+              1861.7750000000008
+            ],
+            [
+              "setReview @ review-workspace.mjs:85",
+              661.8939999999993
+            ],
+            [
+              "changed @ review-workspace.mjs:54",
+              658.8919999999994
+            ],
+            [
+              "renderReview @ app.js:354",
+              643.8159999999993
+            ],
+            [
+              "render @ app.js:450",
+              643.8159999999993
+            ],
+            [
+              "onChange @ app.js:32",
+              643.8159999999993
+            ],
+            [
+              " @ selection-timeline.mjs:227",
+              440.05799999999994
+            ],
+            [
+              "paintWaveform @ selection-timeline.mjs:154",
+              285.4429999999999
+            ],
+            [
+              "_videoSampleToWrappedCanvas @ mediabunny.mjs:5649",
+              72.015
+            ],
+            [
+              " @ mediabunny.mjs:5717",
+              72.015
+            ],
+            [
+              "next @ mediabunny.mjs:373",
+              72.015
+            ],
+            [
+              "assert @ mediabunny.mjs:41",
+              64.38300000000001
+            ],
+            [
+              "toCanvasImageSource @ mediabunny.mjs:4009",
+              64.38300000000001
+            ],
+            [
+              "drawWithFit @ mediabunny.mjs:3922",
+              64.38300000000001
+            ],
+            [
+              "getSource @ review-workspace.mjs:46",
+              62.21200000000001
+            ],
+            [
+              "read @ media-read-source.mjs:46",
+              55.879000000000005
+            ],
+            [
+              "renderClips @ app.js:300",
+              41.29600000000001
+            ],
+            [
+              "performClusterLookup @ mediabunny.mjs:10957",
+              41.06400000000001
+            ],
+            [
+              "copy @ review-workspace.mjs:3",
+              41.063
+            ]
+          ],
+          "workspace": {
+            "sources": [
+              {
+                "name": "2026-10-11 09-45-26.mkv",
+                "duration": 1439.883666666,
+                "candidates": 0,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 08-43-38.mkv",
+                "duration": 2639.449666666,
+                "candidates": 300,
+                "decisions": 0
+              },
+              {
+                "name": "2026-10-11 10-09-53.mkv",
+                "duration": 355.216666666,
+                "candidates": 0,
+                "decisions": 0
+              }
+            ],
+            "clipDom": 300,
+            "visiblePredictionButtons": 600,
+            "visibleTimelineCandidates": 300
+          },
+          "sampleValidation": {
+            "samples": 150,
+            "playerErrorCount": 0,
+            "analysisProcessedUntilFirst": 0,
+            "analysisProcessedUntilLast": 0,
+            "analysisStatusLast": "stopped"
+          }
+        }
+      ],
+      "errors": [],
+      "workspaceMicrobenchmark": [
+        {
+          "sources": 3,
+          "candidatesEach": 28,
+          "times": [
+            0.08500003814697266,
+            0.07500004768371582,
+            0.06999993324279785,
+            0.07500004768371582,
+            0.07500004768371582,
+            0.07499992847442627,
+            0.07500004768371582,
+            0.12999999523162842,
+            0.07999992370605469,
+            0.07500004768371582,
+            0.08500003814697266,
+            0.09499990940093994,
+            0.08000004291534424,
+            0.07500004768371582,
+            0.07999992370605469,
+            0.08000004291534424,
+            0.08000004291534424,
+            0.07999992370605469,
+            0.07500004768371582,
+            0.07999992370605469,
+            0.08000004291534424,
+            0.08000004291534424,
+            0.07999992370605469,
+            0.08000004291534424,
+            0.08500003814697266,
+            0.07499992847442627,
+            0.08500003814697266,
+            0.08000004291534424,
+            0.06999993324279785,
+            0.3500000238418579,
+            0.0700000524520874,
+            0.07499992847442627,
+            0.08500003814697266,
+            0.08500003814697266,
+            0.06999993324279785,
+            0.0700000524520874,
+            0.06999993324279785,
+            0.06500005722045898,
+            0.07499992847442627,
+            0.0700000524520874,
+            0.08500003814697266,
+            0.06999993324279785,
+            0.06500005722045898,
+            0.06999993324279785,
+            0.0700000524520874,
+            0.06999993324279785,
+            0.06500005722045898,
+            0.06999993324279785,
+            0.0700000524520874,
+            0.0700000524520874,
+            0.06999993324279785,
+            0.0700000524520874,
+            0.06999993324279785,
+            0.0700000524520874,
+            0.07499992847442627,
+            0.0700000524520874,
+            0.06499993801116943,
+            0.07500004768371582,
+            0.06500005722045898,
+            0.07499992847442627
+          ]
+        },
+        {
+          "sources": 3,
+          "candidatesEach": 100,
+          "times": [
+            0.23000001907348633,
+            0.23000001907348633,
+            0.23500001430511475,
+            0.24000000953674316,
+            0.23500001430511475,
+            0.22499990463256836,
+            0.2250000238418579,
+            0.23000001907348633,
+            0.2200000286102295,
+            0.2200000286102295,
+            0.24000000953674316,
+            0.2399998903274536,
+            0.24500000476837158,
+            0.25,
+            0.2200000286102295,
+            0.2250000238418579,
+            0.21000003814697266,
+            0.2099999189376831,
+            0.21000003814697266,
+            0.21500003337860107,
+            0.21999990940093994,
+            0.2200000286102295,
+            0.2200000286102295,
+            0.23000001907348633,
+            0.2200000286102295,
+            0.22499990463256836,
+            0.2200000286102295,
+            0.2200000286102295,
+            0.25,
+            0.2200000286102295,
+            0.2549999952316284,
+            0.41999995708465576,
+            0.2250000238418579,
+            0.2200000286102295,
+            0.21999990940093994,
+            0.21500003337860107,
+            0.23500001430511475,
+            0.21000003814697266,
+            0.2049999237060547,
+            0.21000003814697266,
+            0.20500004291534424,
+            0.2049999237060547,
+            0.21000003814697266,
+            0.21000003814697266,
+            0.19999992847442627,
+            0.21000003814697266,
+            0.21000003814697266,
+            0.2049999237060547,
+            0.20500004291534424,
+            0.21000003814697266,
+            0.21499991416931152,
+            0.21500003337860107,
+            0.21500003337860107,
+            0.21499991416931152,
+            0.21500003337860107,
+            0.21500003337860107,
+            0.21000003814697266,
+            0.21499991416931152,
+            0.21500003337860107,
+            0.21000003814697266
+          ]
+        },
+        {
+          "sources": 3,
+          "candidatesEach": 300,
+          "times": [
+            0.6200000047683716,
+            0.6299999952316284,
+            0.7150000333786011,
+            0.5999999046325684,
+            0.5900000333786011,
+            0.6150000095367432,
+            0.5900000333786011,
+            0.5900000333786011,
+            0.6099998950958252,
+            0.6150000095367432,
+            0.625,
+            0.6200000047683716,
+            0.6150000095367432,
+            0.6349999904632568,
+            0.6499999761581421,
+            0.6350001096725464,
+            0.6549999713897705,
+            0.6949999332427979,
+            0.6349999904632568,
+            0.625,
+            0.625,
+            0.6400001049041748,
+            0.6449999809265137,
+            0.625,
+            0.5899999141693115,
+            0.6100000143051147,
+            0.6200000047683716,
+            0.6150000095367432,
+            0.625,
+            0.6449999809265137,
+            0.6100000143051147,
+            0.625,
+            0.6750000715255737,
+            0.6299999952316284,
+            0.6349999904632568,
+            0.6050000190734863,
+            0.5849999189376831,
+            0.5900000333786011,
+            0.6599999666213989,
+            0.6050000190734863,
+            0.6100000143051147,
+            0.5800000429153442,
+            0.5799999237060547,
+            0.5800000429153442,
+            0.6100000143051147,
+            0.6100000143051147,
+            0.6050000190734863,
+            0.6049998998641968,
+            0.6700000762939453,
+            0.625,
+            0.6150000095367432,
+            0.6200000047683716,
+            0.6099998950958252,
+            0.6200000047683716,
+            0.6200000047683716,
+            0.6050000190734863,
+            0.6200000047683716,
+            0.625,
+            0.6200000047683716,
+            0.6349999904632568
+          ]
+        }
+      ],
+      "zoomState": {
+        "visibleCandidates": 0,
+        "window": "局部 · 20:37.2 — 23:22.2",
+        "measurementNote": "Original visibleCandidates=0 used an incorrect selector; use scenario.workspace.visibleTimelineCandidates (19 for zoomed scenario)."
+      },
+      "completed": true
+    }
+  ]
+}

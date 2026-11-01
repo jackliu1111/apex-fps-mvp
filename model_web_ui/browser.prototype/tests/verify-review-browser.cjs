@@ -53,19 +53,22 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     // Retrying uses the real decoder/model; submitting in the same user-workspace
     // turn proves the editor is not locked behind the running analysis task.
     const early = await page.evaluate(async () => {
+      const root = await navigator.storage.getDirectory();
+      const directory = await root.getDirectoryHandle('review-browser-export', { create: true });
+      window.showDirectoryPicker = async () => directory;
       void reviewApp.queue.retry(reviewApp.queue.records[0].id);
       document.querySelector('#export').click();
       await Promise.resolve(); await Promise.resolve();
       return { analysis: reviewApp.queue.records[0].status, batch: reviewApp.workspace.view().batches[0] };
     });
     assert.ok(['preparing', 'queued', 'analyzing'].includes(early.analysis));
-    assert.equal(early.batch.status, 'queued');
+    assert.ok(['awaiting-destination', 'queued', 'running'].includes(early.batch.status));
     await page.locator('#range-start').fill('1.5'); await page.locator('#range-start').press('Tab');
     await page.locator('#range-end').fill('4.25'); await page.locator('#range-end').press('Tab');
     await page.waitForFunction(() => reviewApp.workspace.view().batches[0]?.status === 'completed');
     const batch = await page.evaluate(() => reviewApp.workspace.view().batches[0]);
     assert.deepEqual(batch.clips.map(({start,end}) => [start,end]), [[1.25,4.75]]);
-    assert.equal(batch.outputs[0].saved, false, 'A downloadable Blob is not a saved disk file');
+    assert.equal(batch.outputs[0].saved, true, 'Streamed directly to the selected directory handle');
     assert.ok(batch.outputs[0].measuredDuration > 3.4 && batch.outputs[0].measuredDuration < 3.7);
     assert.equal(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).hasUnexportedChanges), true);
     await page.locator('#range-start').fill('1.7');
@@ -92,6 +95,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.evaluate(() => reviewApp.workspace.view().batches.length), 0);
     assert.equal(await page.evaluate(() => reviewApp.bindings.size), 0);
     assert.equal(await page.locator('#relink-current').count(), 0);
+    await page.evaluate(async () => (await navigator.storage.getDirectory()).removeEntry('review-browser-export', { recursive: true }).catch(() => {}));
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ automaticImportAndReview: 'passed', trimAndSessionReset: 'passed', navigation: 'passed', identityDedup: 'passed', earlyFixedExport: 'passed', focusedEdit: 'passed', ...result }));
   } finally { await browser.close(); fs.rmSync(fixtureDirectory, { recursive: true, force: true }); }

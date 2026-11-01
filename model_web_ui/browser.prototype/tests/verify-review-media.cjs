@@ -181,17 +181,18 @@ async function exportRun(page) {
     for (let index = 0; index < 48; index++) await video.add(index / 4, 0.25);
     video.close(); audio.close(); toneTrack.close(); await output.finalize();
     const file = new File([output.target.buffer], 'export-fixture.webm', { type: 'video/webm' });
-    const baseConvert = createBrowserConverter({ MB }); let capturedBlob;
-    const convert = async (args) => { const result = await baseConvert(args); if (result.blob) capturedBlob = result.blob; return result; };
-    const batch = { id: 'real-memory', sourceId: 'fixture', source: { name: file.name }, clips: [{ id: 'clip', start: 2, end: 5 }],
+    const convert = createBrowserConverter({ MB });
+    const root = await navigator.storage.getDirectory();
+    const name = `grill-acceptance-${crypto.randomUUID()}`, directory = await root.getDirectoryHandle(name, { create: true });
+    const batch = { id: 'real-directory', sourceId: 'fixture', source: { name: file.name }, clips: [{ id: 'clip', start: 2, end: 5 }],
       audio: { trackIndex: 1 }, output: { videoBitrate: 300000, audioBitrate: 64000 } };
     const queue = createExportQueue({ convert });
     try {
-      queue.enqueue(batch, { file, origin: 0 }); batch.clips[0].start = 4; batch.audio.trackIndex = 0;
-      await queue.whenIdle(); const memory = queue.getBatch('real-memory');
-      if (memory.status !== 'completed') throw new Error(JSON.stringify(memory));
-      // Consume the converter's public Blob result; blob: fetch is deliberately not enabled in CSP.
-      const probe = new MB.Input({ source: new MB.BlobSource(capturedBlob), formats: MB.ALL_FORMATS });
+      queue.enqueue(batch, { file, origin: 0, directoryHandle: directory }); batch.clips[0].start = 4; batch.audio.trackIndex = 0;
+      await queue.whenIdle(); const queued = queue.getBatch('real-directory');
+      if (queued.status !== 'completed') throw new Error(JSON.stringify(queued));
+      const savedFile = await (await directory.getFileHandle(queued.outputs[0].name)).getFile();
+      const probe = new MB.Input({ source: new MB.BlobSource(savedFile), formats: MB.ALL_FORMATS });
       let crossings = 0, count = 0, previous = 0, rate = 0;
       try {
         const track = await probe.getPrimaryAudioTrack();
@@ -201,28 +202,25 @@ async function exportRun(page) {
         }
       } finally { probe.dispose(); }
       const frequency = crossings / (count / rate);
-      const root = await navigator.storage.getDirectory();
-      const name = `grill-acceptance-${crypto.randomUUID()}`, directory = await root.getDirectoryHandle(name, { create: true });
       let disk, cancelled;
+      disk = await convert({ batch: { ...batch, audio: { trackIndex: 1 } }, clip: { start: 2, end: 5 }, source: { file, origin: 0, directoryHandle: directory } });
+      disk.directoryEntries = []; for await (const [entry] of directory.entries()) disk.directoryEntries.push(entry);
+      const controller = new AbortController();
       try {
-        disk = await convert({ batch: { ...batch, audio: { trackIndex: 1 } }, clip: { start: 2, end: 5 }, source: { file, origin: 0, directoryHandle: directory } });
-        disk.directoryEntries = []; for await (const [entry] of directory.entries()) disk.directoryEntries.push(entry);
-        const controller = new AbortController();
-        try {
-          await convert({ batch, clip: { start: 0, end: 12 }, source: { file, origin: 0, directoryHandle: directory }, signal: controller.signal,
-            onProgress: () => controller.abort(new DOMException('test cancel', 'AbortError')) });
-        } catch (error) { cancelled = { name: error.name, message: error.message }; }
-        if (!cancelled) throw new Error('Cancellation unexpectedly completed');
-        disk.afterCancelEntries = []; for await (const [entry] of directory.entries()) disk.afterCancelEntries.push(entry);
-      } finally { await root.removeEntry(name, { recursive: true }); }
-      return { memory, frequency, disk, cancelled, fixtureBytes: file.size, storageLocation: 'temporary-origin-private-directory' };
-    } finally { await queue.dispose(); }
+        await convert({ batch, clip: { start: 0, end: 12 }, source: { file, origin: 0, directoryHandle: directory }, signal: controller.signal,
+          onProgress: () => controller.abort(new DOMException('test cancel', 'AbortError')) });
+      } catch (error) { cancelled = { name: error.name, message: error.message }; }
+      if (!cancelled) throw new Error('Cancellation unexpectedly completed');
+      disk.afterCancelEntries = []; for await (const [entry] of directory.entries()) disk.afterCancelEntries.push(entry);
+      return { queued, frequency, disk, cancelled, fixtureBytes: file.size, storageLocation: 'temporary-origin-private-directory' };
+    } finally { await queue.dispose(); await root.removeEntry(name, { recursive: true }); }
   });
   const result = report.export;
-  assert.equal(result.memory.outputs[0].start, 2);
-  assert.equal(result.memory.outputs[0].saved, false);
+  assert.equal(result.queued.outputs[0].start, 2);
+  assert.equal(result.queued.outputs[0].saved, true);
   assert.equal(result.disk.saved, true);
-  assert.equal(result.disk.directoryEntries.length, 1);
+  assert.deepEqual(result.cancelled, { name: 'AbortError', message: 'test cancel' });
+  assert.equal(result.disk.directoryEntries.length, 2);
   assert.deepEqual(result.disk.afterCancelEntries, result.disk.directoryEntries);
   assert.ok(Math.abs(result.frequency - 440) < 5);
   assert.ok(Math.abs(result.disk.measuredDuration - 3) < 0.12);
@@ -231,18 +229,31 @@ async function exportRun(page) {
 async function exportOverlapRun(page) {
   report.media = await fixtureFile(page);
   const [start, position] = targetsFor(report.media.duration);
-  const end = Math.min(start + 60, report.media.duration);
+  const seconds = Number(process.env.EXPORT_SECONDS || 60);
+  assert.ok(Number.isFinite(seconds) && seconds > 0, 'EXPORT_SECONDS must be positive');
+  const end = Math.min(start + seconds, report.media.duration);
   report.overlap = { position, clip: { start, end }, samples: [] };
   await createPlayer(page);
   await page.evaluate(async ({ position, start, end }) => {
     const { createBrowserConverter } = await import('/browser-export.mjs');
+    const { sourceExportSettings } = await import('/export-policy.mjs');
+    const { estimateExportBytes } = await import('/export-queue.mjs');
+    const input = new reviewTestMB.Input({ source: new reviewTestMB.BlobSource(reviewTestFile), formats: reviewTestMB.ALL_FORMATS });
+    let output;
+    try { output = sourceExportSettings({}, await input.getPrimaryVideoTrack()); } finally { input.dispose(); }
+    if (estimateExportBytes({ output, clips: [{ start, end }] }) >= 100 * 1024 * 1024) {
+      throw new Error('This OPFS test must stay below 100 MiB; reduce EXPORT_SECONDS before running.');
+    }
+    window.reviewTestDirectoryName = `overlap-${crypto.randomUUID()}`;
+    window.reviewTestDirectoryRoot = await navigator.storage.getDirectory();
+    window.reviewTestDirectory = await reviewTestDirectoryRoot.getDirectoryHandle(reviewTestDirectoryName, { create: true });
     await reviewTestPlayer.load({ file: reviewTestFile, ...reviewTestMedia, position });
     await reviewTestPlayer.play();
     window.reviewTestExportAbort = new AbortController(); window.reviewTestExportResult = null;
     window.reviewTestExportWork = createBrowserConverter({ MB: reviewTestMB })({
-      batch: { audio: { policy: 'source-primary' }, output: {} }, clip: { start, end },
-      source: { file: reviewTestFile, origin: reviewTestMedia.origin },
-      signal: reviewTestExportAbort.signal, memoryBudgetBytes: 64 * 1024 * 1024,
+      batch: { audio: { policy: 'source-primary' }, output }, clip: { start, end },
+      source: { file: reviewTestFile, origin: reviewTestMedia.origin, directoryHandle: reviewTestDirectory },
+      signal: reviewTestExportAbort.signal,
     }).then((result) => { reviewTestExportResult = { bytes: result.bytes, measuredDuration: result.measuredDuration }; },
       (error) => { reviewTestExportResult = { error: error.message }; });
   }, { position, start, end });
@@ -264,6 +275,7 @@ async function exportOverlapRun(page) {
       const completedBeforeCleanup = reviewTestExportResult !== null;
       reviewTestExportAbort.abort(); reviewTestPlayer.pause();
       await reviewTestExportWork; await reviewTestPlayer.dispose();
+      await reviewTestDirectoryRoot.removeEntry(reviewTestDirectoryName, { recursive: true });
       return { completedBeforeCleanup, output: reviewTestExportResult };
     });
   }

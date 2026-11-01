@@ -33,6 +33,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       }
     });
     await page.reload(); await page.waitForFunction(() => window.reviewApp);
+    // Replace only the system picker; use genuine browser-managed directory/file streams.
+    await page.evaluate(async () => {
+      window.testDirectory = await (await navigator.storage.getDirectory()).getDirectoryHandle('session-export-test', { create: true });
+      window.pickerCalls = 0;
+      window.showDirectoryPicker = async () => { window.pickerCalls++; return window.testDirectory; };
+    });
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), false);
     await page.locator('#files').setInputFiles(process.env.MEDIA_PATH || '/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/apex-combat-60s.mp4');
     await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 120000 });
@@ -43,11 +49,19 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       reviewApp.workspace.addManual(id, { start: 5, end: 10 });
     });
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), true);
-    await page.evaluate(async () => { await reviewApp.submitExport(); await reviewApp.exportQueue.whenIdle(); });
+    await page.locator('#export').click();
+    await page.waitForFunction(() => { const batch = reviewApp.workspace.view().batches[0]; return ['completed', 'failed'].includes(batch?.status) || (batch?.status === 'awaiting-destination' && batch.error); }, null, { timeout: 120000 });
     const batch = await page.evaluate(() => reviewApp.workspace.view().batches[0]);
-    assert.equal(batch.status, 'completed');
+    assert.equal(batch.status, 'completed', JSON.stringify(batch));
     assert.ok(batch.outputs[0].bytes > 0);
-    assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), true, 'A download URL alone is not a confirmed saved file');
+    assert.equal(await page.evaluate(() => pickerCalls), 1, 'Every export needs a directory, including a small clip');
+    assert.equal(batch.outputs[0].saved, true);
+    assert.equal(await page.locator('#export-batches a[download]').count(), 0);
+    assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), false, 'Completed saved files do not warn on leave');
+    const savedBytes = await page.evaluate(async name => (await (await testDirectory.getFileHandle(name)).getFile()).size, batch.outputs[0].name);
+    assert.equal(savedBytes, batch.outputs[0].bytes);
+    await page.evaluate(() => reviewApp.workspace.addManual(reviewApp.activeSourceId, { start: 15, end: 17 }));
+    assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), true, 'Unsubmitted manual decisions still warn on leave');
     assert.deepEqual(await page.evaluate(() => storageTouches), []);
     let warned = false;
     page.on('dialog', async dialog => { warned = dialog.type() === 'beforeunload'; await dialog.accept(); });
@@ -66,6 +80,6 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       };
     })), { legacy: true });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ realMediaAnalysisAndExport: 'passed', bytes: batch.outputs[0].bytes, leaveWarning: 'passed', refreshEmpty: 'passed', oldStorageUntouched: 'passed' }));
+    console.log(JSON.stringify({ realMediaAnalysisAndExport: 'passed', directoryWriteReadback: 'OPFS passed (picker substituted)', bytes: batch.outputs[0].bytes, leaveWarning: 'passed', refreshEmpty: 'passed', oldStorageUntouched: 'passed' }));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

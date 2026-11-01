@@ -7,7 +7,8 @@ export function selectionWindow(duration, { start, end }) {
   return { zoomStart, zoomEnd: zoomStart + length };
 }
 
-export function createSelectionTimeline({ MB, workspace, getSource, getRecord, selectRange, seek, pause, isPlayerBusy, report }) {
+export function createSelectionTimeline({ MB, workspace, getSource, getRecord, selectRange, seek, pause, isPlayerBusy, report,
+  isActive = () => true, playPause, playRange, toggleMute }) {
   const $ = (id) => document.getElementById(id);
   const axis = $('source-axis'), predictions = $('overview-markers');
   const stamp = (t) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
@@ -89,7 +90,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     syncEvidenceStatus();
   } });
   const run = (fn) => { try { Promise.resolve(fn()).catch(report); } catch (error) { report(error); } };
-  const clipFor = (source) => source.clips.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional);
+  const clipFor = (source) => source.clips.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional && !clip.excluded);
   const windowFor = (source) => [source.review.zoomStart, source.review.zoomEnd];
   const ticks = (node, low, high) => {
     const value = [0, 0.5, 1].map((ratio) => stamp(low + ratio * (high - low)));
@@ -162,13 +163,14 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
-    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${predictionStart}:${predictionEnd}:${pixelWidth}:${pixelHeight}`;
+    const waveColor = typeof getComputedStyle === 'function' ? (getComputedStyle(canvas).getPropertyValue('--wave-bar').trim() || '#94a3b8') : '#94a3b8';
+    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${predictionStart}:${predictionEnd}:${pixelWidth}:${pixelHeight}:${waveColor}`;
     if (waveKey !== renderKey) {
       waveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
       const columns = waveformColumns(wave, predictionStart, predictionEnd, canvas.width);
       const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
-      context.fillStyle = '#b4b4b4';
+      context.fillStyle = waveColor;
       columns.forEach((peak, x) => {
         if (peak === null) return;
         const height = Math.max(minBar, Math.round(Math.sqrt(peak) * (canvas.height - pad)));
@@ -211,11 +213,11 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     ticks($('prediction-ticks'), predictionStart, predictionEnd);
     const record = getRecord(source.id), key = `${source.id}:${!!record}:${low}:${high}`;
     if (evidenceKey !== key) { evidenceKey = key; evidence.request(record, low, high); }
-    $('exit-selection').disabled = !clipFor(source);
+    $('exit-selection').disabled = low === 0 && high === source.duration;
     $('exclude-selection').disabled = !clipFor(source);
     $('undo-selection').disabled = !source.canUndo; $('redo-selection').disabled = !source.canRedo;
-    const items = source.clips.map((clip, index) => ({ ...clip, label: String(index + 1) }));
-    if ($('show-excluded').checked) source.decisions.filter((d) => d.kind === 'exclude').forEach((d) => items.push({ id: d.id, ...d.range, excluded: true, label: '恢复' }));
+    let number = 0;
+    const items = source.clips.map((clip) => ({ ...clip, label: clip.excluded ? '恢复' : String(++number) })).filter((clip) => !clip.excluded || $('show-excluded').checked);
     const visible = items.filter((item) => item.start < predictionEnd && item.end > predictionStart);
     const ids = new Set(visible.map((item) => item.id));
     for (const node of [...predictions.children]) if (!ids.has(node.dataset.clipId)) {
@@ -232,17 +234,17 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       const start = Math.max(item.start, predictionStart), end = Math.min(item.end, predictionEnd);
       node.style.left = `${(start - predictionStart) / (predictionEnd - predictionStart) * 100}%`;
       node.style.width = `${(end - start) / (predictionEnd - predictionStart) * 100}%`;
-      node.className = item.excluded ? 'excluded' : item.provisional ? 'provisional' : item.supplemental ? 'supplemental' : '';
+      node.className = [item.excluded ? 'excluded' : item.provisional ? 'provisional' : item.supplemental ? 'supplemental' : '', !item.selected && !item.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
       node.textContent = item.label;
       const decision = source.decisions.find((d) => d.id === item.id);
       const adjusted = decision && (decision.originRange.start !== item.start || decision.originRange.end !== item.end);
-      node.title = `${item.excluded ? '点击恢复 · ' : ''}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ''}`;
+      node.title = `${item.excluded ? '已排除 · 点击恢复 · ' : item.selected ? '' : '未勾选导出 · '}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ''}`;
       node.setAttribute('aria-label', node.title); node.setAttribute('aria-pressed', item.id === source.review.selectedClipId); node.disabled = !!item.provisional;
       node.onclick = () => run(() => item.excluded ? workspace.restoreExcluded(source.id, item.id) : selectRange(getSource().clips.find((clip) => clip.id === item.id)));
     });
-    $('prediction-empty').textContent = !items.length ? '候选将随分析逐步出现，也可从当前位置添加选片。' : !visible.length ? '此视野没有候选，可适配全片查看。' : '';
+    $('prediction-empty').textContent = !items.length ? source.clips.some((clip) => clip.excluded) ? '片段已排除，勾选“显示已排除”可查看并恢复。' : '候选将随分析逐步出现，也可从当前位置添加选片。' : !visible.length ? '此视野没有候选，可适配全片查看。' : '';
   }
-  const exit = () => { const source = getSource(); workspace.setReview(source.id, { selectedClipId: null, zoomStart: 0, zoomEnd: source.duration }); };
+  const exit = () => { const source = getSource(); workspace.setReview(source.id, { zoomStart: 0, zoomEnd: source.duration }); };
   $('source-fit').onclick = () => run(() => { const source = getSource(); workspace.setReview(source.id, { zoomStart: 0, zoomEnd: source.duration }); });
   $('overview').oninput = () => {
     overviewTarget = Number($('overview').value);
@@ -260,7 +262,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     return seek(position);
   });
   $('overview').onpointercancel = () => { overviewTarget = null; paintSelection(getSource()); };
-  const exclude = () => { const source = getSource(), clip = clipFor(source); if (clip) { workspace.choose(source.id, clip.id, false); $('prediction-workspace').focus({ preventScroll: true }); } };
+  const exclude = () => { const source = getSource(), clip = clipFor(source); if (clip) { workspace.exclude(source.id, clip.id); $('prediction-workspace').focus({ preventScroll: true }); } };
   const xTime = (event, source) => { const box = axis.getBoundingClientRect(), [low, high] = windowFor(source); return low + Math.max(0, Math.min(1, (event.clientX - box.x) / box.width)) * (high - low); };
   const bounded = (clip, key, value) => key === 'start' ? Math.max(0, Math.min(clip.end - 0.1, value)) : Math.min(getSource().duration, Math.max(clip.start + 0.1, value));
   axis.onpointerdown = (event) => run(() => {
@@ -320,35 +322,102 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   $('prediction-zoom-out').onclick = () => { const length = (predictionEnd - predictionStart) * 2, clip = clipFor(getSource()), center = clip ? (clip.start + clip.end) / 2 : (predictionStart + predictionEnd) / 2; predictionWindow(center - length / 2, length); };
   $('prediction-prev').onclick = () => predictionWindow(predictionStart - (predictionEnd - predictionStart) * 0.7, predictionEnd - predictionStart);
   $('prediction-next').onclick = () => predictionWindow(predictionStart + (predictionEnd - predictionStart) * 0.7, predictionEnd - predictionStart);
-  const keydown = (event) => {
-    if (event.target.closest('input,select,textarea,[contenteditable=true]')) return;
-    const source = getSource(); if (!source) return;
-    if (event.key === 'Escape') { event.preventDefault(); if (drag) finish(true); else run(exit); return; }
-    if (drag) return;
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); run(() => workspace[event.shiftKey ? 'redo' : 'undo'](source.id)); }
-    else if (['Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); run(exclude); }
-    else if (event.code === 'Space' && !event.target.closest('button:not(#source-head):not(.selection-handle),summary,a')) {
+  const handleWheelGesture = ({ event, element, low, high, duration, onUpdate }) => {
+    if (!isActive() || !duration) return;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    const span = high - low;
+    const anchorTime = low + ratio * span;
+    const isHorizontalPan = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+
+    if (isHorizontalPan) {
       event.preventDefault();
-      if (!$('play-pause').disabled) $('play-pause').click();
+      const delta = event.shiftKey ? (event.deltaY || event.deltaX) : event.deltaX;
+      if (!delta) return;
+      const timeDelta = (delta / rect.width) * span;
+      const newLow = Math.max(0, Math.min(duration - span, low + timeDelta));
+      onUpdate(newLow, newLow + span);
+    } else {
+      event.preventDefault();
+      if (!event.deltaY) return;
+      const factor = Math.max(0.5, Math.min(2.0, 1 + event.deltaY * 0.002));
+      const minSpan = Math.min(duration, 1);
+      const newSpan = Math.max(minSpan, Math.min(duration, span * factor));
+      const newLow = Math.max(0, Math.min(duration - newSpan, anchorTime - ratio * newSpan));
+      onUpdate(newLow, newLow + newSpan);
     }
-    else if ((event.key === '[' || event.key === ']') && !event.metaKey && !event.ctrlKey && !event.altKey) {
+  };
+  const bindWheel = (element, getBounds, onUpdate) => {
+    if (!element) return;
+    const handler = (event) => {
+      const source = getSource(); if (!source) return;
+      const [low, high] = getBounds(source);
+      handleWheelGesture({
+        event,
+        element,
+        low,
+        high,
+        duration: source.duration,
+        onUpdate,
+      });
+    };
+    if (typeof element.addEventListener === 'function') element.addEventListener('wheel', handler, { passive: false });
+    else element.onwheel = handler;
+  };
+  bindWheel(axis, (source) => windowFor(source), (start, end) => workspace.setReview(source.id, { zoomStart: start, zoomEnd: end }));
+  const sharedAxis = document.querySelector('.prediction-shared-axis');
+  bindWheel(sharedAxis, () => [predictionStart, predictionEnd], (start, end) => predictionWindow(start, end - start));
+  if (sharedAxis) sharedAxis.onpointerdown = (event) => run(() => {
+    if (!isActive() || event.button !== 0 || event.target.closest('button,input,select,textarea,a')) return;
+    const source = getSource(); if (!source) return;
+    const box = event.currentTarget.getBoundingClientRect(); if (!(box.width > 0)) return;
+    const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
+    event.preventDefault();
+    $('prediction-workspace').focus({ preventScroll: true });
+    return seek(predictionStart + ratio * (predictionEnd - predictionStart));
+  });
+  const keydown = (event) => {
+    if (!isActive() || event.defaultPrevented || event.isComposing || !(event.target instanceof Element)) return;
+    if (event.target.closest('input,select,textarea,[contenteditable]:not([contenteditable="false"])') || document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]:not([hidden])')) return;
+    const source = getSource(); if (!source) return;
+    const command = event.metaKey || event.ctrlKey;
+    if (event.altKey || (command && event.key.toLowerCase() !== 'z')) return;
+    if (event.key === 'Escape' && (drag || event.target.closest('#selection-player-axis,#prediction-workspace'))) {
+      event.preventDefault(); if (drag) finish(true); else if (!event.repeat) run(exit); return;
+    }
+    if (drag) return;
+    if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); if (!event.repeat) run(() => workspace[event.shiftKey ? 'redo' : 'undo'](source.id)); }
+    else if (['Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); if (!event.repeat) run(exclude); }
+    else if (event.code === 'Space') {
+      event.preventDefault();
+      const action = event.shiftKey ? playRange : playPause;
+      if (!event.repeat && action) run(action);
+    }
+    else if (event.key.toLowerCase() === 'm') {
+      event.preventDefault(); if (!event.repeat && toggleMute) run(toggleMute);
+    }
+    else if (event.key === '[' || event.key === ']') {
       event.preventDefault();
       const button = $(event.key === '[' ? 'prev-candidate' : 'next-candidate');
-      if (button && !button.disabled) button.click();
+      if (!event.repeat && button && !button.disabled) button.click();
     }
     else if (['ArrowLeft', 'ArrowRight'].includes(event.key) && ['selection-left', 'selection-right'].includes(event.target.id)) {
       event.preventDefault(); const clip = clipFor(source); if (!clip) return;
       const key = event.target.id === 'selection-left' ? 'start' : 'end', value = bounded(clip, key, clip[key] + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 1 : 0.1));
       run(() => { pause(); workspace.trim(source.id, clip.id, { start: clip.start, end: clip.end, [key]: value }); return seek(value); });
     }
-    else if (['source-head', 'selection-player-axis'].includes(event.target.id) && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    else if (['ArrowLeft', 'ArrowRight'].includes(event.key) || (['source-head', 'selection-player-axis'].includes(event.target.id) && ['Home', 'End'].includes(event.key))) {
       event.preventDefault();
       const [low, high] = windowFor(source);
-      const target = event.key === 'Home' ? low : event.key === 'End' ? high : source.review.position + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 1 : 0.1);
-      run(() => { pause(); return seek(Math.max(low, Math.min(high, Math.round(target * 100) / 100))); });
+      run(() => {
+        const position = pause()?.position ?? source.review.position;
+        const target = event.key === 'Home' ? low : event.key === 'End' ? high : position + (event.key === 'ArrowLeft' ? -1 : 1) * (event.shiftKey ? 1 : 0.1);
+        return seek(Math.max(0, Math.min(source.duration, Math.round(target * 100) / 100)));
+      });
     }
   };
-  $('selection-player-axis').onkeydown = $('prediction-workspace').onkeydown = keydown;
+  window.addEventListener('keydown', keydown);
   window.addEventListener('resize', () => { const current = getSource(); if (current) paintWaveform(current); });
   return { render, suspend() { stopTransition(true); finish(true); overviewTarget = null; evidence.cancel(); evidenceKey = null; waveKey = null; $('source-hover').hidden = true; } };
 }

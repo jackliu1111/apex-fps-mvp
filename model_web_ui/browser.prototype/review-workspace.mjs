@@ -3,6 +3,9 @@ import { mergeCandidateRanges } from './candidate-ranges.mjs';
 const copy = (value) => structuredClone(value);
 const overlaps = (a, b) => a.start < b.end && b.start < a.end;
 const sameRange = (a, b) => a.start === b.start && a.end === b.end;
+// Candidate keys can change on recompute; checkbox choices belong to their exact
+// source ranges. Human ranges keep their decision identity through trimming.
+const choiceKey = (clip) => clip.manual ? clip.id : `${clip.start}:${clip.end}`;
 const ordered = (clips) => clips.sort((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
 const freeze = (value) => {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -16,7 +19,7 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
   const sources = new Map();
   const batches = [];
   let editing = false;
-  const decisionState = (source) => copy({ decisions: source.decisions, selectedClipId: source.review.selectedClipId });
+  const decisionState = (source) => copy({ decisions: source.decisions, selection: source.selection, selectedClipId: source.review.selectedClipId });
   const historyFor = (source) => source.history ||= { undo: [], redo: [] };
   let sequence = 0, revision = 0;
   const requireSource = (id) => {
@@ -32,14 +35,14 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
   const clipsFor = (source) => {
     const retained = source.decisions.filter((decision) => decision.kind === 'retain');
     const excluded = source.decisions.filter((decision) => decision.kind === 'exclude');
-    const manual = retained.map((decision) => ({ id: decision.id, ...decision.range, selected: true, manual: true, supplemental: false, provisional: false }));
+    const manual = source.decisions.map((decision) => ({ id: decision.id, ...decision.range, excluded: decision.kind === 'exclude', manual: true, supplemental: false, provisional: false }));
     const automatic = source.candidates.flatMap((candidate) => {
       if (excluded.some((decision) => sameRange(decision.range, candidate) || sameRange(decision.originRange, candidate))) return [];
       if (retained.some((decision) => sameRange(decision.range, candidate) || sameRange(decision.originRange, candidate))) return [];
       const supplemental = excluded.some((decision) => overlaps(decision.range, candidate)) || retained.some((decision) => overlaps(decision.range, candidate) || overlaps(decision.originRange, candidate));
-      return [{ ...candidate, selected: !supplemental, manual: false, supplemental }];
+      return [{ ...candidate, excluded: false, manual: false, supplemental }];
     });
-    return ordered([...manual, ...automatic]);
+    return ordered([...manual, ...automatic]).map((clip) => ({ ...clip, selected: !clip.excluded && (source.selection[choiceKey(clip)] ?? !clip.supplemental) }));
   };
   const selectedClips = (source) => clipsFor(source).filter((clip) => clip.selected && !clip.provisional);
   const signature = (clips) => JSON.stringify(clips.map(({ start, end }) => [start, end]));
@@ -57,14 +60,8 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
     onChange(view());
   };
   function setChoice(source, clip, selected) {
-    let decision = source.decisions.find((item) => item.id === clip.id || sameRange(item.range, clip));
-    if (decision) decision.kind = selected ? 'retain' : 'exclude';
-    else {
-      decision = { id: `manual:${++sequence}`, kind: selected ? 'retain' : 'exclude', range: { start: clip.start, end: clip.end }, originRange: { start: clip.start, end: clip.end } };
-      source.decisions.push(decision);
-    }
-    if (source.review.selectedClipId === clip.id) source.review.selectedClipId = selected ? decision.id : null;
-    return decision.id;
+    if (clip.selected === !!selected) return;
+    source.selection[choiceKey(clip)] = !!selected;
   }
   const workspace = {
     getSource,
@@ -78,7 +75,7 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
         if (JSON.stringify(existing.identity) !== JSON.stringify(descriptor) || existing.duration !== duration) throw new Error('当前页面已有同一标识的不同录像');
         return id;
       }
-      sources.set(identity.id, { id: identity.id, identity: copy(descriptor), duration, candidates: [], decisions: [], review: { position: 0, selectedClipId: null, zoomStart: 0, zoomEnd: duration }, analysis: { status: 'queued', processedUntil: 0, error: null } });
+      sources.set(identity.id, { id: identity.id, identity: copy(descriptor), duration, candidates: [], decisions: [], selection: {}, review: { position: 0, selectedClipId: null, zoomStart: 0, zoomEnd: duration }, analysis: { status: 'queued', processedUntil: 0, error: null } });
       changed();
       return identity.id;
     },
@@ -145,24 +142,51 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
     choose(id, clipId, selected) {
       const source = requireSource(id);
       const clip = clipsFor(source).find((item) => item.id === clipId);
-      if (!clip || clip.provisional) throw new Error('只能处理范围已确定的选片');
-      const decisionId = setChoice(source, clip, selected);
+      if (!clip || clip.provisional || clip.excluded) throw new Error('只能勾选范围已确定且未排除的选片');
+      setChoice(source, clip, selected);
       changed();
-      return decisionId;
+      return clip.id;
     },
     chooseAll(id, selected) {
       const source = requireSource(id);
-      const clips = clipsFor(source).filter((clip) => !clip.provisional);
+      const clips = clipsFor(source).filter((clip) => !clip.provisional && !clip.excluded);
       if (!clips.length) return;
       for (const clip of clips) setChoice(source, clip, selected);
       changed();
+    },
+    exclude(id, clipId) {
+      const source = requireSource(id);
+      const clip = clipsFor(source).find((item) => item.id === clipId);
+      if (!clip || clip.provisional || clip.excluded) throw new Error('只能排除范围已确定且未排除的选片');
+      let decision = source.decisions.find((item) => item.id === clipId);
+      if (decision) decision.kind = 'exclude';
+      else {
+        decision = { id: `manual:${++sequence}`, kind: 'exclude', range: { start: clip.start, end: clip.end }, originRange: { start: clip.start, end: clip.end } };
+        source.decisions.push(decision);
+      }
+      if (source.review.selectedClipId === clipId) source.review.selectedClipId = null;
+      changed();
+      return decision.id;
+    },
+    restoreExcluded(id, decisionId) {
+      const source = requireSource(id);
+      const decision = source.decisions.find((item) => item.id === decisionId && item.kind === 'exclude');
+      if (!decision) throw new Error('找不到已排除片段');
+      decision.kind = 'retain';
+      source.selection[decision.id] = true;
+      changed();
+      return decision.id;
     },
     addManual(id, range) {
       const source = requireSource(id);
       const valid = validRange(source, range);
       const existing = source.decisions.find((decision) => sameRange(decision.range, valid));
       if (existing) {
-        if (existing.kind !== 'retain') { existing.kind = 'retain'; changed(); }
+        if (existing.kind !== 'retain' || source.selection[existing.id] === false) {
+          existing.kind = 'retain';
+          source.selection[existing.id] = true;
+          changed();
+        }
         return existing.id;
       }
       const decision = { id: `manual:${++sequence}`, kind: 'retain', range: valid, originRange: valid };
@@ -173,19 +197,21 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
     resetDecisions(id) {
       const source = requireSource(id);
       source.decisions = [];
+      source.selection = {};
       if (!source.candidates.some((clip) => clip.id === source.review.selectedClipId)) source.review.selectedClipId = null;
       changed();
     },
     trim(id, clipId, range) {
       const source = requireSource(id);
       const clip = clipsFor(source).find((item) => item.id === clipId);
-      if (!clip || clip.provisional) throw new Error('只能调整范围已确定的选片');
+      if (!clip || clip.provisional || clip.excluded) throw new Error('只能调整范围已确定且未排除的选片');
       const adjusted = validRange(source, range);
       let decision = source.decisions.find((item) => item.id === clipId);
       if (decision) decision.range = adjusted;
       else {
         decision = { id: `manual:${++sequence}`, kind: 'retain', range: adjusted, originRange: { start: clip.start, end: clip.end } };
         source.decisions.push(decision);
+        source.selection[decision.id] = clip.selected;
       }
       if (source.review.selectedClipId === clipId) source.review.selectedClipId = decision.id;
       changed();
@@ -194,20 +220,21 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
   };
   const applyDecisionState = (source, state) => {
     source.decisions = copy(state.decisions);
+    source.selection = copy(state.selection);
     source.review.selectedClipId = clipsFor(source).some((clip) => clip.id === state.selectedClipId) ? state.selectedClipId : null;
   };
   const recordEdit = (source, before) => {
     const after = decisionState(source);
-    if (JSON.stringify(before.decisions) === JSON.stringify(after.decisions)) return false;
+    if (JSON.stringify(before.decisions) === JSON.stringify(after.decisions) && JSON.stringify(before.selection) === JSON.stringify(after.selection)) return false;
     const history = historyFor(source);
     history.undo.push({ before, after });
     history.undo = history.undo.slice(-100);
     history.redo = [];
     return true;
   };
-  // Only human decisions participate: analysis, playback and submitted batches
+  // Only human decisions and export choices participate: analysis, playback and submitted batches
   // are live independent objects and must never be rolled back by undo.
-  for (const name of ['choose', 'chooseAll', 'addManual', 'trim', 'resetDecisions']) {
+  for (const name of ['choose', 'chooseAll', 'exclude', 'restoreExcluded', 'addManual', 'trim', 'resetDecisions']) {
     const mutate = workspace[name];
     workspace[name] = (id, ...args) => {
       const source = requireSource(id), before = decisionState(source);
@@ -227,12 +254,6 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
     history[direction === 'undo' ? 'redo' : 'undo'].push(entry);
     changed();
     return true;
-  };
-  workspace.restoreExcluded = (id, decisionId) => {
-    const source = requireSource(id);
-    const decision = source.decisions.find((item) => item.id === decisionId && item.kind === 'exclude');
-    if (!decision) throw new Error('找不到已排除片段');
-    return workspace.addManual(id, decision.range);
   };
   return workspace;
 }

@@ -1,5 +1,6 @@
 import * as ort from '/assets/vendor/ort.wasm.min.mjs';
 import { createFrontend } from './efficientat-frontend.js';
+import { loadCachedModel } from './model-cache.mjs';
 
 ort.env.wasm.wasmPaths = new URL('/assets/vendor/', self.location).href;
 ort.env.wasm.numThreads = 1;
@@ -30,7 +31,7 @@ async function readModel(url) {
       bytes.set(value, received); received += value.length;
       if (performance.now() - lastUpdate > 250 || received === total) {
         self.postMessage({ type: 'status', progress: received / total,
-          message: `正在读取模型：${(received / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} MiB` });
+          message: `正在下载模型：${(received / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} MiB` });
         lastUpdate = performance.now();
       }
     }
@@ -47,7 +48,12 @@ self.onmessage = async ({ data }) => {
     const timings = { readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, cold: !session };
     if (!session) {
       let started = performance.now();
-      const bytes = await readModel(small ? '/assets/efficientat/mn04.onnx' : '/assets/beats.onnx');
+      const bytes = await loadCachedModel({
+        url: new URL(small ? '/assets/efficientat/mn04.onnx' : '/assets/beats.onnx', self.location).href,
+        manifest: data.manifest,
+        download: readModel,
+        onStatus: message => self.postMessage({ type: 'status', progress: null, message }),
+      });
       if (small) {
         const response = await fetch('/assets/efficientat/frontend.json');
         if (!response.ok) throw new Error('无法读取 EfficientAT 前处理常量');

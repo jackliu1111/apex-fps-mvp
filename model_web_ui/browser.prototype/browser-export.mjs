@@ -1,29 +1,8 @@
-import { MAX_EXPORT_MEMORY_BYTES, sourceExportSettings, exportSettings } from './export-policy.mjs';
+import { MAX_EXPORT_BUFFER_BYTES, EXPORT_WRITE_CHUNK_BYTES, sourceExportSettings, exportSettings } from './export-policy.mjs';
 const abortError = () => new DOMException('本批导出已取消', 'AbortError');
-
-/** Position-addressed memory writer; bounds actual encoded bytes, including metadata rewrites. */
-function memoryDestination(limit, mimeType) {
-  const blockSize = Math.min(256 * 1024, limit);
-  const blocks = new Map();
-  let size = 0;
-  return {
-    write({ position, data }) {
-      const end = position + data.byteLength;
-      if (end > limit) throw new Error('成片超出下载缓存预算，请选择输出目录后重新提交');
-      size = Math.max(size, end);
-      for (let offset = 0; offset < data.byteLength;) {
-        const index = Math.floor((position + offset) / blockSize), within = (position + offset) % blockSize;
-        if (!blocks.has(index)) blocks.set(index, new Uint8Array(blockSize));
-        const amount = Math.min(blockSize - within, data.byteLength - offset);
-        blocks.get(index).set(data.subarray(offset, offset + amount), within); offset += amount;
-      }
-    },
-    blob() {
-      const parts = [];
-      for (let start = 0; start < size; start += blockSize) parts.push((blocks.get(start / blockSize) || new Uint8Array(blockSize)).subarray(0, Math.min(blockSize, size - start)));
-      return new Blob(parts, { type: mimeType });
-    },
-  };
+async function directoryOperation(action) {
+  try { return await action(); }
+  catch (error) { if (error.name !== 'AbortError') error.needsDestination = true; throw error; }
 }
 
 async function newOutputFile(directory, proposedName) {
@@ -38,44 +17,63 @@ async function newOutputFile(directory, proposedName) {
 }
 
 /** Each conversion owns its input/encoder; cancelling export cannot cancel analysis or preview. */
-export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() }) {
+export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID(), maxBufferedBytes = MAX_EXPORT_BUFFER_BYTES }) {
+  if (!Number.isFinite(maxBufferedBytes) || maxBufferedBytes < 1) throw new Error('写入缓冲预算无效');
+  const bufferLimit = Math.floor(Math.min(maxBufferedBytes, MAX_EXPORT_BUFFER_BYTES));
   return async function convert({ batch, clip, source, index = 0, signal = new AbortController().signal,
-    onProgress = () => {}, memoryBudgetBytes = MAX_EXPORT_MEMORY_BYTES }) {
+    onProgress = () => {} }) {
     signal.throwIfAborted();
     if (!source?.file) throw new Error('原录像暂不可用，请重新关联');
-    const limit = Math.floor(Math.min(MAX_EXPORT_MEMORY_BYTES, memoryBudgetBytes));
-    if (!(limit > 0) && !source.directoryHandle) throw new Error('下载缓存没有可用空间，请选择输出目录');
+    if (!source.directoryHandle) throw new Error('请先选择输出目录');
     const format = exportSettings(batch.output).format;
     let name = `${source.file.name.replace(/\.[^.]+$/, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100)}-${String(index + 1).padStart(2, '0')}-${makeId()}.${format}`;
     const input = new MB.Input({ source: new MB.BlobSource(source.file), formats: MB.ALL_FORMATS });
-    let conversion, cancelWork, abortListener, diskFile, diskWriter, diskClosed = false, completed = false;
+    let conversion, cancelWork, closeWork, primaryError, streamError, abortListener, diskFile, diskWriter, diskClosed = false, writtenBytes = 0, pendingBytes = 0;
     try {
       const video = await input.getPrimaryVideoTrack();
       const tracks = await input.getAudioTracks();
       const audio = batch.audio?.trackId !== undefined ? tracks.find((track) => track.id === batch.audio.trackId)
         : Number.isInteger(batch.audio?.trackIndex) ? tracks[batch.audio.trackIndex] : await input.getPrimaryAudioTrack();
       if (!video || !audio) throw new Error('提交时指定的声画轨不可用');
-      const destination = source.directoryHandle ? null : memoryDestination(limit, `video/${format}`);
-      if (source.directoryHandle) {
-        diskFile = await newOutputFile(source.directoryHandle, name); name = diskFile.name;
-        diskWriter = await diskFile.handle.createWritable();
-      }
+      diskFile = await directoryOperation(() => newOutputFile(source.directoryHandle, name)); name = diskFile.name;
+      diskWriter = await directoryOperation(() => diskFile.handle.createWritable());
       const writable = new WritableStream({
         async write({ position, data }) {
           signal.throwIfAborted();
-          if (diskWriter) await diskWriter.write({ type: 'write', position, data });
-          else destination.write({ position, data });
+          try {
+            await directoryOperation(() => diskWriter.write({ type: 'write', position, data }));
+            writtenBytes = Math.max(writtenBytes, position + data.byteLength);
+          } finally { pendingBytes -= data.byteLength; }
         },
         async close() {
           if (diskWriter) {
-            if (signal.aborted) await diskWriter.abort();
-            else { await diskWriter.close(); diskClosed = true; }
+            if (signal.aborted || primaryError) await diskWriter.abort();
+            else { closeWork = Promise.resolve().then(() => directoryOperation(() => diskWriter.close())).then(() => { diskClosed = true; }); await closeWork; }
           }
         },
         async abort() { if (diskWriter && !diskClosed) await diskWriter.abort(); },
+      }, {
+        highWaterMark: 1,
+        size({ data }) {
+          if (pendingBytes + data.byteLength > bufferLimit) throw new Error('输出写入缓冲超出预算，导出已停止；请重试或选择更快的目录');
+          pendingBytes += data.byteLength;
+          return data.byteLength;
+        },
       });
-      const target = new MB.StreamTarget(writable, { chunked: true, chunkSize: 256 * 1024 });
-      target.onwrite = (_start, end) => { if (!diskWriter && end > limit) throw new Error('成片超出下载缓存预算，请选择输出目录后重新提交'); };
+      // Pinned Mediabunny queues writes without awaiting their promises. Observe
+      // rejection here while retaining the original promise and stream error state:
+      // execute()/ready/closed must still reject and trigger normal file cleanup.
+      const getWriter = writable.getWriter.bind(writable);
+      writable.getWriter = () => {
+        const writer = getWriter(), write = writer.write.bind(writer);
+        writer.write = (chunk) => {
+          const pending = write(chunk);
+          void pending.catch((error) => { streamError ||= error; });
+          return pending;
+        };
+        return writer;
+      };
+      const target = new MB.StreamTarget(writable, { chunked: true, chunkSize: EXPORT_WRITE_CHUNK_BYTES });
       const output = new MB.Output({ format: format === 'mp4' ? new MB.Mp4OutputFormat({ fastStart: false }) : new MB.WebMOutputFormat(), target });
       const settings = sourceExportSettings(batch.output, video), origin = source.origin || 0;
       // Deliberately omit frameRate: preserve source timestamps, including VFR.
@@ -91,34 +89,62 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID() 
       // Await cancel's resource cleanup, then settle our own public operation.
       const aborted = new Promise((_, reject) => {
         abortListener = () => {
-          cancelWork ||= Promise.resolve(conversion.cancel());
-          cancelWork.then(() => reject(signal.reason || abortError()), reject);
+          if (diskClosed) return;
+          cancelWork ||= (async () => {
+            if (closeWork) { try { await closeWork; } catch {} }
+            if (diskClosed) return;
+            try { await conversion.cancel(); } catch {}
+            throw signal.reason || abortError();
+          })();
+          cancelWork.catch(reject);
         };
         signal.addEventListener('abort', abortListener, { once: true });
       });
-      await Promise.race([conversion.execute(), aborted]);
-      signal.throwIfAborted();
+      let postSaveError;
+      try { await Promise.race([conversion.execute(), aborted]); }
+      catch (error) { if (!diskClosed) throw error; postSaveError = error; }
+      if (!diskClosed) signal.throwIfAborted();
       if (diskFile && !diskClosed) throw new Error('输出文件尚未成功关闭');
-      const blob = destination?.blob();
-      const resultFile = diskFile ? await diskFile.handle.getFile() : blob;
-      const probe = new MB.Input({ source: new MB.BlobSource(resultFile), formats: MB.ALL_FORMATS });
-      let measuredDuration = null, verificationError = null;
-      try { measuredDuration = await probe.computeDuration(); }
-      catch (error) { verificationError = error.message || String(error); }
-      finally { probe.dispose(); }
-      signal.throwIfAborted(); completed = true;
-      return { name, ...(blob ? { blob } : { artifact: { fileHandle: diskFile.handle, size: resultFile.size, lastModified: resultFile.lastModified } }), bytes: resultFile.size, start: clip.start, end: clip.end,
+      let resultFile, probe, checkAbort, measuredDuration = null, verificationError = postSaveError ? postSaveError.message || String(postSaveError) : null;
+      try {
+        signal.throwIfAborted();
+        const cancelledCheck = new Promise((_, reject) => {
+          checkAbort = () => reject(signal.reason || abortError());
+          signal.addEventListener('abort', checkAbort, { once: true });
+        });
+        measuredDuration = await Promise.race([(async () => {
+          resultFile = await diskFile.handle.getFile();
+          signal.throwIfAborted();
+          probe = new MB.Input({ source: new MB.BlobSource(resultFile), formats: MB.ALL_FORMATS });
+          return probe.computeDuration();
+        })(), cancelledCheck]);
+      } catch (error) { verificationError = [verificationError, error.message || String(error)].filter(Boolean).join('；'); }
+      finally {
+        if (checkAbort) signal.removeEventListener('abort', checkAbort);
+        probe?.dispose();
+      }
+      if (!diskClosed) signal.throwIfAborted();
+      return { name, ...(resultFile ? { artifact: { fileHandle: diskFile.handle, size: resultFile.size, lastModified: resultFile.lastModified } } : {}), bytes: resultFile?.size ?? writtenBytes, start: clip.start, end: clip.end,
         requestedDuration: clip.end - clip.start, measuredDuration, verificationError, actualRange: null, saved: diskClosed };
     } catch (error) {
+      // Encoder shutdown may reject execute() before our cancellation promise.
+      if (signal.aborted && !diskClosed) error = signal.reason || abortError();
+      else if (streamError && !diskClosed) error = streamError;
+      primaryError = error;
       try { await (cancelWork || conversion?.cancel()); } catch {}
+      if (diskFile && !diskClosed) {
+        try { await diskWriter?.abort(); } catch {}
+        try { await source.directoryHandle.removeEntry(name); }
+        catch (cleanupError) {
+          const partialFile = `${source.directoryHandle.name || '所选目录'}/${name}`;
+          throw Object.assign(new Error(`${error.message || error}；清理失败：${cleanupError.message || cleanupError}；遗留文件：${partialFile}`, { cause: error }),
+            { originalError: error, cleanupError, partialFile, needsDestination: error.needsDestination === true });
+        }
+      }
       throw error;
     } finally {
-      if (abortListener) signal.removeEventListener('abort', abortListener); input.dispose();
-      if (diskFile && !completed) {
-        try { if (!diskClosed) await diskWriter?.abort(); } catch {}
-        try { await source.directoryHandle.removeEntry(name); }
-        catch (error) { throw new Error(`导出未完成，无法清理本次部分文件 ${name}：${error.message}`); }
-      }
+      if (abortListener) signal.removeEventListener('abort', abortListener);
+      input.dispose();
     }
   };
 }
