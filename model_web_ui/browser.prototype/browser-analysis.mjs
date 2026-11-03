@@ -50,6 +50,12 @@ export async function chooseAudioTracks(input, tracks) {
   throw new Error(`浏览器无法解码录像音轨（${tracks.map((track) => track.codec || '未知编码').join('、')}）`);
 }
 
+export function modelManifestUrl(model) {
+  if (model === 'efficientat') return '/assets/efficientat/model.json';
+  if (model === 'beats') return '/assets/model.json';
+  throw new Error('未知分析模型');
+}
+
 export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = () => {}, onPrepared = async () => {}, onWaveform = () => {} }) {
   const metadata = new Map();
   let worker = null, workerModel = null, nextRequest = 0, activeRequest = null;
@@ -57,10 +63,15 @@ export function createBrowserAnalysis({ MB, onChange = () => {}, onCandidates = 
     worker?.terminate(); worker = null; workerModel = null;
   }
   async function modelMetadata(model, signal) {
-    if (!['efficientat', 'beats'].includes(model)) throw new Error('未知分析模型');
+    const url = modelManifestUrl(model);
     if (!metadata.has(model)) {
-      const response = await fetch(model === 'efficientat' ? '/assets/efficientat/model.json' : '/assets/model.json', { signal });
-      if (!response.ok) throw new Error(`模型清单无法读取（HTTP ${response.status}）`);
+      const response = await fetch(url, { signal });
+      if (!response.ok) {
+        const hint = response.status === 404
+          ? '本地服务资产目录缺少该文件，请检查 --assets 路径或按 README 重建模型资产。'
+          : '请检查本地服务与模型资产是否完整。';
+        throw new Error(`模型清单无法读取（HTTP ${response.status}）：${url}。${hint}`);
+      }
       const value = await response.json();
       if (!Array.isArray(value.classes) || ![16000, 32000].includes(value.sampleRate)) throw new Error('模型清单格式不匹配');
       metadata.set(model, value);

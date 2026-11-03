@@ -10,9 +10,22 @@
 python3 model_web_ui/browser.prototype/serve.py --sample /一分钟交战样本的绝对路径.mp4
 ```
 
-打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。需要独立后台预览时使用 `--background`。现有运行库与模型位于 `/private/tmp/apex-browser-prototype-20261026/assets`，可通过 `--assets /绝对路径` 指定；这批已有资产来自此前获准的本机存储例外，不代表重建大型资产可以继续写本机。
+打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。需要独立后台预览时使用 `--background`。可通过 `--assets /绝对路径` 指定运行库与模型目录；开发机此前沿用的默认目录是 `/private/tmp/apex-browser-prototype-20261026/assets`，它位于系统临时空间，可能被清理，使用前请确认文件仍在。这批已有资产来自此前获准的本机存储例外，不代表重建大型资产可以继续写本机。
 
 样本配置、来源与可复现的制作命令见 [一分钟真实交战样本](../../docs/real-combat-sample.md)。`--sample` 可省略，仍可导入自己的录像；没有配置时，试用按钮会明确提示缺少样本。样本仅在点击时从本地静态服务读取，不上传原录像。
+
+## 故障排查：模型清单无法读取（HTTP 404）
+
+页面通过 `/assets/` 从 `--assets` 目录读取模型清单和权重。出现该错误时先确认文件仍在：
+
+```sh
+ASSETS=/absolute/path/to/assets   # 与启动命令的 --assets 相同
+ls "$ASSETS/efficientat/model.json" "$ASSETS/efficientat/mn04.onnx" "$ASSETS/efficientat/frontend.json"
+```
+
+文件缺失时按「开发阶段重建资产」重建，或把 `--assets` 指向完整目录。`serve.py` 启动时也会打印缺失清单；默认的 `/private/tmp` 路径被系统清理后就会出现这种状态，页面本身仍可打开。
+
+`download_runtime.py` 只依赖标准库和 `curl`，可用系统 Python 3.9 补回浏览器运行库；模型清单和权重仍需用导出器重建。
 
 ## 操作流程
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { candidatesFromScores, chooseAudioTracks } from '../browser-analysis.mjs';
+import { candidatesFromScores, chooseAudioTracks, modelManifestUrl } from '../browser-analysis.mjs';
 
 test('nearby padded gunfire ranges become one candidate and the final tail waits for EOF', () => {
   const record = { duration: 60, windowScores: [
@@ -45,4 +45,10 @@ test('a decoder capability failure can use another track without changing source
   assert.equal(choice.selected, 1);
   assert.equal(choice.outputAudioTrackIndex, 0);
   assert.equal(choice.audioPolicy.fallback, true);
+});
+
+test('each selectable model reads the manifest from its own asset path', () => {
+  assert.equal(modelManifestUrl('efficientat'), '/assets/efficientat/model.json');
+  assert.equal(modelManifestUrl('beats'), '/assets/model.json');
+  assert.throws(() => modelManifestUrl('other'), /未知分析模型/);
 });
