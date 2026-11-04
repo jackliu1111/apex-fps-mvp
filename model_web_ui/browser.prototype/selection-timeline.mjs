@@ -1,5 +1,6 @@
 import { waveformColumns } from './audio-peaks.mjs';
 import { createSelectionEvidence } from './selection-evidence.mjs';
+import { getLang } from './i18n.js';
 
 export function selectionWindow(duration, { start, end }) {
   const length = Math.min(duration, (end - start) * 3);
@@ -21,11 +22,12 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     $('source-filmstrip').dataset.provisional = String(!!(evidenceProvisional || transition));
     if ($('source-filmstrip').dataset.previewFrames && !getRecord(sourceId)) return;
     if (transition && (evidenceProvisional || latestEvidenceStatus === '原片参考画面')) {
+      const isZh = getLang() === 'zh';
       $('evidence-status').textContent = transition.mode === 'zoom-in'
-        ? '正在展开局部区间并整理参考画面…'
+        ? (isZh ? '正在展开局部区间并整理参考画面…' : 'Expanding local view & loading frames...')
         : transition.mode === 'zoom-out'
-          ? '正在回到全片视野并整理参考画面…'
-          : '正在平移局部视野并整理参考画面…';
+          ? (isZh ? '正在回到全片视野并整理参考画面…' : 'Returning to full view & loading frames...')
+          : (isZh ? '正在平移局部视野并整理参考画面…' : 'Panning local view & loading frames...');
       return;
     }
     $('evidence-status').textContent = latestEvidenceStatus;
@@ -125,7 +127,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     } else {
       delete $('selection-overlay').dataset.compact;
     }
-    $('selection-readout').textContent = clip ? `${stamp(clip.start)} — ${stamp(clip.end)} · ${(clip.end - clip.start).toFixed(1)} 秒` : '点击下方预测范围开始调整';
+    const isZh = getLang() === 'zh';
+    $('selection-readout').textContent = clip ? `${stamp(clip.start)} — ${stamp(clip.end)} · ${(clip.end - clip.start).toFixed(1)} ${isZh ? '秒' : 's'}` : (isZh ? '点击下方预测范围开始调整' : 'Click a predicted candidate below to start adjusting');
     $('selection-readout').dataset.active = String(!!clip);
     const position = drag?.kind === 'head' ? drag.position : source.review.position;
     $('source-head').hidden = position < low || position > high;
@@ -197,13 +200,14 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     paintSelection(source);
     paintWaveform(source);
     const wave = source.waveform;
-    const track = wave ? `音轨 ${wave.trackIndex + 1}` : '';
+    const isZh = getLang() === 'zh';
+    const track = wave ? (isZh ? `音轨 ${wave.trackIndex + 1}` : `Track ${wave.trackIndex + 1}`) : '';
     $('waveform-status').textContent = wave?.decodedUntil > 0
-      ? `分析音频波形 · ${track} · 已读取至 ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}`
-      : source.analysis.status === 'completed' ? '此录像尚无已保存波形，重新分析后生成。' : '音频波形将随分析逐步出现。';
+      ? (isZh ? `分析音频波形 · ${track} · 已读取至 ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}` : `Waveform · ${track} · Read to ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}`)
+      : source.analysis.status === 'completed' ? (isZh ? '此录像尚无已保存波形，重新分析后生成。' : 'No waveform saved for this video; re-analyze to generate.') : (isZh ? '音频波形将随分析逐步出现。' : 'Waveform will appear progressively with analysis.');
     $('source-fit').disabled = low === 0 && high === source.duration;
     const fullPrediction = predictionStart <= 1e-6 && predictionEnd >= source.duration - 1e-6;
-    $('prediction-window').textContent = fullPrediction ? '全片视野' : `局部 · ${stamp(predictionStart)} — ${stamp(predictionEnd)}`;
+    $('prediction-window').textContent = fullPrediction ? (isZh ? '全片视野' : 'Full view') : (isZh ? `局部 · ${stamp(predictionStart)} — ${stamp(predictionEnd)}` : `Window · ${stamp(predictionStart)} — ${stamp(predictionEnd)}`);
     $('prediction-fit').disabled = fullPrediction;
     $('prediction-zoom-out').disabled = fullPrediction;
     $('prediction-zoom').disabled = predictionEnd - predictionStart <= Math.min(source.duration, 1) + 1e-6;
@@ -217,7 +221,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     $('exclude-selection').disabled = !clipFor(source);
     $('undo-selection').disabled = !source.canUndo; $('redo-selection').disabled = !source.canRedo;
     let number = 0;
-    const items = source.clips.map((clip) => ({ ...clip, label: clip.excluded ? '恢复' : String(++number) })).filter((clip) => !clip.excluded || $('show-excluded').checked);
+    const items = source.clips.map((clip) => ({ ...clip, label: clip.excluded ? (isZh ? '恢复' : 'Restore') : String(++number) })).filter((clip) => !clip.excluded || $('show-excluded').checked);
     const visible = items.filter((item) => item.start < predictionEnd && item.end > predictionStart);
     const ids = new Set(visible.map((item) => item.id));
     for (const node of [...predictions.children]) if (!ids.has(node.dataset.clipId)) {
@@ -238,11 +242,17 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       node.textContent = item.label;
       const decision = source.decisions.find((d) => d.id === item.id);
       const adjusted = decision && (decision.originRange.start !== item.start || decision.originRange.end !== item.end);
-      node.title = `${item.excluded ? '已排除 · 点击恢复 · ' : item.selected ? '' : '未勾选导出 · '}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ''}`;
+      node.title = `${item.excluded ? (isZh ? '已排除 · 点击恢复 · ' : 'Excluded · Click to restore · ') : item.selected ? '' : (isZh ? '未勾选导出 · ' : 'Unchecked for export · ')}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? (isZh ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ` · Adjusted from ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}`) : ''}`;
       node.setAttribute('aria-label', node.title); node.setAttribute('aria-pressed', item.id === source.review.selectedClipId); node.disabled = !!item.provisional;
       node.onclick = () => run(() => item.excluded ? workspace.restoreExcluded(source.id, item.id) : selectRange(getSource().clips.find((clip) => clip.id === item.id)));
     });
-    $('prediction-empty').textContent = !items.length ? source.clips.some((clip) => clip.excluded) ? '片段已排除，勾选“显示已排除”可查看并恢复。' : '候选将随分析逐步出现，也可从当前位置添加选片。' : !visible.length ? '此视野没有候选，可适配全片查看。' : '';
+    $('prediction-empty').textContent = !items.length
+      ? source.clips.some((clip) => clip.excluded)
+        ? (isZh ? '片段已排除，勾选“显示已排除”可查看并恢复。' : 'Clips are excluded. Check "Show excluded" to view and restore.')
+        : (isZh ? '候选将随分析逐步出现，也可从当前位置添加选片。' : 'Candidates will appear as analysis proceeds; you can also add clips manually.')
+      : !visible.length
+        ? (isZh ? '此视野没有候选，可适配全片查看。' : 'No candidates in this view; fit all to inspect.')
+        : '';
   }
   const exit = () => { const source = getSource(); workspace.setReview(source.id, { zoomStart: 0, zoomEnd: source.duration }); };
   $('source-fit').onclick = () => run(() => { const source = getSource(); workspace.setReview(source.id, { zoomStart: 0, zoomEnd: source.duration }); });
@@ -296,7 +306,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const hoverLeft = Math.max(16, Math.min(Math.max(16, hostBox.width - hoverWidth - 16), event.clientX - hostBox.left - hoverWidth / 2));
     $('source-hover').style.left = `${hoverLeft}px`;
     $('source-hover').style.right = 'auto';
-    $('source-hover').hidden = false; $('source-hover').querySelector('img').src = frame.image; $('source-hover').querySelector('span').textContent = '原片参考画面';
+    $('source-hover').hidden = false; $('source-hover').querySelector('img').src = frame.image; $('source-hover').querySelector('span').textContent = getLang() === 'zh' ? '原片参考画面' : 'Source preview frame';
   };
   axis.onpointerleave = () => { $('source-hover').hidden = true; };
   function finish(cancel = false) {

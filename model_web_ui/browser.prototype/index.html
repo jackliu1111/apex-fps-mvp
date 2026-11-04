@@ -1,90 +1,91 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f1f3f9">
-  <title>Apex Local Cut · 本地选片工作区</title>
+  <title data-i18n="page_title">Apex Local Cut · Local Video Clipping Workspace</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="tactical-theme.css">
   <link rel="stylesheet" href="selection-timeline.css">
 </head>
 <body>
-  <a class="skip-link" href="#main">跳到工作区</a>
+  <a class="skip-link" href="#main" id="skip-link" data-i18n="skip_link">Skip to workspace</a>
   <header class="app-header">
     <div class="header-inner">
       <div class="brand" aria-label="Apex Local Cut">
         <span class="brand-badge" aria-hidden="true"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 26 15 5h3l-6 12h7l-4 9H4Zm17-14 7 14h-8l4-8-3-6Z" fill="currentColor"/></svg></span>
-        <span>Apex Local Cut <span class="brand-secondary">· 本地选片工作区</span></span>
+        <span>Apex Local Cut <span class="brand-secondary" data-i18n="brand_secondary">· Local Video Clipping Workspace</span></span>
       </div>
-      <nav class="navigation" aria-label="工作区">
-        <button id="nav-analysis" aria-current="page">分析队列</button>
-        <button id="nav-review" disabled>片段复核</button>
-        <button id="nav-exports">导出任务</button>
+      <nav class="navigation" aria-label="工作区" data-i18n-aria="nav_aria">
+        <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Analysis Queue</button>
+        <button id="nav-review" disabled data-i18n="nav_review">Clip Review</button>
+        <button id="nav-exports" data-i18n="nav_exports">Export Tasks</button>
       </nav>
-      <div class="session-notice">任务仅在当前页面保留 · 刷新或关闭后需重新导入</div>
+      <div class="session-notice" data-i18n="session_notice">Tasks persist in current page only · Re-import after refresh or close</div>
+      <button id="lang-toggle" class="quiet lang-toggle" type="button" aria-label="Switch language to Chinese" data-i18n="lang_toggle" data-i18n-aria="lang_toggle_aria">中文</button>
     </div>
   </header>
   <main id="main" tabindex="-1">
-    <p id="status" class="workspace-status" role="status" aria-live="polite">工作区已就绪</p>
+    <p id="status" class="workspace-status" role="status" aria-live="polite" data-i18n="status_ready">Workspace ready</p>
     <div id="analysis-page">
       <div class="page-heading">
-        <div><h1>录像工作区</h1><p class="intro">从整场对局，找到值得留下的片段。</p></div>
-        <span class="local-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8m-4-4v4"/></svg>录像留在本机</span>
+        <div><h1 data-i18n="page_heading">Video Workspace</h1><p class="intro" data-i18n="page_intro">Find clips worth keeping from full match recordings.</p></div>
+        <span class="local-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8m-4-4v4"/></svg><span data-i18n="local_note">Recordings stay on device</span></span>
       </div>
       <div class="analysis-layout">
         <section class="panel queue-panel" aria-labelledby="queue-heading">
           <div class="panel-heading">
-            <div class="heading-label"><h2 id="queue-heading">分析队列</h2><span id="queue-count" class="count">0 份录像</span></div>
-            <button id="import-files" class="primary" disabled><span aria-hidden="true">＋</span> 导入录像</button>
+            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Analysis Queue</h2><span id="queue-count" class="count" data-i18n="queue_count">0 recordings</span></div>
+            <button id="import-files" class="primary" disabled><span aria-hidden="true">＋</span> <span data-i18n="import_files">Import Videos</span></button>
             <input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden>
           </div>
-          <div id="drop-zone" aria-label="拖入本地录像" aria-disabled="true"><div id="queue" class="queue"></div></div>
-          <div class="queue-footer"><span id="queue-summary" class="muted">等待导入录像</span><span class="muted">支持多文件 · 自动排队</span></div>
+          <div id="drop-zone" aria-label="Drop local video files here" data-i18n-aria="drop_zone_aria" aria-disabled="true"><div id="queue" class="queue"></div></div>
+          <div class="queue-footer"><span id="queue-summary" class="muted" data-i18n="queue_summary_waiting">Waiting for imported videos</span><span class="muted" data-i18n="queue_footer_right">Supports multiple files · Auto queued</span></div>
         </section>
         <details class="panel workflow-guide" open>
-          <summary id="workflow-heading">使用说明 · 分析与复核同时推进</summary>
+          <summary id="workflow-heading" data-i18n="workflow_heading">Workflow · Analyze & Review in Parallel</summary>
           <ol class="workflow-list">
-            <li><strong>导入后自动分析</strong><p>枪声候选随分析逐步出现。</p></li>
-            <li><strong>随时开始选片</strong><p>浏览原片，保留片段、调整范围。</p></li>
-            <li><strong>选好即可提交导出</strong><p>每段独立成片，期间可继续复核。</p></li>
+            <li><strong data-i18n="step1_title">Automatic analysis after import</strong><p data-i18n="step1_desc">Gunshot candidates appear progressively as analysis proceeds.</p></li>
+            <li><strong data-i18n="step2_title">Review footage anytime</strong><p data-i18n="step2_desc">Browse the original video, retain clips, and adjust boundaries.</p></li>
+            <li><strong data-i18n="step3_title">Submit export when ready</strong><p data-i18n="step3_desc">Each clip is rendered independently while review continues.</p></li>
           </ol>
-          <div class="demo-action"><button id="demo">试用 1 分钟真实交战</button><p class="muted">来自实际 Apex 对局，体验分析、选片与导出。</p></div>
+          <div class="demo-action"><button id="demo" data-i18n="demo_btn">Try 1-Min Real Combat Sample</button><p class="muted" data-i18n="demo_note">From actual Apex gameplay to test analysis, clipping, and export.</p></div>
         </details>
       </div>
       <details class="settings-panel">
-        <summary>分析设置与运行记录</summary>
+        <summary data-i18n="settings_heading">Analysis Settings & Runtime Logs</summary>
         <div class="settings-content">
-          <div class="row settings"><label class="field">新任务模型<select id="model"><option value="efficientat">EfficientAT mn04_as</option><option value="beats">BEATs</option></select></label><span id="capabilities" class="muted"></span></div>
-          <p class="muted">模型仅影响新任务。枪声候选前后各保留 5 秒，扩展后重叠、相接或间隔不超过 5 秒的范围合并为一段。检测自动使用默认且可解码的音轨，不判断是否为游戏声音；预览和导出沿用原片默认声音。</p>
-          <p class="muted">任务仅在当前页面保留。请在刷新或关闭前完成导出并保存视频；重新打开需重新导入录像。</p>
-          <pre id="analysis-timing"></pre><button id="analysis-report" disabled>下载当前录像分析报告</button>
+          <div class="row settings"><label class="field"><span data-i18n="model_label">Model for new tasks</span><select id="model"><option value="efficientat">EfficientAT mn04_as</option><option value="beats">BEATs</option></select></label><span id="capabilities" class="muted"></span></div>
+          <p class="muted" data-i18n="model_note">Model selection only affects new tasks. Gunshot candidates retain 5 seconds before and after; overlapping, adjacent, or gaps <= 5s merge into one segment. Detection uses the default decodable audio track without judging game sounds; preview and export preserve original audio.</p>
+          <p class="muted" data-i18n="session_storage_note">Tasks persist only within the current page. Please finish exporting and saving videos before refresh or close; reopening requires re-importing.</p>
+          <pre id="analysis-timing"></pre><button id="analysis-report" disabled data-i18n="download_report">Download Analysis Report</button>
         </div>
       </details>
     </div>
     <div id="review-page" hidden>
       <div class="page-heading review-heading">
-        <div class="row review-title-group"><button id="back-analysis" class="icon-button" aria-label="返回分析队列">←</button><h1>片段复核</h1><p id="review-progress" class="muted source-progress"></p></div>
-        <select id="source-select" aria-label="正在复核的录像"></select>
+        <div class="row review-title-group"><button id="back-analysis" class="icon-button" aria-label="Back to analysis queue" data-i18n-aria="back_to_analysis">←</button><h1 data-i18n="review_heading">Clip Review</h1><p id="review-progress" class="muted source-progress"></p></div>
+        <select id="source-select" aria-label="Currently reviewed recording" data-i18n-aria="select_recording_aria"></select>
       </div>
       <div class="workspace">
         <div class="preview">
-          <section class="panel player-panel" aria-label="原片播放与时间轴">
+          <section class="panel player-panel" aria-label="Source playback & timeline" data-i18n-aria="player_panel_aria">
             <div class="player-frame" id="player-frame">
-              <canvas id="source-canvas" width="1280" height="720" aria-label="原录像画面"></canvas>
-              <p id="player-status" role="status">选择录像开始复核</p>
+              <canvas id="source-canvas" width="1280" height="720" aria-label="Original video frame" data-i18n-aria="source_canvas_aria"></canvas>
+              <p id="player-status" role="status" data-i18n="player_select_hint">Select recording to start review</p>
               <div class="row player-controls">
-                <div class="row player-transport"><button id="play-pause" disabled title="播放 / 暂停 (Space)" aria-keyshortcuts="Space">播放</button><button id="play-selection" disabled title="从当前选片起点播放，到终点自动暂停 (Shift+Space)" aria-keyshortcuts="Shift+Space">试听选片</button></div>
+                <div class="row player-transport"><button id="play-pause" disabled title="Play / Pause (Space)" data-i18n-title="play_pause_title" aria-keyshortcuts="Space" data-i18n="play">Play</button><button id="play-selection" disabled title="Play from clip start, pause at end (Shift+Space)" data-i18n-title="audition_clip_title" aria-keyshortcuts="Shift+Space" data-i18n="audition_clip">Audition Clip</button></div>
                 <span id="playback-time" class="playback-time"></span>
-                <div class="row candidate-nav"><button id="prev-candidate" class="quiet" disabled title="上一候选 ([)">← 上一候选</button><button id="next-candidate" class="quiet" title="下一候选 (])">下一候选 →</button></div>
-                <div class="player-audio" role="group" aria-label="试听音量">
-                  <button id="player-mute" class="quiet" title="静音 (M)" aria-label="静音 (M)" aria-pressed="false" aria-keyshortcuts="M">
+                <div class="row candidate-nav"><button id="prev-candidate" class="quiet" disabled title="Previous Clip ([)" data-i18n-title="prev_candidate_title" data-i18n="prev_candidate">← Previous Clip</button><button id="next-candidate" class="quiet" title="Next Clip (])" data-i18n-title="next_candidate_title" data-i18n="next_candidate">Next Clip →</button></div>
+                <div class="player-audio" role="group" aria-label="Audition volume" data-i18n-aria="volume_aria">
+                  <button id="player-mute" class="quiet" title="Mute (M)" aria-label="Mute (M)" data-i18n-aria="mute_title" data-i18n-title="mute_title" aria-pressed="false" aria-keyshortcuts="M">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 4 5 9H2v6h3l6 5Z"/><path class="speaker-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="speaker-muted" d="m16 9 6 6m0-6-6 6"/></svg>
                   </button>
-                  <input id="player-volume" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="试听音量" aria-valuetext="50%">
+                  <input id="player-volume" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Audition volume" data-i18n-aria="volume_aria" aria-valuetext="50%">
                   <output id="player-volume-value" for="player-volume">50%</output>
                 </div>
-                <button id="player-fullscreen" class="quiet" title="全屏 (F)" aria-label="全屏 (F)" aria-keyshortcuts="F">
+                <button id="player-fullscreen" class="quiet" title="Fullscreen (F)" aria-label="Fullscreen (F)" data-i18n-title="fullscreen_title" data-i18n-aria="fullscreen_title" aria-keyshortcuts="F">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path class="icon-fs-enter" d="M3 8V3h5m8 0h5v5M3 16v5h5m8 0h5v-5"/>
                     <path class="icon-fs-exit" d="M8 3v5H3m13-5v5h5M8 21v-5H3m13 5v-5h5"/>
@@ -92,50 +93,50 @@
                 </button>
               </div>
             </div>
-            <div id="selection-player-axis" tabindex="0" aria-label="原片时间轴工作区">
+            <div id="selection-player-axis" tabindex="0" aria-label="Source timeline workspace" data-i18n-aria="timeline_area_aria">
               <div class="panel-heading">
-                <div class="heading-label"><h2>原片时间轴</h2><span id="evidence-status" class="muted" role="status"></span></div>
-                <div class="row axis-head-actions"><span id="selection-readout">点击下方预测范围开始调整</span><button id="source-fit">全片</button><button id="exit-selection">全片视野</button></div>
+                <div class="heading-label"><h2 data-i18n="timeline_heading">Source Timeline</h2><span id="evidence-status" class="muted" role="status"></span></div>
+                <div class="row axis-head-actions"><span id="selection-readout" data-i18n="click_to_adjust">Click a predicted candidate below to start adjusting</span><button id="source-fit" data-i18n="fit_all">Fit All</button><button id="exit-selection" data-i18n="full_view">Full View</button></div>
               </div>
               <div id="source-axis" class="source-axis">
                 <div id="source-filmstrip" class="source-filmstrip"></div>
-                <div id="selection-overlay" hidden><button id="selection-left" class="selection-handle" aria-label="调整选片起点"></button><button id="selection-right" class="selection-handle" aria-label="调整选片终点"></button></div>
-                <button id="source-head" role="slider" aria-label="原录像播放位置" aria-orientation="horizontal" title="拖动定位；方向键微调，Shift 加速"></button>
+                <div id="selection-overlay" hidden><button id="selection-left" class="selection-handle" aria-label="Adjust clip start" data-i18n-aria="handle_left_aria"></button><button id="selection-right" class="selection-handle" aria-label="Adjust clip end" data-i18n-aria="handle_right_aria"></button></div>
+                <button id="source-head" role="slider" aria-label="Source playback position" data-i18n-aria="source_head_aria" aria-orientation="horizontal" title="Drag to seek; Arrow keys to fine-tune, Shift to accelerate" data-i18n-title="source_head_title"></button>
               </div>
               <div id="source-ticks" class="axis-ticks"></div>
               <div class="source-overview">
-                <div class="source-overview-label"><label for="overview">整片定位</label><span id="overview-position"></span></div>
-                <input id="overview" aria-label="整片播放位置" type="range" min="0" max="1" step="0.01" value="0">
+                <div class="source-overview-label"><label for="overview" data-i18n="full_overview">Full Overview</label><span id="overview-position"></span></div>
+                <input id="overview" aria-label="Full playback position" data-i18n-aria="overview_aria" type="range" min="0" max="1" step="0.01" value="0">
               </div>
-              <div id="source-hover" hidden><img alt="附近原片抽样画面"><span></span></div>
+              <div id="source-hover" hidden><img alt="Source preview frame"><span data-i18n="hover_sample_text">Source preview frame</span></div>
             </div>
           </section>
-          <details class="precise-editor"><summary>精确切点与局部视野</summary>
+          <details class="precise-editor"><summary data-i18n="precise_editor_summary">Precision Trimming & Local View</summary>
           <section id="range-editor" class="panel" aria-labelledby="range-heading">
-            <div class="panel-heading"><h2 id="range-heading">当前选片范围</h2><button id="fit-selection" class="quiet">放大至选片</button></div>
-            <p id="range-label" class="muted">选择候选或添加手动范围</p>
-            <div class="range-fields"><label class="field" for="range-start">起点 / 秒<input id="range-start" type="number" min="0" step="0.01"></label><label class="field" for="range-end">终点 / 秒<input id="range-end" type="number" min="0" step="0.01"></label></div>
-            <div class="range-actions"><button id="range-start-current" class="quiet">当前位置设为起点</button><button id="range-end-current" class="quiet">当前位置设为终点</button></div>
-            <details class="inline-details"><summary>局部视野与切点说明</summary><div class="row settings"><label class="field">视野起点 / 秒<input id="zoom-start" type="number" min="0" step="1"></label><label class="field">视野终点 / 秒<input id="zoom-end" type="number" min="0" step="1"></label></div><p class="muted">调整范围不会移动播放位置。这里记录请求范围，实际导出边界可能受编码和包边界影响。</p></details>
+            <div class="panel-heading"><h2 id="range-heading" data-i18n="range_heading">Current Clip Range</h2><button id="fit-selection" class="quiet" data-i18n="fit_selection">Zoom to Clip</button></div>
+            <p id="range-label" class="muted" data-i18n="range_select_hint">Select candidate or add manual range</p>
+            <div class="range-fields"><label class="field" for="range-start"><span data-i18n="range_start_label">Start / s</span><input id="range-start" type="number" min="0" step="0.01"></label><label class="field" for="range-end"><span data-i18n="range_end_label">End / s</span><input id="range-end" type="number" min="0" step="0.01"></label></div>
+            <div class="range-actions"><button id="range-start-current" class="quiet" data-i18n="set_current_start">Set current as start</button><button id="range-end-current" class="quiet" data-i18n="set_current_end">Set current as end</button></div>
+            <details class="inline-details"><summary data-i18n="local_view_summary">Local View & Cut Point Notes</summary><div class="row settings"><label class="field"><span data-i18n="zoom_start_label">View start / s</span><input id="zoom-start" type="number" min="0" step="1"></label><label class="field"><span data-i18n="zoom_end_label">View end / s</span><input id="zoom-end" type="number" min="0" step="1"></label></div><p class="muted" data-i18n="cut_point_note">Adjusting boundaries does not move playback position. Requested ranges are shown here; actual exported boundaries may be constrained by codec and keyframes.</p></details>
           </section>
           </details>
         </div>
         <section class="panel review-list" aria-labelledby="clips-heading">
-          <div id="prediction-workspace" tabindex="0" aria-label="预测区间工作区">
+          <div id="prediction-workspace" tabindex="0" aria-label="Predicted intervals workspace">
             <div class="prediction-tools">
-              <div class="prediction-tools-left"><button id="exclude-selection">排除选中 · Del</button><button id="undo-selection">撤销</button><button id="redo-selection">重做</button><label><input id="show-excluded" type="checkbox"> 显示已排除</label></div>
-              <div class="prediction-tools-right"><span id="prediction-window" class="muted"></span><button id="prediction-prev" aria-label="预测视野向前">←</button><button id="prediction-zoom-out" aria-label="缩小预测视野">缩小</button><button id="prediction-zoom">放大</button><button id="prediction-fit">全片</button><button id="prediction-next" aria-label="预测视野向后">→</button></div>
+              <div class="prediction-tools-left"><button id="exclude-selection" data-i18n="exclude_btn">Exclude Selected · Del</button><button id="undo-selection" data-i18n="undo_btn">Undo</button><button id="redo-selection" data-i18n="redo_btn">Redo</button><label><input id="show-excluded" type="checkbox"> <span data-i18n="show_excluded">Show excluded</span></label></div>
+              <div class="prediction-tools-right"><span id="prediction-window" class="muted"></span><button id="prediction-prev" aria-label="Previous view window">←</button><button id="prediction-zoom-out" aria-label="Zoom out" data-i18n="zoom_out">Zoom Out</button><button id="prediction-zoom" data-i18n="zoom_in">Zoom In</button><button id="prediction-fit" data-i18n="fit_all">Fit All</button><button id="prediction-next" aria-label="Next view window">→</button></div>
             </div>
             <div class="prediction-track-box">
               <div class="panel-heading prediction-heading">
-                <div class="heading-label"><h2 id="clips-heading">预测区间</h2><span id="new-candidates" class="badge" aria-live="polite"></span></div>
+                <div class="heading-label"><h2 id="clips-heading" data-i18n="prediction_heading">Predicted Intervals</h2><span id="new-candidates" class="badge" aria-live="polite"></span></div>
                 <p id="candidate-tail" class="muted"></p>
               </div>
               <p id="waveform-status" class="muted"></p>
               <div class="prediction-shared-axis">
-                <canvas id="prediction-wave" height="64" role="img" aria-label="分析音轨波形，点击定位；随分析逐步生成" aria-describedby="waveform-status"></canvas>
+                <canvas id="prediction-wave" height="64" role="img" aria-label="Audio waveform, click to seek; generated progressively with analysis" data-i18n-aria="wave_aria" aria-describedby="waveform-status"></canvas>
                 <div id="prediction-source-window" aria-hidden="true" hidden></div>
-                <div id="overview-markers" class="prediction-axis" aria-label="预测区间，点击选择"></div>
+                <div id="overview-markers" class="prediction-axis" aria-label="Predicted intervals, click to select" data-i18n-aria="prediction_intervals_aria"></div>
                 <div id="prediction-playhead" aria-hidden="true" hidden></div>
               </div>
               <div id="prediction-ticks" class="axis-ticks"></div>
@@ -143,24 +144,24 @@
             </div>
           </div>
           <div class="selection-actions">
-            <div class="selection-summary-group"><p id="selection-summary" role="status"></p><p id="export-note" class="muted">提交后固定本批范围，后续修改用于下一批。</p></div>
-            <div class="selection-export-controls"><label class="field">导出格式<select id="export-format"><option value="mp4">MP4 (H.264 + AAC)</option><option value="webm">WebM (VP8 + Opus)</option></select></label><button id="view-exports" class="quiet">查看导出任务</button><button id="export" class="primary" disabled>提交选片导出</button></div>
+            <div class="selection-summary-group"><p id="selection-summary" role="status"></p><p id="export-note" class="muted" data-i18n="export_note">Submitting locks the current batch; further edits apply to subsequent batches.</p></div>
+            <div class="selection-export-controls"><label class="field"><span data-i18n="export_format_label">Export format</span><select id="export-format"><option value="mp4">MP4 (H.264 + AAC)</option><option value="webm">WebM (VP8 + Opus)</option></select></label><button id="view-exports" class="quiet" data-i18n="view_exports">View Export Tasks</button><button id="export" class="primary" disabled data-i18n="submit_export">Submit Clips for Export</button></div>
           </div>
-          <details class="selection-details"><summary>列表与批量操作</summary>
-          <div class="row clip-toolbar"><button id="manual">＋ 添加当前位置</button><button id="retain-all" class="quiet">全选</button><button id="exclude-all" class="quiet">全不选</button></div>
+          <details class="selection-details"><summary data-i18n="list_toolbar_summary">Clip List & Batch Actions</summary>
+          <div class="row clip-toolbar"><button id="manual" data-i18n="add_manual">＋ Add at Current Time</button><button id="retain-all" class="quiet" data-i18n="select_all">Select All</button><button id="exclude-all" class="quiet" data-i18n="deselect_all">Deselect All</button></div>
           <div id="clips"></div>
           </details>
-          <details class="inline-details filter-settings"><summary>筛选与选片规则</summary><div class="row settings"><label class="field">枪声阈值<input id="threshold" type="number" min="0" max="1" step="0.01" value="0.2"></label><button id="recompute">调整筛选</button></div><p class="muted">普通稳定候选默认选中，补充建议默认不选；勾选不表示已经看过或确认精彩。批量操作保留裁边，跳过尚未收尾的候选。筛选使用已有预测分数，保留人工决定。</p><button id="reset-decisions" class="quiet destructive">重置人工选片</button></details>
+          <details class="inline-details filter-settings"><summary data-i18n="filter_rules_summary">Filter & Clipping Rules</summary><div class="row settings"><label class="field"><span data-i18n="threshold_label">Gunshot threshold</span><input id="threshold" type="number" min="0" max="1" step="0.01" value="0.2"></label><button id="recompute" data-i18n="recompute_filter">Recompute Filter</button></div><p class="muted" data-i18n="rules_note">Standard stable candidates are selected by default; supplemental suggestions are unselected by default. Checkboxes do not imply verified highlights. Batch actions preserve trims and skip unfinished candidates. Filtering uses existing prediction scores while preserving manual decisions.</p><button id="reset-decisions" class="quiet destructive" data-i18n="reset_decisions">Reset Manual Decisions</button></details>
         </section>
       </div>
     </div>
     <section id="exports-section" hidden class="panel exports-panel" aria-labelledby="exports-heading">
-      <div class="panel-heading"><div class="heading-label"><h2 id="exports-heading">导出任务</h2><span id="export-count" class="count">0 个批次</span></div><div class="row"><button id="choose-directory">选择输出目录</button></div></div>
-      <p id="output-directory" class="muted">首次导出请选择输出目录，本页面后续批次沿用该目录。</p>
+      <div class="panel-heading"><div class="heading-label"><h2 id="exports-heading" data-i18n="exports_heading">Export Tasks</h2><span id="export-count" class="count" data-i18n="export_count">0 batches</span></div><div class="row"><button id="choose-directory" data-i18n="choose_directory">Choose Output Folder</button></div></div>
+      <p id="output-directory" class="muted" data-i18n="output_dir_hint">Please choose an output folder on first export; subsequent batches in this session will reuse it.</p>
       <div id="export-batches"></div>
-      <details class="inline-details export-settings"><summary>输出规格与保存说明</summary><p class="muted">每段独立导出为<span id="output-format"></span>，声音沿用原片默认音轨。保留分辨率与帧率，重新编码不等于无损。分析释放资源后执行导出，期间可继续复核。</p><p class="muted">成片直接写入所选目录，写入流成功关闭后显示已保存。大批次请选择已挂载且空间充足的外接盘目录，浏览器不能验证挂载身份。建议使用桌面 Chrome 或 Edge。</p></details>
+      <details class="inline-details export-settings"><summary data-i18n="output_specs_summary">Output Specs & Saving Notes</summary><p class="muted">Each clip is exported individually as <span id="output-format"></span>, with audio from the source default track. Resolution and frame rate are preserved; re-encoding is not lossless. Exports execute once analysis frees up resources, during which review can continue.</p><p class="muted" data-i18n="output_specs_p2">Clips stream directly into the chosen folder and are marked saved once write streams close successfully. For large batches, pick a mounted external drive folder with sufficient space. Desktop Chrome or Edge is recommended.</p></details>
     </section>
-    <footer class="workspace-footer"><span>Apex Local Cut · 本地选片</span><span>枪声候选不代表本人开枪、命中或击杀。</span></footer>
+    <footer class="workspace-footer"><span data-i18n="footer_tag">Apex Local Cut · Local Video Clipping Workspace</span><span data-i18n="footer_disclaimer">Gunshot candidates do not imply player shots, hits, or kills.</span></footer>
   </main>
   <script type="module" src="app.js"></script>
 </body>

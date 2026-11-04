@@ -9,6 +9,7 @@ import { createSourcePlayer } from './source-player.mjs';
 import { createExportQueue } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
 import { DEFAULT_EXPORT_SETTINGS, sourceExportSettings, exportSettings } from './export-policy.mjs';
+import { t, getLang, setLang, onLanguageChange, applyTranslations } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Set();
@@ -19,7 +20,18 @@ const startingExports = new Set();
 let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
 let makingDemo = false, directoryHandle = null, exportQueue, selectionTimeline;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
-const statuses = { preparing: '正在准备', queued: '排队中', analyzing: '分析中', complete: '分析完成', completed: '分析完成', stopped: '已停止', failed: '失败', interrupted: '已中断' };
+
+const getStatuses = () => ({
+  preparing: t('status_preparing'),
+  queued: t('status_queued'),
+  analyzing: t('status_analyzing'),
+  complete: t('status_completed'),
+  completed: t('status_completed'),
+  stopped: t('status_stopped'),
+  failed: t('status_failed'),
+  interrupted: t('status_interrupted')
+});
+
 const time = (seconds = 0) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
 const errorText = (error) => error?.message || String(error);
 const source = () => view.sources.find((item) => item.id === activeSourceId);
@@ -102,8 +114,8 @@ exportQueue = createExportQueue({
   onChange({ id, status, outputs, error, progress, clipResults, destination }) { workspace.updateBatch(id, { status, outputs, error, progress, clipResults, destination }); },
 });
 function directoryCapabilityError() {
-  if (!window.isSecureContext) return '目录导出需要安全连接，请通过 HTTPS 或本机 localhost 打开页面。';
-  if (typeof window.showDirectoryPicker !== 'function') return '此浏览器不支持目录导出，请使用支持目录选择和写入的浏览器，建议桌面 Chrome 或 Edge。';
+  if (!window.isSecureContext) return t('err_dir_secure');
+  if (typeof window.showDirectoryPicker !== 'function') return t('err_dir_support');
   return null;
 }
 async function chooseOutputDirectory() {
@@ -112,18 +124,18 @@ async function chooseOutputDirectory() {
   const selected = await window.showDirectoryPicker({ id: 'apex-clip-exports', mode: 'readwrite' });
   let permission = await selected.queryPermission({ mode: 'readwrite' });
   if (permission !== 'granted') permission = await selected.requestPermission({ mode: 'readwrite' });
-  if (permission !== 'granted') throw new Error('未获得目录写入权限，请重新选择并允许写入。');
+  if (permission !== 'granted') throw new Error(t('err_dir_permission'));
   directoryHandle = selected;
-  $('output-directory').textContent = `后续批次输出目录：${directoryHandle.name}`;
-  $('choose-directory').textContent = '更换输出目录';
+  $('output-directory').textContent = t('output_dir_next', { name: directoryHandle.name });
+  $('choose-directory').textContent = t('change_directory');
   return selected;
 }
 async function submitExport() {
   const saved = source(), record = bindings.get(activeSourceId);
-  if (!saved) throw new Error('请先选择要导出的录像。');
-  if (!record) throw new Error('当前页面没有可导出的原录像，请先导入录像。');
+  if (!saved) throw new Error(t('err_select_video_first'));
+  if (!record) throw new Error(t('err_no_source_record'));
   const clips = saved.clips.filter((clip) => clip.selected && !clip.provisional);
-  if (!clips.length) throw new Error('没有范围已确定且已选中的片段。');
+  if (!clips.length) throw new Error(t('err_no_clips_selected'));
   const batch = workspace.submitBatch(saved.id, { audio: { trackIndex: record.outputAudioTrackIndex, policy: 'source-primary' }, output: { ...sourceExportSettings(outputSettings, record.video), model: record.model } });
   return startExport(batch.id);
 }
@@ -131,7 +143,7 @@ async function startExport(id) {
   const live = exportQueue.getBatch(id);
   if (startingExports.has(id) || (live && live.status !== 'awaiting-destination')) return;
   const batch = view.batches.find((item) => item.id === id), record = bindings.get(batch?.sourceId);
-  if (!record) throw new Error('当前页面没有这批任务的原录像。');
+  if (!record) throw new Error(t('err_no_batch_source'));
   startingExports.add(id);
   let destination = directoryHandle;
   try {
@@ -143,43 +155,43 @@ async function startExport(id) {
     if (!destination || batch.status === 'awaiting-destination') destination = await chooseOutputDirectory();
     if (view.batches.find((item) => item.id === id)?.status === 'cancelled') return;
     if (await destination.queryPermission({ mode: 'readwrite' }) !== 'granted') {
-      throw new Error('输出目录写入权限不可用，请点击「选择目录并继续」重新选择。');
+      throw new Error(t('err_dir_permission_lost'));
     }
     if (view.batches.find((item) => item.id === id)?.status === 'cancelled') return;
     if (live) exportQueue.resume(id, destination);
     else exportQueue.enqueue(batch, { file: record.file, origin: record.origin, directoryHandle: destination });
   } catch (error) {
     if (view.batches.find((item) => item.id === id)?.status === 'cancelled') return;
-    const message = error.name === 'AbortError' ? '尚未选择输出目录，选片已保留。点击「选择目录并继续」即可重试。' : errorText(error);
+    const message = error.name === 'AbortError' ? t('err_dir_aborted') : errorText(error);
     workspace.updateBatch(id, { status: 'awaiting-destination', error: message });
     return;
   } finally { startingExports.delete(id); renderExports(); }
-  note('已提交导出，文件将直接保存至所选目录。可以继续复核。');
+  note(t('note_export_submitted'));
 }
 
 async function importFiles(files) {
   await ready;
   const options = { model: $('model').value, threshold: 0.2 };
   const failures = [];
-  const importMessage = `正在准备 ${files.length} 份录像；每份就绪后独立进入分析。`;
+  const importMessage = t('note_prep_files', { count: files.length });
   note(importMessage);
   await Promise.all([...files].map(async (file) => {
     let reservedId;
     try {
       const identity = await identifyFile(file);
       identified.set(file, identity);
-      if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(`${file.name} 已在当前工作区中。`); return; }
+      if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(t('note_file_exists', { name: file.name })); return; }
       reservedId = identity.id; pendingImports.add(reservedId);
       await queue.importFiles([file], options);
     } catch (error) {
-      failures.push(`${file.name}：${errorText(error)}`);
+      failures.push(`${file.name}: ${errorText(error)}`);
     } finally {
       if (reservedId) pendingImports.delete(reservedId);
       render();
     }
   }));
-  if (failures.length) note(`以下录像未能导入，可重新选择重试：${failures.join('；')}。其他就绪录像继续分析。`, 'error');
-  else if ($('status').textContent === importMessage) note('录像已加入 · 可随时复核', 'quiet');
+  if (failures.length) note(t('note_import_failed', { list: failures.join('; ') }), 'error');
+  else if ($('status').textContent === importMessage) note(t('note_files_added'), 'quiet');
 }
 async function openReview(id) {
   if (!view.sources.some((item) => item.id === id)) return;
@@ -220,19 +232,20 @@ function renderQueue() {
   $('analysis-page').classList.toggle('has-recordings', populated);
   const analyzing = rows.filter(({ record }) => record?.status === 'analyzing').length;
   const waiting = rows.filter(({ record }) => ['preparing', 'queued'].includes(record?.status)).length;
-  $('queue-count').textContent = `${rows.length} 份录像`;
+  $('queue-count').textContent = t('queue_count', { count: rows.length });
   $('queue-summary').textContent = analyzing || waiting
-    ? `${analyzing} 份分析中 · ${waiting} 份待分析`
-    : view.sources.length ? '当前没有正在分析的录像，可进入复核或导入新录像。'
-      : rows.length ? '暂无可复核录像，请重试或导入其他录像。' : '导入录像后自动分析，候选随进度逐步出现。';
+    ? t('queue_summary_analyzing', { analyzing, waiting })
+    : view.sources.length ? t('queue_summary_idle')
+      : rows.length ? t('queue_summary_failed') : t('queue_summary_empty');
   const keys = new Set(rows.map((row) => row.key));
   for (const [key, node] of queueRows) if (!keys.has(key)) { node.remove(); queueRows.delete(key); }
   if (rows.length) $('queue').querySelector('.empty')?.remove();
   if (!rows.length && !$('queue').querySelector('.empty')) {
     const empty = element('div', undefined, 'empty');
-    empty.append(createFrameSignal(), element('strong', '把录像拖到这里'), element('span', '也可以点击「导入录像」，一次选择多份文件。'), element('small', '支持 MP4、MKV、WebM、MOV 等录像格式'));
+    empty.append(createFrameSignal(), element('strong', t('empty_drop_title')), element('span', t('empty_drop_desc')), element('small', t('empty_drop_types')));
     $('queue').append(empty);
   }
+  const statusDict = getStatuses();
   for (const item of rows) {
     let row = queueRows.get(item.key);
     if (!row) {
@@ -251,9 +264,9 @@ function renderQueue() {
       fileProgress.append(statusSpan, countSmall, meter);
 
       const actions = element('div', undefined, 'row file-actions');
-      const reviewBtn = button('浏览原片', () => openReview(row.item.saved.id)); reviewBtn.dataset.action = 'review';
-      const stopBtn = button('停止分析', () => queue.stop(row.item.record.id)); stopBtn.dataset.action = 'stop';
-      const retryBtn = button('从头重试', () => queue.retry(row.item.record.id)); retryBtn.dataset.action = 'retry';
+      const reviewBtn = button(t('action_browse_source'), () => openReview(row.item.saved.id)); reviewBtn.dataset.action = 'review';
+      const stopBtn = button(t('action_stop'), () => queue.stop(row.item.record.id)); stopBtn.dataset.action = 'stop';
+      const retryBtn = button(t('action_retry'), () => queue.retry(row.item.record.id)); retryBtn.dataset.action = 'retry';
       actions.append(reviewBtn, stopBtn, retryBtn);
 
       row.append(fileInfo, fileProgress, actions);
@@ -275,21 +288,21 @@ function renderQueue() {
       filename.textContent = identity.name;
       filename.title = identity.name;
     }
-    const metaText = `${duration ? time(duration) : '准备媒体信息'} · ${(identity.size / 1048576).toFixed(1)} MiB`;
+    const metaText = `${duration ? time(duration) : t('status_preparing')} · ${(identity.size / 1048576).toFixed(1)} MiB`;
     if (fileMeta.textContent !== metaText) fileMeta.textContent = metaText;
 
-    const statusText = `${statuses[status] || status}`;
+    const statusText = `${statusDict[status] || status}`;
     if (statusSpan.textContent !== statusText) statusSpan.textContent = statusText;
 
-    const countText = `已分析至 ${time(processedUntil)}${duration ? ` / ${time(duration)}` : ''} · ${count} 个确定范围`;
+    const countText = `${t('source_analyzed_until', { time: time(processedUntil) })}${duration ? ` / ${time(duration)}` : ''} · ${t('source_clips_count', { count })}`;
     if (countSmall.textContent !== countText) countSmall.textContent = countText;
 
     const meterMax = duration > 0 ? duration : 1;
     if (meter.max !== meterMax) meter.max = meterMax;
     const meterVal = Math.max(0, Math.min(processedUntil, meterMax));
     if (meter.value !== meterVal) meter.value = meterVal;
-    meter.setAttribute('aria-label', `${identity.name} 分析进度`);
-    meter.setAttribute('aria-valuetext', duration > 0 ? `已分析 ${time(processedUntil)}，全片 ${time(duration)}` : '正在准备媒体信息');
+    meter.setAttribute('aria-label', `${identity.name} ${t('status_analyzing')}`);
+    meter.setAttribute('aria-valuetext', duration > 0 ? `${t('source_analyzed_until', { time: time(processedUntil) })}, ${time(duration)}` : t('status_preparing'));
 
     const err = record?.error || saved?.analysis.error;
     if (err) {
@@ -307,15 +320,15 @@ function renderQueue() {
     }
 
     reviewBtn.hidden = !saved;
-    const reviewText = count ? `复核 ${count} 段` : '浏览原片';
+    const reviewText = count ? t('action_review_count', { count }) : t('action_browse_source');
     if (reviewBtn.textContent !== reviewText) reviewBtn.textContent = reviewText;
 
     stopBtn.hidden = !record || !['preparing', 'queued', 'analyzing'].includes(status);
-    const stopText = status === 'queued' ? '移出队列' : '停止分析';
+    const stopText = status === 'queued' ? t('action_remove_queue') : t('action_stop');
     if (stopBtn.textContent !== stopText) stopBtn.textContent = stopText;
 
     retryBtn.hidden = !record || !['stopped', 'failed', 'complete'].includes(status);
-    const retryText = status === 'complete' ? '重新分析' : '从头重试';
+    const retryText = status === 'complete' ? t('action_reanalyze') : t('action_retry');
     if (retryBtn.textContent !== retryText) retryBtn.textContent = retryText;
 
     if (completedNow) taskFeedback(row, 'completed');
@@ -355,7 +368,7 @@ function renderClips(saved) {
     node.remove(); clipRows.delete(key);
   }
   $('clips').querySelector('.empty')?.remove();
-  if (!clips.length) $('clips').append(element('p', saved?.clips.some((clip) => clip.excluded) ? '片段已排除，勾选“显示已排除”可查看并恢复。' : saved?.analysis.status === 'completed' ? '当前筛选条件下没有候选，可添加手动范围。' : '候选将随分析逐步出现，也可先浏览原片或添加手动范围。', 'empty'));
+  if (!clips.length) $('clips').append(element('p', saved?.clips.some((clip) => clip.excluded) ? t('clip_empty_excluded') : saved?.analysis.status === 'completed' ? t('clip_empty_filtered') : t('clip_empty_analyzing'), 'empty'));
   for (const clip of clips) {
     let row = clipRows.get(clip.id);
     if (!row) {
@@ -366,17 +379,17 @@ function renderClips(saved) {
       const badge = element('span', undefined, 'clip-badge');
       const text = element('span', undefined, 'clip-text');
       title.append(badge, text);
-      const jump = button('定位与调整', () => selectRange(workspace.getSource(row.sourceId).clips.find((item) => item.id === row.dataset.clipId))); jump.className = 'clip-jump';
-      const exclude = button('排除', () => {
+      const jump = button(t('clip_locate_btn'), () => selectRange(workspace.getSource(row.sourceId).clips.find((item) => item.id === row.dataset.clipId))); jump.className = 'clip-jump';
+      const exclude = button(t('clip_exclude_btn'), () => {
         const clip = workspace.getSource(row.sourceId).clips.find((item) => item.id === row.dataset.clipId);
         return clip.excluded ? workspace.restoreExcluded(row.sourceId, clip.id) : workspace.exclude(row.sourceId, clip.id);
       }); exclude.className = 'clip-exclude';
       row.append(selected, title, jump, exclude); clipRows.set(clip.id, row); $('clips').append(row);
     }
     row.querySelector('.clip-selected').checked = clip.selected;
-    row.querySelector('.clip-selected').setAttribute('aria-label', `纳入导出 ${time(clip.start)} 至 ${time(clip.end)}`);
+    row.querySelector('.clip-selected').setAttribute('aria-label', `${time(clip.start)} — ${time(clip.end)}`);
     const badgeNumber = clipNumbers.get(clip.id);
-    const badgeText = clip.excluded ? '已排除' : (badgeNumber ? `[${badgeNumber}]` : '');
+    const badgeText = clip.excluded ? t('clip_excluded_badge') : (badgeNumber ? `[${badgeNumber}]` : '');
     let badge = row.querySelector('.clip-badge');
     if (!badge) {
       badge = element('span', undefined, 'clip-badge');
@@ -388,13 +401,14 @@ function renderClips(saved) {
       text = element('span', undefined, 'clip-text');
       row.querySelector('.clip-title').append(text);
     }
-    text.textContent = ` ${time(clip.start)}—${time(clip.end)} · ${clip.excluded ? '已排除' : clip.provisional ? '后续正在补全' : clip.supplemental ? '补充建议 · 与人工决定重叠' : clip.manual ? '人工选片' : '可复核候选'}`;
+    const clipType = clip.excluded ? t('clip_excluded_desc') : clip.provisional ? t('clip_provisional_desc') : clip.supplemental ? t('clip_supplemental_desc') : clip.manual ? t('clip_manual_desc') : t('clip_candidate_desc');
+    text.textContent = ` ${time(clip.start)}—${time(clip.end)} · ${clipType}`;
     row.classList.toggle('selected-range', saved.review.selectedClipId === clip.id);
-    row.querySelector('.clip-jump').textContent = saved.review.selectedClipId === clip.id ? '当前编辑' : '定位与调整';
+    row.querySelector('.clip-jump').textContent = saved.review.selectedClipId === clip.id ? t('clip_editing_btn') : t('clip_locate_btn');
     row.classList.toggle('supplemental', clip.supplemental);
     row.classList.toggle('unselected', !clip.selected && !clip.excluded);
     row.classList.toggle('excluded', clip.excluded);
-    row.querySelector('.clip-exclude').textContent = clip.excluded ? '恢复' : '排除';
+    row.querySelector('.clip-exclude').textContent = clip.excluded ? t('clip_restore_btn') : t('clip_exclude_btn');
     row.querySelector('.clip-exclude').disabled = clip.provisional;
     row.querySelector('.clip-selected').disabled = clip.provisional || clip.excluded;
     row.querySelector('.clip-jump').disabled = clip.provisional || clip.excluded;
@@ -405,7 +419,7 @@ function renderClips(saved) {
 }
 function renderRange(saved) {
   const clip = selectedClip(), valid = !!clip && !clip.provisional;
-  $('range-label').textContent = clip ? `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} 秒 · ${(clip.end - clip.start).toFixed(2)} 秒` : '选择候选或添加手动范围';
+  $('range-label').textContent = clip ? `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} s · ${(clip.end - clip.start).toFixed(2)} s` : t('range_select_hint');
   for (const key of ['start', 'end']) {
     const field = $(`range-${key}`);
     field.disabled = !valid; field.max = saved.duration;
@@ -420,27 +434,32 @@ function renderPlayer() {
   const saved = source(); if (!saved) return;
   const bound = bindings.has(saved.id);
   $('play-pause').disabled = !bound || loadingSource || playerState.status === 'loading' || playerState.status === 'error';
-  $('play-pause').textContent = playerState.playing ? '暂停' : '播放';
+  $('play-pause').textContent = playerState.playing ? t('pause') : t('play');
   const clip = selectedClip();
   $('play-selection').disabled = $('play-pause').disabled || !clip || clip.provisional || !(clip.end > clip.start);
   $('play-selection').dataset.playing = String(!!playerState.playRange && playerState.playing);
   const volume = playerState.volume ?? 0.5, muted = !!playerState.muted;
   const volumeText = `${Math.round(volume * 100)}%`;
   setValue($('player-volume'), volume);
-  $('player-volume').setAttribute('aria-valuetext', `${volumeText}${muted ? '（已静音）' : ''}`);
-  $('player-volume-value').textContent = muted ? '静音' : volumeText;
+  $('player-volume').setAttribute('aria-valuetext', `${volumeText}${muted ? ` (${t('volume_muted')})` : ''}`);
+  $('player-volume-value').textContent = muted ? t('volume_muted') : volumeText;
   $('player-mute').setAttribute('aria-pressed', String(muted));
   $('player-mute').dataset.silent = String(muted || volume === 0);
-  $('player-mute').title = muted ? '取消静音 (M)' : '静音 (M)';
+  $('player-mute').title = muted ? t('unmute_title') : t('mute_title');
   $('player-mute').setAttribute('aria-label', $('player-mute').title);
   const position = playerSourceId === saved.id ? playerState.position : saved.review.position;
-  $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && playerSourceId === saved.id ? ` · 画面 ${time(playerState.actual)}` : ''}`;
+  $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && playerSourceId === saved.id ? ` · ${t('frame_text')} ${time(playerState.actual)}` : ''}`;
   const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
   $('prev-candidate').disabled = !stable.some((item) => item.start < position - 0.01);
   $('next-candidate').disabled = !stable.some((item) => item.start > position + 0.01) && saved.analysis.status !== 'analyzing';
   const fsBtn = $('player-fullscreen');
-  if (fsBtn) fsBtn.disabled = !bound || loadingSource || playerState.status === 'error';
-  $('player-status').textContent = !bound ? '暂无原录像画面' : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? '正在准备该位置…' : playerState.status === 'error' ? playerState.error : '';
+  if (fsBtn) {
+    fsBtn.disabled = !bound || loadingSource || playerState.status === 'error';
+    const isFull = document.fullscreenElement === $('player-frame') || document.webkitFullscreenElement === $('player-frame');
+    fsBtn.title = isFull ? t('exit_fullscreen_title') : t('fullscreen_title');
+    fsBtn.setAttribute('aria-label', fsBtn.title);
+  }
+  $('player-status').textContent = !bound ? t('player_select_hint') : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? (getLang() === 'zh' ? '正在准备该位置…' : 'Preparing position...') : playerState.status === 'error' ? playerState.error : '';
   renderReviewPreview(saved, bound);
 }
 function renderReview() {
@@ -448,24 +467,32 @@ function renderReview() {
   if (!saved) return;
   const record = bindings.get(saved.id), selected = saved.clips.filter((clip) => clip.selected && !clip.provisional);
   const analyzing = ['analyzing', 'queued', 'preparing'].includes(saved.analysis.status);
-  $('review-progress').textContent = `${saved.identity.name} · 已分析至 ${time(saved.analysis.processedUntil)} / ${time(saved.duration)} · ${statuses[saved.analysis.status]}${analyzing ? '，后续仍在分析' : ''}`;
+  $('review-progress').textContent = t('review_progress_text', { name: saved.identity.name, current: time(saved.analysis.processedUntil), total: time(saved.duration), status: getStatuses()[saved.analysis.status] || saved.analysis.status, analyzing: analyzing ? t('analyzing_ongoing') : '' });
   const added = saved.clips.filter((clip) => !clip.provisional && !clip.excluded).length - (seenCandidates.get(saved.id) || 0);
-  $('new-candidates').textContent = added > 0 ? `新增 ${added} 段` : '';
-  $('candidate-tail').textContent = analyzing ? '当前候选已到末尾，后续仍在分析。全片可继续浏览。' : '当前候选列表已到末尾。';
-  const selectionSummary = `已选 ${selected.length} 段 · 共 ${selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2)} 秒${saved.hasUnexportedChanges ? ' · 有选片尚未提交导出' : ''}`;
+  $('new-candidates').textContent = added > 0 ? t('new_candidates_badge', { count: added }) : '';
+  $('candidate-tail').textContent = analyzing ? t('tail_analyzing') : t('tail_done');
+  const selectionSummary = t('selection_summary_text', { count: selected.length, duration: selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2), unexported: saved.hasUnexportedChanges ? t('unexported_changes_tag') : '' });
   if ($('selection-summary').textContent !== selectionSummary) $('selection-summary').textContent = selectionSummary;
   $('export').disabled = !selected.length || !record;
-  $('export').textContent = '提交选片导出';
+  $('export').textContent = t('submit_export');
   $('recompute').disabled = !(record?.scores || record?.windowScores);
   $('reset-decisions').disabled = !saved.decisions.length && !Object.keys(saved.selection).length;
   $('retain-all').disabled = $('exclude-all').disabled = !saved.clips.some((clip) => !clip.provisional);
   renderClips(saved); renderRange(saved); renderPlayer();
 }
 function renderExports() {
-  const statuses = { 'awaiting-destination': '等待输出目录', queued: '排队中', running: '正在导出', completed: '已保存', cancelled: '已取消', failed: '导出失败', interrupted: '已中断，尚未继续执行' };
-  $('export-count').textContent = `${view.batches.length} 个批次`;
+  const batchStatusMap = {
+    'awaiting-destination': t('batch_awaiting_dir'),
+    queued: t('batch_queued'),
+    running: t('batch_running'),
+    completed: t('batch_completed'),
+    cancelled: t('batch_cancelled'),
+    failed: t('batch_failed'),
+    interrupted: t('batch_interrupted')
+  };
+  $('export-count').textContent = t('export_count', { count: view.batches.length });
   $('export-batches').querySelector('.empty-batches')?.remove();
-  if (!view.batches.length && !$('export-batches').children.length) $('export-batches').append(element('p', '尚无导出任务。', 'muted empty-batches'));
+  if (!view.batches.length && !$('export-batches').children.length) $('export-batches').append(element('p', t('batch_empty'), 'muted empty-batches'));
   for (const batch of view.batches) {
     let row = batchRows.get(batch.id);
     if (!row) {
@@ -475,16 +502,16 @@ function renderExports() {
       const summary = element('p', undefined, 'batch-summary');
       const attention = element('p', undefined, 'batch-attention');
       const files = element('details', undefined, 'batch-files');
-      files.append(element('summary', '查看成片文件'));
+      files.append(element('summary', t('batch_view_files', { count: 0 })));
       const details = element('details', undefined, 'inline-details batch-details');
-      details.append(element('summary', '导出详情'));
+      details.append(element('summary', t('batch_detail_summary')));
       const ranges = element('p', undefined, 'muted batch-ranges'), outcomes = element('ol', undefined, 'clip-outcomes'), outputs = element('div', undefined, 'batch-outputs');
-      const cancel = button('取消本批', () => {
+      const cancel = button(t('batch_cancel_btn'), () => {
         if (exportQueue.getBatch(batch.id)) exportQueue.cancel(batch.id);
-        else workspace.updateBatch(batch.id, { status: 'cancelled', error: '已取消本批导出。' });
+        else workspace.updateBatch(batch.id, { status: 'cancelled', error: t('batch_cancelled') });
       }); cancel.className = 'batch-cancel';
-      const start = button('选择目录并继续', () => startExport(batch.id)); start.className = 'batch-start';
-      const review = button('返回选片', () => openReview(batch.sourceId)); review.className = 'batch-review';
+      const start = button(t('batch_start_btn'), () => startExport(batch.id)); start.className = 'batch-start';
+      const review = button(t('batch_back_review_btn'), () => openReview(batch.sourceId)); review.className = 'batch-review';
       const actions = element('div', undefined, 'row'); actions.append(start, cancel, review);
       details.append(ranges, outcomes);
       files.append(outputs);
@@ -494,42 +521,66 @@ function renderExports() {
     const completedNow = justCompleted(row.dataset.status, batch.status);
     row.dataset.status = batch.status;
     const summary = batchSummary(batch);
-    row.querySelector('.batch-summary').textContent = batch.status === 'awaiting-destination' ? `${summary.text} · 剩余片段等待选择输出目录` : summary.text;
+    row.querySelector('.batch-summary').textContent = batch.status === 'awaiting-destination' ? t('batch_summary_awaiting', { summary: summary.text }) : summary.text;
     const failures = (batch.clipResults || []).filter((result) => result.status === 'failed');
     const attention = row.querySelector('.batch-attention');
     const cleanupWarnings = (batch.clipResults || []).flatMap(result => result.cleanupWarnings || []);
     attention.hidden = !failures.length && !cleanupWarnings.length;
-    attention.textContent = [failures.length ? `需处理：${failures.map((result) => `${time(result.start)}—${time(result.end)}${result.error ? `：${result.error}` : ''}`).join('；')}` : '', ...cleanupWarnings].filter(Boolean).join('；');
+    attention.textContent = [failures.length ? `${getLang() === 'zh' ? '需处理' : 'Attention'}: ${failures.map((result) => `${time(result.start)}—${time(result.end)}${result.error ? `: ${result.error}` : ''}`).join('; ')}` : '', ...cleanupWarnings].filter(Boolean).join('; ');
     const files = row.querySelector('.batch-files');
     files.hidden = !(batch.outputs || []).length;
-    files.querySelector('summary').textContent = `查看成片文件 · ${(batch.outputs || []).length} 个`;
+    files.querySelector('summary').textContent = t('batch_view_files', { count: (batch.outputs || []).length });
     if (completedNow) taskFeedback(row, 'completed');
-    row.querySelector('.batch-title').textContent = `${batch.source.name} · ${batch.clips.length} 段`;
-    row.querySelector('.batch-destination').textContent = batch.destination?.mode === 'directory' ? `保存目录：${batch.destination.name}` : batch.status === 'awaiting-destination' ? '保存目录：等待选择' : '保存位置：未记录';
-    if (live?.pendingDestination && live.pendingDestination.name !== batch.destination?.name) row.querySelector('.batch-destination').textContent += ` · 继续导出目录：${live.pendingDestination.name}（各文件位置见成片记录）`;
-    row.querySelector('.batch-state').textContent = `${statuses[batch.status] || batch.status}${batch.status === 'running' ? ` · ${Math.round(batch.progress * 100)}%` : ''}${live?.waitingReason ? ` · ${live.waitingReason}` : ''}${batch.error ? ` · ${batch.error}` : ''}`;
+    row.querySelector('.batch-title').textContent = t('batch_title_text', { name: batch.source.name, count: batch.clips.length });
+    row.querySelector('.batch-destination').textContent = batch.destination?.mode === 'directory' ? t('batch_dest_dir', { name: batch.destination.name }) : batch.status === 'awaiting-destination' ? t('batch_dest_awaiting') : t('batch_dest_unrecorded');
+    if (live?.pendingDestination && live.pendingDestination.name !== batch.destination?.name) row.querySelector('.batch-destination').textContent += t('batch_dest_pending', { name: live.pendingDestination.name });
+    row.querySelector('.batch-state').textContent = `${batchStatusMap[batch.status] || batch.status}${batch.status === 'running' ? ` · ${Math.round(batch.progress * 100)}%` : ''}${live?.waitingReason ? ` · ${live.waitingReason}` : ''}${batch.error ? ` · ${batch.error}` : ''}`;
     row.querySelector('.batch-state').classList.toggle('error', batch.status === 'failed');
-    row.querySelector('.batch-ranges').textContent = `提交于 ${new Date(batch.createdAt).toLocaleString()} · 固定请求范围：${batch.clips.map((clip) => `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} 秒`).join('；')} · ${(batch.output.format || outputSettings.format).toUpperCase()} / ${(batch.output.videoCodec || outputSettings.videoCodec).toUpperCase()} + ${batch.output.audioCodec || outputSettings.audioCodec} · 原片默认声音`;
+    row.querySelector('.batch-ranges').textContent = t('batch_ranges_info', {
+      time: new Date(batch.createdAt).toLocaleString(getLang() === 'zh' ? 'zh-CN' : 'en-US'),
+      ranges: batch.clips.map((clip) => `${clip.start.toFixed(2)}—${clip.end.toFixed(2)}s`).join('; '),
+      format: (batch.output.format || outputSettings.format).toUpperCase(),
+      video: (batch.output.videoCodec || outputSettings.videoCodec).toUpperCase(),
+      audio: batch.output.audioCodec || outputSettings.audioCodec
+    });
+    row.querySelector('.batch-cancel').textContent = t('batch_cancel_btn');
     row.querySelector('.batch-cancel').hidden = batch.status !== 'awaiting-destination' && (!live || !['queued', 'running'].includes(batch.status));
     row.querySelector('.batch-start').hidden = batch.status !== 'awaiting-destination';
     row.querySelector('.batch-start').disabled = startingExports.has(batch.id);
-    row.querySelector('.batch-start').textContent = bindings.has(batch.sourceId) ? '选择目录并继续' : '关联原录像后继续';
+    row.querySelector('.batch-start').textContent = bindings.has(batch.sourceId) ? t('batch_start_btn') : t('batch_resume_link_btn');
+    row.querySelector('.batch-review').textContent = t('batch_back_review_btn');
+    row.querySelector('.batch-details summary').textContent = t('batch_detail_summary');
     const resultKey = JSON.stringify(batch.clipResults || []);
     if (row.resultKey !== resultKey) {
       row.resultKey = resultKey;
-      const labels = { 'not-started': '未开始', running: '正在导出', completed: '已完成', failed: '失败', cancelled: '已取消', interrupted: '已中断，完成情况未确认' };
-      row.querySelector('.clip-outcomes').replaceChildren(...(batch.clipResults || []).map((result) => element('li', `${result.start.toFixed(2)}—${result.end.toFixed(2)} 秒 · ${labels[result.status]}${result.error ? `：${result.error}` : ''}`, 'clip-outcome')));
+      const labels = {
+        'not-started': t('outcome_not_started'),
+        running: t('outcome_running'),
+        completed: t('outcome_completed'),
+        failed: t('outcome_failed'),
+        cancelled: t('outcome_cancelled'),
+        interrupted: t('outcome_interrupted')
+      };
+      row.querySelector('.clip-outcomes').replaceChildren(...(batch.clipResults || []).map((result) => element('li', `${result.start.toFixed(2)}—${result.end.toFixed(2)} s · ${labels[result.status]}${result.error ? `: ${result.error}` : ''}`, 'clip-outcome')));
     }
     const outputKey = JSON.stringify(batch.outputs || []);
     if (row.outputKey !== outputKey) {
       row.outputKey = outputKey; const outputList = row.querySelector('.batch-outputs'); outputList.replaceChildren();
       for (const output of batch.outputs || []) {
         const item = element('div', undefined, 'output-item');
-        item.append(element('span', `${output.name} · 已保存至 ${output.destination?.name || batch.destination?.name || '所选目录'}${output.available ? '' : '；当前未验证文件可用性'}`));
-        if (output.verificationError) item.append(element('small', `文件已保存；附加检查未完成：${output.verificationError}`, 'muted'));
+        const destName = output.destination?.name || batch.destination?.name || (getLang() === 'zh' ? '所选目录' : 'chosen folder');
+        item.append(element('span', `${t('output_item_saved', { name: output.name, dest: destName })}${output.available ? '' : t('output_item_unverified')}`));
+        if (output.verificationError) item.append(element('small', t('output_item_check_error', { err: output.verificationError }), 'muted'));
         const metadata = element('details', undefined, 'output-details');
-        metadata.append(element('summary', `${(output.bytes / 1048576).toFixed(2)} MiB · 文件详情`));
-        metadata.append(element('small', `${output.reused ? '复用已有成片 · ' : ''}${(output.bytes / 1048576).toFixed(2)} MiB · 请求时长 ${output.requestedDuration.toFixed(2)} 秒${Number.isFinite(output.measuredDuration) ? ` · 读回时长 ${output.measuredDuration.toFixed(3)} 秒` : ' · 时长读回未完成'} · 实际起止未校验`, 'muted'));
+        metadata.append(element('summary', t('output_item_details_summary', { size: (output.bytes / 1048576).toFixed(2) })));
+        const reusedStr = output.reused ? t('output_item_reused') : '';
+        const measuredStr = Number.isFinite(output.measuredDuration) ? t('output_item_readback', { duration: output.measuredDuration.toFixed(3) }) : t('output_item_readback_incomplete');
+        metadata.append(element('small', t('output_item_meta', {
+          reused: reusedStr,
+          size: (output.bytes / 1048576).toFixed(2),
+          duration: output.requestedDuration.toFixed(2),
+          measured: measuredStr
+        }), 'muted'));
         item.append(metadata);
         outputList.append(item);
       }
@@ -539,13 +590,13 @@ function renderExports() {
 function renderDiagnostics() {
   const record = bindings.get(activeSourceId) || queue.records.find((item) => item.status === 'analyzing') || queue.records.at(-1);
   $('analysis-report').disabled = !record;
-  $('analysis-timing').textContent = record ? JSON.stringify({ name: record.file.name, status: record.status, model: record.model, windows: record.windows, audioPolicy: record.audioPolicy, timings: record.timings }, null, 2) : '尚无分析记录。';
+  $('analysis-timing').textContent = record ? JSON.stringify({ name: record.file.name, status: record.status, model: record.model, windows: record.windows, audioPolicy: record.audioPolicy, timings: record.timings }, null, 2) : (getLang() === 'zh' ? '尚无分析记录。' : 'No analysis records yet.');
 }
 function render() {
   $('exports-section').hidden = currentPage !== 'exports';
   $('nav-exports').setAttribute('aria-current', currentPage === 'exports' ? 'page' : 'false');
   const activeExports = view.batches.filter((batch) => ['awaiting-destination', 'queued', 'running'].includes(batch.status)).length;
-  $('nav-exports').textContent = `导出任务${activeExports ? ` · ${activeExports}` : ''}`;
+  $('nav-exports').textContent = activeExports ? t('nav_exports_badge', { count: activeExports }) : t('nav_exports');
   $('analysis-page').hidden = currentPage !== 'analysis'; $('review-page').hidden = currentPage !== 'review';
   $('status').hidden = $('status').dataset.page !== currentPage && $('status').dataset.tone !== 'error';
   $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
@@ -567,23 +618,23 @@ function render() {
 
 async function demo() {
   if (makingDemo) return;
-  makingDemo = true; render(); note('正在加载一分钟真实交战样本…');
+  makingDemo = true; render(); note(t('note_demo_loading'));
   try {
     const metadata = await fetch('/demo/manifest.json');
-    if (!metadata.ok) throw new Error('真实样本尚未配置或所在磁盘不可用。请使用“导入录像”选择本地交战片段。');
+    if (!metadata.ok) throw new Error(t('err_demo_not_found'));
     const { name, bytes, lastModified } = await metadata.json();
-    if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes >= 100 * 1048576) throw new Error('演示样本需小于 100 MiB；较大录像请使用“导入录像”。');
+    if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes >= 100 * 1048576) throw new Error(t('err_demo_too_large'));
     const response = await fetch('/demo/recording.mp4');
-    if (!response.ok) throw new Error('无法读取真实样本，请确认样本所在磁盘已挂载后重试。');
+    if (!response.ok) throw new Error(t('err_demo_read'));
     const blob = await response.blob();
-    if (blob.size !== bytes) throw new Error('样本文件已变化或读取不完整，请重试。');
+    if (blob.size !== bytes) throw new Error(t('err_demo_corrupted'));
     await importFiles([new File([blob], name, { type: 'video/mp4', lastModified })]);
-    note('已导入一分钟真实交战样本，可随时进入片段复核。');
+    note(t('note_demo_ready'));
   } finally { makingDemo = false; render(); }
 }
 
 $('export').onclick = () => safely(submitExport);
-$('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) => note(error.name === 'AbortError' ? '尚未取得输出目录。若未弹出目录窗口，请在桌面 Chrome 中打开本页后选择。' : errorText(error), 'error')); };
+$('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) => note(error.name === 'AbortError' ? t('err_no_dir_picker') : errorText(error), 'error')); };
 $('import-files').onclick = () => { $('files').click(); };
 $('files').onchange = () => { const files = [...$('files').files]; $('files').value = ''; safely(() => importFiles(files)); };
 const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
@@ -636,7 +687,7 @@ function updateFullscreenState() {
   const btn = $('player-fullscreen');
   if (btn) {
     btn.dataset.fullscreen = String(isFull);
-    btn.title = isFull ? '退出全屏 (F)' : '全屏 (F)';
+    btn.title = isFull ? t('exit_fullscreen_title') : t('fullscreen_title');
     btn.setAttribute('aria-label', btn.title);
   }
   if (playerFrame) playerFrame.dataset.fullscreen = String(isFull);
@@ -670,8 +721,8 @@ function stepCandidate(direction) {
     ? [...stable].reverse().find((item) => item.start < position - 0.01)
     : stable.find((item) => item.start > position + 0.01);
   if (clip) return selectRange(clip);
-  if (direction < 0) note('没有更早的候选，可继续浏览原片。');
-  else note(saved.analysis.status === 'analyzing' ? '当前候选已到末尾，后续仍在分析。' : '没有后续候选，可继续浏览原片。');
+  if (direction < 0) note(t('note_no_earlier_candidate'));
+  else note(saved.analysis.status === 'analyzing' ? t('note_tail_analyzing') : t('note_no_later_candidate'));
 }
 $('prev-candidate').onclick = () => safely(() => stepCandidate(-1));
 $('next-candidate').onclick = () => safely(() => stepCandidate(1));
@@ -679,7 +730,7 @@ $('manual').onclick = () => safely(() => { const saved = source(), start = Math.
 function trimBoundary(key, value) {
   const saved = source(), clip = selectedClip();
   if (!clip || clip.provisional) return;
-  if (value === '' || !Number.isFinite(Number(value))) throw new Error('请输入有效的切点时间');
+  if (value === '' || !Number.isFinite(Number(value))) throw new Error(t('err_valid_trim_time'));
   const next = Number(value);
   workspace.trim(saved.id, clip.id, { start: clip.start, end: clip.end, [key]: next });
   $(`range-${key}`).value = next.toFixed(2);
@@ -702,17 +753,40 @@ selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, 
   isPlayerBusy: () => loadingSource || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
 $('show-excluded').addEventListener('change', () => renderClips(source()));
 $('fit-selection').onclick = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
-$('recompute').onclick = () => safely(() => { const record = bindings.get(activeSourceId); queue.recompute(record.id, Number($('threshold').value)); note('已用已有分数调整筛选，人工裁边和排除决定保留。'); });
+$('recompute').onclick = () => safely(() => { const record = bindings.get(activeSourceId); queue.recompute(record.id, Number($('threshold').value)); note(t('note_recompute_done')); });
 $('retain-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, true));
 $('exclude-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, false));
-$('reset-decisions').onclick = () => { const saved = source(); if (confirm(`重置“${saved.identity.name}”的人工选片？将恢复默认勾选，并清除裁边、手动范围与排除记录；已提交导出批次保留。`)) safely(() => workspace.resetDecisions(saved.id)); };
+$('reset-decisions').onclick = () => { const saved = source(); if (confirm(t('confirm_reset_decisions', { name: saved.identity.name }))) safely(() => workspace.resetDecisions(saved.id)); };
 $('analysis-report').onclick = () => { const record = bindings.get(activeSourceId) || queue.records.find((item) => item.status === 'analyzing') || queue.records.at(-1); if (!record) return; const report = { date: new Date().toISOString(), source: { name: record.file.name, bytes: record.file.size, duration: record.duration }, model: record.modelInfo, audioPolicy: record.audioPolicy, status: record.status, windows: record.windows, timings: record.timings, candidates: record.candidates }; const link = element('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })); link.download = 'apex-analysis-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); };
 function renderOutputFormat() {
-  $('output-format').textContent = `原视频分辨率与帧率的 ${outputSettings.format.toUpperCase()}（${outputSettings.videoCodec === 'avc' ? 'H.264' : outputSettings.videoCodec.toUpperCase()} + ${outputSettings.audioCodec.toUpperCase()}）`;
+  $('output-format').textContent = t('output_format_render', {
+    format: outputSettings.format.toUpperCase(),
+    video: outputSettings.videoCodec === 'avc' ? 'H.264' : outputSettings.videoCodec.toUpperCase(),
+    audio: outputSettings.audioCodec.toUpperCase()
+  });
+}
+function renderCapabilities() {
+  const audioOk = typeof AudioDecoder !== 'undefined';
+  const videoOk = typeof VideoDecoder !== 'undefined';
+  const isoOk = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+  $('capabilities').textContent = `${t('audio_decoder')} ${audioOk ? t('cap_available') : t('cap_unavailable')} · ${t('video_decoder')} ${videoOk ? t('cap_available') : t('cap_unavailable')} · ${t('isolated_context')} ${isoOk ? t('cap_available') : t('cap_unavailable')}`;
 }
 $('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); renderOutputFormat(); };
-renderOutputFormat();
-$('capabilities').textContent = `音频解码${typeof AudioDecoder !== 'undefined' ? '可用' : '不可用'} · 视频解码${typeof VideoDecoder !== 'undefined' ? '可用' : '不可用'} · 隔离上下文${crossOriginIsolated ? '可用' : '不可用'}`;
+
+// Language switcher
+const langBtn = $('lang-toggle');
+if (langBtn) {
+  langBtn.onclick = () => {
+    setLang(getLang() === 'en' ? 'zh' : 'en');
+  };
+}
+onLanguageChange(() => {
+  applyTranslations();
+  render();
+  renderOutputFormat();
+  renderCapabilities();
+});
+
 // Session state is intentionally not written to browser storage.
 const shouldWarnOnLeave = () => !preview && (
   pendingImports.size > 0 || queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
@@ -726,7 +800,11 @@ window.addEventListener('beforeunload', event => {
 window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
 const ready = Promise.resolve();
 $('import-files').disabled = false;
-render(); note('工作区已就绪', 'quiet');
+applyTranslations();
+renderOutputFormat();
+renderCapabilities();
+render();
+note(t('status_ready'), 'quiet');
 window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, demo, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
 
 if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
