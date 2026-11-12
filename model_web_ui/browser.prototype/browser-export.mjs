@@ -1,4 +1,5 @@
 import { MAX_EXPORT_BUFFER_BYTES, EXPORT_WRITE_CHUNK_BYTES, sourceExportSettings, exportSettings } from './export-policy.mjs';
+import { createMediaReadSource } from './media-read-source.mjs';
 const abortError = () => new DOMException('本批导出已取消', 'AbortError');
 async function directoryOperation(action) {
   try { return await action(); }
@@ -27,7 +28,8 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID(),
     if (!source.directoryHandle) throw new Error('请先选择输出目录');
     const format = exportSettings(batch.output).format;
     let name = `${source.file.name.replace(/\.[^.]+$/, '').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 100)}-${String(index + 1).padStart(2, '0')}-${makeId()}.${format}`;
-    const input = new MB.Input({ source: new MB.BlobSource(source.file), formats: MB.ALL_FORMATS });
+    const readSource = createMediaReadSource({ MB, file: source.file, priority: 'export' });
+    const input = new MB.Input({ source: readSource, formats: MB.ALL_FORMATS });
     let conversion, cancelWork, closeWork, primaryError, streamError, abortListener, diskFile, diskWriter, diskClosed = false, writtenBytes = 0, pendingBytes = 0;
     try {
       const video = await input.getPrimaryVideoTrack();
@@ -93,6 +95,7 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID(),
           cancelWork ||= (async () => {
             if (closeWork) { try { await closeWork; } catch {} }
             if (diskClosed) return;
+            readSource.dispose?.();
             try { await conversion.cancel(); } catch {}
             throw signal.reason || abortError();
           })();
@@ -144,6 +147,7 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID(),
       throw error;
     } finally {
       if (abortListener) signal.removeEventListener('abort', abortListener);
+      readSource.dispose?.();
       input.dispose();
     }
   };

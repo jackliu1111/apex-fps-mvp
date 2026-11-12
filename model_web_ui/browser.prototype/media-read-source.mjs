@@ -39,7 +39,9 @@ function schedulerFor(file) {
  */
 export function createMediaReadSource({ MB, file, priority = 'analysis' }) {
   const schedule = schedulerFor(file), controller = new AbortController();
-  return new MB.StreamSource({
+  const options = {
+    file,
+    priority,
     getSize: () => file.size,
     prefetchProfile: 'fileSystem',
     maxCacheSize: 8 * 1024 * 1024,
@@ -53,5 +55,7 @@ export function createMediaReadSource({ MB, file, priority = 'analysis' }) {
       return result;
     },
     dispose: () => controller.abort(new DOMException('媒体读取已停止', 'AbortError')),
-  });
+  };
+  if (!MB.StreamSource) return Object.assign(new MB.BlobSource(file), { priority, dispose: options.dispose });
+  return Object.assign(new MB.StreamSource(options), { file, priority, dispose: options.dispose });
 }

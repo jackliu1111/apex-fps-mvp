@@ -110,7 +110,6 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
 let outputSettings = DEFAULT_EXPORT_SETTINGS;
 exportQueue = createExportQueue({
   convert: createBrowserConverter({ MB }),
-  canRun: () => !queue.records.some((record) => ['preparing', 'queued', 'analyzing'].includes(record.status)),
   onChange({ id, status, outputs, error, progress, clipResults, destination }) { workspace.updateBatch(id, { status, outputs, error, progress, clipResults, destination }); },
 });
 function directoryCapabilityError() {

@@ -292,3 +292,72 @@ test('buffer failure survives a later encoder close error and cleanup failure', 
     return true;
   });
 });
+
+test('export shares bounded media read scheduling with analysis and preview and aborts pending reads on cancel', async () => {
+  const { createMediaReadSource } = await import('../media-read-source.mjs');
+  const slices = [];
+  const file = {
+    name: 'combat.mp4',
+    size: 16 * 1024 * 1024,
+    slice(start, end) {
+      return {
+        async arrayBuffer() {
+          slices.push([start, end]);
+          return new Uint8Array(end - start).buffer;
+        },
+      };
+    },
+  };
+  let exportSource;
+  const video = { id: 0, displayWidth: 1920, displayHeight: 1080 }, audio = { id: 10 };
+  const MB = {
+    ALL_FORMATS: [],
+    BlobSource: class { constructor(f) { this.file = f; } },
+    StreamSource: class { constructor(options) { Object.assign(this, options); } },
+    Input: class {
+      constructor({ source }) { if (source.priority === 'export') exportSource = source; }
+      async getPrimaryVideoTrack() { return video; }
+      async getPrimaryAudioTrack() { return audio; }
+      async getAudioTracks() { return [audio]; }
+      async computeDuration() { return 5; }
+      dispose() {}
+    },
+    WebMOutputFormat: class {},
+    Mp4OutputFormat: class {},
+    StreamTarget: class { constructor(writable) { this.writable = writable; } },
+    Output: class { constructor(options) { Object.assign(this, options); } },
+    Conversion: {
+      async init({ output }) {
+        return {
+          isValid: true,
+          discardedTracks: [],
+          async execute() {
+            const analysisSource = createMediaReadSource({ MB, file, priority: 'analysis' });
+            const previewSource = createMediaReadSource({ MB, file, priority: 'preview' });
+            await Promise.all([
+              analysisSource.read(0, 4 * 1024 * 1024),
+              exportSource.read(4 * 1024 * 1024, 8 * 1024 * 1024),
+              previewSource.read(8 * 1024 * 1024, 12 * 1024 * 1024),
+            ]);
+            const writer = output.target.writable.getWriter();
+            await writer.write({ position: 0, data: new Uint8Array([1, 2, 3, 4]) });
+            await writer.close();
+          },
+          async cancel() {},
+        };
+      },
+    },
+  };
+  const convert = createBrowserConverter({ MB, makeId: () => 'shared' });
+  const result = await convert({
+    batch: { id: 'batch', audio: { trackIndex: 0 }, output: { format: 'webm' } },
+    clip: { start: 0, end: 5 },
+    source: { file, directoryHandle: directoryFixture().directory },
+    index: 0,
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.saved, true);
+  assert.equal(exportSource.priority, 'export');
+  assert.equal(slices.length, 3);
+  await assert.rejects(exportSource.read(0, 1024), { name: 'AbortError' });
+});
