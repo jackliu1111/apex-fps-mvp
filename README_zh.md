@@ -7,6 +7,7 @@
 ![阶段：初版](https://img.shields.io/badge/status-MVP-orange)
 ![处理位置：浏览器本机](https://img.shields.io/badge/processing-浏览器本地-blue)
 ![推荐环境：Chrome / Edge](https://img.shields.io/badge/browser-桌面Chrome_Edge-success)
+[![开源协议：AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 > 💡 **提示**：自动识别定位的是**待复核的枪声候选片段**（包含本人、队友或附近的交火声音），不等于已确认的本人击杀或高光时刻。最终哪些精彩镜头值得保留，由你决定！
 
@@ -125,6 +126,19 @@ python3 model_web_ui/browser.prototype/serve.py \
 | **目录直接导出 ADR** | [ADR 0006](docs/adr/0006-directory-only-export.md) | 浏览器原生目录直接写入与取消保存机制 |
 | **选片与排除解耦 ADR** | [ADR 0007](docs/adr/0007-decouple-clip-selection-from-exclusion.md) | 勾选状态与人工排除解耦的设计考量 |
 | **公网与本地验收记录** | [docs/public-demo-validation.md](docs/public-demo-validation.md) | 生产环境与开发机自动化回归验收报告 |
+
+---
+
+## 📄 开源许可证与第三方致谢
+
+本项目采用 **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** 协议开源。
+
+### 第三方模型与核心依赖致谢
+- **[EfficientAT](https://github.com/fschmid56/EfficientAT)**：本项目音频特征提取与枪声检测模型架构及预训练权重来源于 EfficientAT，采用宽松的 [MIT 许可证](https://github.com/fschmid56/EfficientAT/blob/main/LICENSE)；所用 AudioSet 标签类别遵循 [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)。
+- **[Mediabunny](https://github.com/Vanilagy/mediabunny)**：纯前端音视频解复用与多轨道打包封装工具，采用 [Mozilla Public License 2.0 (MPL-2.0)](https://github.com/Vanilagy/mediabunny/blob/main/LICENSE)。
+- **[ONNX Runtime Web](https://github.com/microsoft/onnxruntime)**：微软官方浏览器端 WebAssembly / WebGPU 推理运行时，采用 [MIT 许可证](https://github.com/microsoft/onnxruntime/blob/main/LICENSE)。
+
+完整的第三方版权声明与说明参见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ---
 

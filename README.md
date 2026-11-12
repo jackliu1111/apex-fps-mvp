@@ -7,6 +7,7 @@ English | [简体中文](README_zh.md)
 ![Status: MVP](https://img.shields.io/badge/status-MVP-orange)
 ![Processing: Browser Local](https://img.shields.io/badge/processing-browser_local-blue)
 ![Recommended: Chrome / Edge](https://img.shields.io/badge/browser-desktop_Chrome_Edge-success)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 
 > 💡 **Note**: The automated detector identifies **gunshot candidate segments pending review** (including fire from the player, teammates, or nearby firefights). It does not guarantee confirmed player kills or highlights. You decide which moments are worth keeping!
 
@@ -125,6 +126,19 @@ Open `http://127.0.0.1:8792` in your browser. For in-depth technical documentati
 | **Directory Export ADR** | [ADR 0006](docs/adr/0006-directory-only-export.md) | Browser native directory direct writes and cancellation handling |
 | **Selection Decoupling ADR** | [ADR 0007](docs/adr/0007-decouple-clip-selection-from-exclusion.md) | Decoupling checkbox selection state from manual exclusion |
 | **Public & Local Validation** | [docs/public-demo-validation.md](docs/public-demo-validation.md) | Automated regression test reports across production and dev environments |
+
+---
+
+## 📄 License & Third-Party Notices
+
+This project is licensed under the **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)**.
+
+### Third-Party Models and Libraries
+- **[EfficientAT](https://github.com/fschmid56/EfficientAT)**: Used for audio gunshot feature extraction, licensed under the [MIT License](https://github.com/fschmid56/EfficientAT/blob/main/LICENSE). AudioSet pretraining labels under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
+- **[Mediabunny](https://github.com/Vanilagy/mediabunny)**: Browser media container demuxer & muxer, licensed under the [Mozilla Public License 2.0 (MPL-2.0)](https://github.com/Vanilagy/mediabunny/blob/main/LICENSE).
+- **[ONNX Runtime Web](https://github.com/microsoft/onnxruntime)**: In-browser WebAssembly/WebGPU inference engine by Microsoft, licensed under the [MIT License](https://github.com/microsoft/onnxruntime/blob/main/LICENSE).
+
+Detailed notices are documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 
