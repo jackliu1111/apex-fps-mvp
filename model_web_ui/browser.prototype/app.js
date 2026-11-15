@@ -378,6 +378,10 @@ function renderClips(saved) {
       const badge = element('span', undefined, 'clip-badge');
       const text = element('span', undefined, 'clip-text');
       title.append(badge, text);
+      title.onclick = () => {
+        const jumpBtn = row.querySelector('.clip-jump');
+        if (jumpBtn && !jumpBtn.disabled) jumpBtn.click();
+      };
       const jump = button(t('clip_locate_btn'), () => selectRange(workspace.getSource(row.sourceId).clips.find((item) => item.id === row.dataset.clipId))); jump.className = 'clip-jump';
       const exclude = button(t('clip_exclude_btn'), () => {
         const clip = workspace.getSource(row.sourceId).clips.find((item) => item.id === row.dataset.clipId);
@@ -422,11 +426,21 @@ function renderRange(saved) {
   for (const key of ['start', 'end']) {
     const field = $(`range-${key}`);
     field.disabled = !valid; field.max = saved.duration;
-    $(`range-${key}-current`).disabled = !valid || (key === 'start' ? saved.review.position >= clip.end : saved.review.position <= clip.start);
+    const disableCurrent = !valid || (key === 'start' ? saved.review.position >= clip.end : saved.review.position <= clip.start);
+    $(`range-${key}-current`).disabled = disableCurrent;
+    const quickBtn = $(`quick-set-${key}`);
+    if (quickBtn) quickBtn.disabled = disableCurrent;
     setValue(field, clip ? clip[key].toFixed(2) : '');
     setValue($(`zoom-${key}`), saved.review[`zoom${key === 'start' ? 'Start' : 'End'}`].toFixed(2));
   }
   $('fit-selection').disabled = !valid;
+  if ($('quick-fit-clip')) $('quick-fit-clip').disabled = !valid;
+  const toggleBtn = $('toggle-current-clip');
+  if (toggleBtn) {
+    toggleBtn.disabled = !valid;
+    toggleBtn.setAttribute('aria-pressed', String(!!(valid && clip.selected)));
+    toggleBtn.textContent = !valid ? t('toggle_clip_export') : clip.selected ? t('toggle_clip_export_on') : t('toggle_clip_export_off');
+  }
 }
 function renderPlayer() {
   if (currentPage === 'review') selectionTimeline?.render(source());
@@ -635,6 +649,11 @@ async function demo() {
 $('export').onclick = () => safely(submitExport);
 $('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) => note(error.name === 'AbortError' ? t('err_no_dir_picker') : errorText(error), 'error')); };
 $('import-files').onclick = () => { $('files').click(); };
+$('drop-zone').addEventListener('click', (event) => {
+  if (currentPage === 'analysis' && !$('import-files').disabled && event.target.closest('.empty')) {
+    $('import-files').click();
+  }
+});
 $('files').onchange = () => { const files = [...$('files').files]; $('files').value = ''; safely(() => importFiles(files)); };
 const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 document.addEventListener('dragover', (event) => {
@@ -702,6 +721,7 @@ function toggleFullscreen() {
   }
 }
 $('player-fullscreen').onclick = () => safely(toggleFullscreen);
+$('source-canvas').onclick = () => { if (!$('play-pause').disabled) $('play-pause').click(); };
 $('source-canvas').ondblclick = () => safely(toggleFullscreen);
 document.addEventListener('fullscreenchange', updateFullscreenState);
 document.addEventListener('webkitfullscreenchange', updateFullscreenState);
@@ -726,6 +746,12 @@ function stepCandidate(direction) {
 $('prev-candidate').onclick = () => safely(() => stepCandidate(-1));
 $('next-candidate').onclick = () => safely(() => stepCandidate(1));
 $('manual').onclick = () => safely(() => { const saved = source(), start = Math.min(saved.review.position, Math.max(0, saved.duration - 5)); const id = workspace.addManual(saved.id, { start, end: Math.min(saved.duration, start + 5) }); selectRange(workspace.getSource(saved.id).clips.find((clip) => clip.id === id), false); });
+if ($('quick-manual')) $('quick-manual').onclick = () => $('manual').click();
+if ($('toggle-current-clip')) $('toggle-current-clip').onclick = () => safely(() => {
+  const saved = source(), clip = selectedClip();
+  if (!saved || !clip || clip.provisional || clip.excluded) return;
+  workspace.choose(saved.id, clip.id, !clip.selected);
+});
 function trimBoundary(key, value) {
   const saved = source(), clip = selectedClip();
   if (!clip || clip.provisional) return;
@@ -741,6 +767,8 @@ for (const key of ['start', 'end']) {
   });
   $(`range-${key}`).onchange = () => commit($(`range-${key}`));
   $(`range-${key}-current`).onclick = () => safely(() => trimBoundary(key, source().review.position));
+  const quickSet = $(`quick-set-${key}`);
+  if (quickSet) quickSet.onclick = () => $(`range-${key}-current`).click();
   $(`zoom-${key}`).onchange = () => safely(() => workspace.setReview(activeSourceId, { [`zoom${key === 'start' ? 'Start' : 'End'}`]: Number($(`zoom-${key}`).value) }));
 }
 selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(),
@@ -752,6 +780,7 @@ selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, 
   isPlayerBusy: () => loadingSource || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
 $('show-excluded').addEventListener('change', () => renderClips(source()));
 $('fit-selection').onclick = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
+if ($('quick-fit-clip')) $('quick-fit-clip').onclick = () => $('fit-selection').click();
 $('recompute').onclick = () => safely(() => { const record = bindings.get(activeSourceId); queue.recompute(record.id, Number($('threshold').value)); note(t('note_recompute_done')); });
 $('retain-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, true));
 $('exclude-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, false));

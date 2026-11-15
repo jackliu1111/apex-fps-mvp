@@ -297,7 +297,12 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (drag.pointer !== event.pointerId) return;
       const value = xTime(event, source);
       if (drag.kind === 'head') drag.position = value;
-      else drag.range[drag.kind] = bounded(drag.range, drag.kind, value);
+      else {
+        drag.range[drag.kind] = bounded(drag.range, drag.kind, value);
+        if ($('range-start')) $('range-start').value = drag.range.start.toFixed(2);
+        if ($('range-end')) $('range-end').value = drag.range.end.toFixed(2);
+        if ($('range-label')) $('range-label').textContent = `${drag.range.start.toFixed(2)}—${drag.range.end.toFixed(2)} s · ${(drag.range.end - drag.range.start).toFixed(2)} s`;
+      }
       paintSelection(source); return;
     }
     if (!frames.length) return;
@@ -409,6 +414,22 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     }
     else if (event.key.toLowerCase() === 'f') {
       event.preventDefault(); if (!event.repeat && toggleFullscreen) run(toggleFullscreen);
+    }
+    else if (event.key.toLowerCase() === 'i') {
+      const btn = $('range-start-current');
+      if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
+    }
+    else if (event.key.toLowerCase() === 'o') {
+      const btn = $('range-end-current');
+      if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
+    }
+    else if (event.key.toLowerCase() === 'k') {
+      const btn = $('toggle-current-clip');
+      if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
+    }
+    else if (event.key.toLowerCase() === 'n') {
+      const btn = $('manual');
+      if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
     }
     else if (event.key === '[' || event.key === ']') {
       event.preventDefault();
