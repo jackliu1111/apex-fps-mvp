@@ -14,23 +14,190 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   const axis = $('source-axis'), predictions = $('overview-markers');
   const stamp = (t) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
   const ZOOM_TRANSITION_MS = 220;
-  let sourceId, predictionStart = 0, predictionEnd = 1, evidenceKey, waveKey, frames = [], drag;
+  let sourceId, evidenceKey, waveKey, overviewMarkerKey, frames = [], drag, overviewDrag;
   let overviewTarget = null;
   let displayLow = 0, displayHigh = 1, targetLow = 0, targetHigh = 1, transition = null;
   let latestEvidenceStatus = '', evidenceProvisional = false;
+  const clipFor = (source) => source.clips.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional && !clip.excluded);
+  const windowFor = (source) => [source.review.zoomStart, source.review.zoomEnd];
+  const visibleBounds = (source) => {
+    const [canonicalLow, canonicalHigh] = windowFor(source);
+    return transition ? [displayLow, displayHigh] : [canonicalLow, canonicalHigh];
+  };
+  const ticks = (node, low, high) => {
+    if (!node) return;
+    const value = [0, 0.5, 1].map((ratio) => stamp(low + ratio * (high - low)));
+    if (node.textContent === value.join('')) return;
+    node.replaceChildren(...value.map((text) => { const span = document.createElement('span'); span.textContent = text; return span; }));
+  };
   function syncEvidenceStatus() {
-    $('source-filmstrip').dataset.provisional = String(!!(evidenceProvisional || transition));
-    if ($('source-filmstrip').dataset.previewFrames && !getRecord(sourceId)) return;
-    if (transition && (evidenceProvisional || latestEvidenceStatus === '原片参考画面')) {
-      const isZh = getLang() === 'zh';
-      $('evidence-status').textContent = transition.mode === 'zoom-in'
-        ? (isZh ? '正在展开局部区间并整理参考画面…' : 'Expanding local view & loading frames...')
-        : transition.mode === 'zoom-out'
-          ? (isZh ? '正在回到全片视野并整理参考画面…' : 'Returning to full view & loading frames...')
-          : (isZh ? '正在平移局部视野并整理参考画面…' : 'Panning local view & loading frames...');
-      return;
+    const strip = $('source-filmstrip');
+    if (strip) strip.dataset.provisional = String(!!(evidenceProvisional || transition));
+    $('selection-player-axis').dataset.evidenceStatus = latestEvidenceStatus;
+  }
+  function paintWaveform(source, low, high) {
+    if (!source) return;
+    const wave = source.waveform;
+    const canvas = $('prediction-wave');
+    if (!canvas) return;
+    const context = canvas.getContext('2d');
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || 1200));
+    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || 68));
+    const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
+    const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    const waveColor = typeof getComputedStyle === 'function' ? (getComputedStyle(canvas).getPropertyValue('--wave-bar').trim() || '#94a3b8') : '#94a3b8';
+    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${low}:${high}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    if (waveKey !== renderKey) {
+      waveKey = renderKey;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      const columns = waveformColumns(wave, low, high, canvas.width);
+      const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
+      context.fillStyle = waveColor;
+      columns.forEach((peak, x) => {
+        if (peak === null) return;
+        const height = Math.max(minBar, Math.round(Math.sqrt(peak) * (canvas.height - pad)));
+        context.fillRect(x, canvas.height - height, 1, height);
+      });
     }
-    $('evidence-status').textContent = latestEvidenceStatus;
+    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
+  }
+  function paintMarkers(source, low, high) {
+    if (!predictions || !source) return;
+    const isZh = getLang() === 'zh';
+    const showExcluded = !!$('show-excluded')?.checked;
+    let number = 0;
+    const items = source.clips
+      .map((clip) => ({ ...clip, label: clip.excluded ? (isZh ? '恢复' : 'Restore') : String(++number) }))
+      .filter((clip) => !clip.excluded || showExcluded);
+    const visible = items.filter((item) => item.start < high && item.end > low);
+    const ids = new Set(visible.map((item) => item.id));
+    for (const node of [...predictions.children]) {
+      if (!ids.has(node.dataset.clipId)) {
+        if (node === document.activeElement) $('selection-player-axis').focus({ preventScroll: true });
+        node.remove();
+      }
+    }
+    const span = Math.max(1e-6, high - low);
+    let previous = null;
+    visible.forEach((item) => {
+      let node = [...predictions.children].find((candidate) => candidate.dataset.clipId === item.id);
+      if (!node) { node = document.createElement('button'); node.dataset.clipId = item.id; }
+      const nextSibling = previous ? previous.nextElementSibling : predictions.firstElementChild;
+      if (nextSibling !== node) predictions.insertBefore(node, nextSibling);
+      previous = node;
+      const start = Math.max(item.start, low), end = Math.min(item.end, high);
+      node.style.left = `${(start - low) / span * 100}%`;
+      node.style.width = `${(end - start) / span * 100}%`;
+      node.className = [item.excluded ? 'excluded' : item.provisional ? 'provisional' : item.supplemental ? 'supplemental' : '', !item.selected && !item.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
+      node.textContent = item.label;
+      const decision = source.decisions.find((d) => d.id === item.id);
+      const adjusted = decision && (decision.originRange.start !== item.start || decision.originRange.end !== item.end);
+      node.title = `${item.excluded ? (isZh ? '已排除 · 点击恢复 · ' : 'Excluded · Click to restore · ') : item.selected ? '' : (isZh ? '未勾选导出 · ' : 'Unchecked for export · ')}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? (isZh ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ` · Adjusted from ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}`) : ''}`;
+      node.setAttribute('aria-label', node.title);
+      node.setAttribute('aria-pressed', item.id === source.review.selectedClipId);
+      node.disabled = !!item.provisional;
+      node.onclick = () => run(() => item.excluded ? workspace.restoreExcluded(source.id, item.id) : selectRange(getSource().clips.find((clip) => clip.id === item.id)));
+    });
+    if ($('prediction-empty')) {
+      $('prediction-empty').textContent = !items.length
+        ? source.clips.some((clip) => clip.excluded)
+          ? (isZh ? '片段已排除，勾选“显示已排除”可查看并恢复。' : 'Clips are excluded. Check "Show excluded" to view and restore.')
+          : (isZh ? '候选将随分析逐步出现，也可从当前位置添加选片。' : 'Candidates will appear as analysis proceeds; you can also add clips manually.')
+        : !visible.length
+          ? (isZh ? '当前视野无候选，可点击「全片」查看。' : 'No candidates in this view; fit all to inspect.')
+          : '';
+    }
+  }
+  function paintSelection(source) {
+    const clip = drag?.kind !== 'head' && drag?.sourceId === source.id ? drag.range : clipFor(source);
+    const [canonicalLow, canonicalHigh] = windowFor(source);
+    const [low, high] = visibleBounds(source);
+    const spanWindow = Math.max(1e-6, high - low);
+    const percent = (t) => (t - low) / spanWindow * 100;
+    const targetZoomed = canonicalLow > 1e-3 || canonicalHigh < source.duration - 1e-3;
+    const isZh = getLang() === 'zh';
+    const scopeLabel = targetZoomed
+      ? (isZh ? `局部 ${stamp(low)}—${stamp(high)}` : `${stamp(low)}—${stamp(high)}`)
+      : (isZh ? '全片视野' : 'Full view');
+    const canonicalScopeLabel = targetZoomed
+      ? `局部视野 · ${stamp(low)} — ${stamp(high)}`
+      : '全片视野';
+    $('selection-player-axis').dataset.zoomed = String(targetZoomed);
+    $('selection-player-axis').dataset.scopeLabel = canonicalScopeLabel;
+    if ($('scope-pill')) $('scope-pill').textContent = scopeLabel;
+    $('selection-overlay').hidden = !clip;
+    if (clip) {
+      const leftPct = Math.max(0, percent(clip.start));
+      const rightPct = Math.min(100, percent(clip.end));
+      const widthPct = Math.max(0, rightPct - leftPct);
+      $('selection-overlay').style.left = `${leftPct}%`;
+      $('selection-overlay').style.width = `${widthPct}%`;
+      $('selection-overlay').dataset.compact = String(!targetZoomed || widthPct < 12);
+      for (const key of ['left', 'right']) {
+        const node = $(`selection-${key}`), value = clip[key === 'left' ? 'start' : 'end'];
+        node.hidden = value < low || value > high;
+        node.setAttribute('role', 'slider');
+        node.setAttribute('aria-valuemin', canonicalLow);
+        node.setAttribute('aria-valuemax', canonicalHigh);
+        node.setAttribute('aria-valuenow', value);
+        node.setAttribute('aria-valuetext', `${stamp(value)} 秒`);
+      }
+    } else {
+      delete $('selection-overlay').dataset.compact;
+    }
+    $('selection-readout').textContent = clip
+      ? `${stamp(clip.start)}—${stamp(clip.end)} · ${(clip.end - clip.start).toFixed(1)}s`
+      : (isZh ? '点击候选开始调整' : 'Select candidate');
+    $('selection-readout').dataset.active = String(!!clip);
+    const position = drag?.kind === 'head' ? drag.position : source.review.position;
+    $('source-head').hidden = position < low || position > high;
+    $('source-head').style.left = `${percent(position)}%`;
+    $('source-head').setAttribute('aria-valuemin', canonicalLow);
+    $('source-head').setAttribute('aria-valuemax', canonicalHigh);
+    $('source-head').setAttribute('aria-valuenow', position);
+    $('source-head').setAttribute('aria-valuetext', `${position.toFixed(2)} 秒`);
+    const overviewPosition = overviewTarget ?? position;
+    $('overview').max = source.duration;
+    $('overview').value = overviewPosition;
+    $('overview').setAttribute('aria-valuetext', `${overviewPosition.toFixed(2)} 秒 / ${source.duration.toFixed(2)} 秒`);
+    if ($('overview-position')) $('overview-position').textContent = `${stamp(overviewPosition)} / ${stamp(source.duration)}`;
+    const overviewSpan = Math.max(1e-6, source.duration);
+    if ($('player-overview-progress')) $('player-overview-progress').style.width = `${Math.max(0, Math.min(100, overviewPosition / overviewSpan * 100))}%`;
+    const zoomed = (targetZoomed || !!transition) && source.duration > 0;
+    $('prediction-source-window').hidden = !zoomed;
+    if (zoomed) {
+      const winStart = Math.max(0, low), winEnd = Math.min(source.duration, high);
+      $('prediction-source-window').style.left = `${winStart / overviewSpan * 100}%`;
+      $('prediction-source-window').style.width = `${Math.max(0, winEnd - winStart) / overviewSpan * 100}%`;
+      $('prediction-source-window').dataset.windowLabel = `局部视野 · ${stamp(winStart)} — ${stamp(winEnd)}`;
+    }
+    const headVisible = source.duration > 0 && overviewPosition >= 0 && overviewPosition <= source.duration;
+    $('prediction-playhead').hidden = !headVisible;
+    if (headVisible) $('prediction-playhead').style.left = `${overviewPosition / overviewSpan * 100}%`;
+    if ($('player-overview-markers')) {
+      const overviewItems = source.clips.filter((item) => !item.excluded && !item.provisional);
+      const nextMarkerKey = `${source.id}:${overviewSpan}:${source.review.selectedClipId}:${overviewItems.map((item) => `${item.id}:${item.start}:${item.end}`).join(',')}`;
+      if (overviewMarkerKey !== nextMarkerKey) {
+        overviewMarkerKey = nextMarkerKey;
+        $('player-overview-markers').replaceChildren(...overviewItems.map((item) => {
+          const spanEl = document.createElement('span');
+          spanEl.style.left = `${Math.max(0, item.start / overviewSpan * 100)}%`;
+          spanEl.style.width = `${Math.max(0.6, (item.end - item.start) / overviewSpan * 100)}%`;
+          spanEl.dataset.active = String(item.id === source.review.selectedClipId);
+          return spanEl;
+        }));
+      }
+    }
+  }
+  function paintTrack(source) {
+    const [low, high] = visibleBounds(source);
+    paintSelection(source);
+    paintWaveform(source, low, high);
+    paintMarkers(source, low, high);
+    ticks($('source-ticks'), low, high);
   }
   function stopTransition(snapToTarget = true) {
     if (transition?.raf) cancelAnimationFrame(transition.raf);
@@ -43,10 +210,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     delete axis.dataset.transitioning;
     delete $('prediction-source-window').dataset.transitioning;
     const source = getSource();
-    if (snapToTarget && source && source.id === sourceId) {
-      paintSelection(source);
-      ticks($('source-ticks'), targetLow, targetHigh);
-    }
+    if (snapToTarget && source && source.id === sourceId) paintTrack(source);
     syncEvidenceStatus();
   }
   function startTransition(fromLow, fromHigh, toLow, toHigh) {
@@ -73,8 +237,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
         stopTransition(true);
         return;
       }
-      paintSelection(source);
-      ticks($('source-ticks'), displayLow, displayHigh);
+      paintTrack(source);
       transition.raf = requestAnimationFrame(step);
     };
     transition.raf = requestAnimationFrame(step);
@@ -82,113 +245,28 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   const evidence = createSelectionEvidence({ MB, isBusy: isPlayerBusy, onResult(result) {
     latestEvidenceStatus = result.status;
     evidenceProvisional = !!result.provisional;
-    if (result.frames.length || (!result.provisional && !$('source-filmstrip').dataset.previewFrames)) {
+    if (result.frames.length || (!result.provisional && !$('source-filmstrip')?.dataset.previewFrames)) {
       frames = result.frames;
-      delete $('source-filmstrip').dataset.previewFrames;
-      $('source-filmstrip').replaceChildren(...frames.map((frame) => {
-        const image = document.createElement('img'); image.src = frame.image; image.alt = '原片参考画面'; return image;
-      }));
+      if ($('source-filmstrip')) {
+        delete $('source-filmstrip').dataset.previewFrames;
+        $('source-filmstrip').replaceChildren(...frames.map((frame) => {
+          const image = document.createElement('img');
+          image.src = frame.image;
+          image.dataset.time = String(frame.time);
+          image.alt = '原片参考画面';
+          return image;
+        }));
+      }
     }
     syncEvidenceStatus();
   } });
   const run = (fn) => { try { Promise.resolve(fn()).catch(report); } catch (error) { report(error); } };
-  const clipFor = (source) => source.clips.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional && !clip.excluded);
-  const windowFor = (source) => [source.review.zoomStart, source.review.zoomEnd];
-  const ticks = (node, low, high) => {
-    const value = [0, 0.5, 1].map((ratio) => stamp(low + ratio * (high - low)));
-    if (node.textContent === value.join('')) return;
-    node.replaceChildren(...value.map((text) => { const span = document.createElement('span'); span.textContent = text; return span; }));
-  };
-  function paintSelection(source) {
-    const clip = drag?.kind !== 'head' && drag?.sourceId === source.id ? drag.range : clipFor(source);
-    const [canonicalLow, canonicalHigh] = windowFor(source);
-    const low = transition ? displayLow : canonicalLow;
-    const high = transition ? displayHigh : canonicalHigh;
-    const spanWindow = Math.max(1e-6, high - low);
-    const percent = (t) => (t - low) / spanWindow * 100;
-    const targetZoomed = canonicalLow > 1e-3 || canonicalHigh < source.duration - 1e-3;
-    $('selection-player-axis').dataset.zoomed = String(targetZoomed);
-    $('selection-player-axis').dataset.scopeLabel = targetZoomed
-      ? `局部视野 · ${stamp(low)} — ${stamp(high)}`
-      : '全片视野';
-    $('selection-overlay').hidden = !clip;
-    if (clip) {
-      const leftPct = Math.max(0, percent(clip.start));
-      const rightPct = Math.min(100, percent(clip.end));
-      const widthPct = Math.max(0, rightPct - leftPct);
-      $('selection-overlay').style.left = `${leftPct}%`;
-      $('selection-overlay').style.width = `${widthPct}%`;
-      $('selection-overlay').dataset.compact = String(!targetZoomed || widthPct < 12);
-      for (const key of ['left', 'right']) {
-        const node = $(`selection-${key}`), value = clip[key === 'left' ? 'start' : 'end'];
-        node.hidden = value < low || value > high;
-        node.setAttribute('role', 'slider'); node.setAttribute('aria-valuemin', canonicalLow); node.setAttribute('aria-valuemax', canonicalHigh); node.setAttribute('aria-valuenow', value); node.setAttribute('aria-valuetext', `${stamp(value)} 秒`);
-      }
-    } else {
-      delete $('selection-overlay').dataset.compact;
-    }
-    const isZh = getLang() === 'zh';
-    $('selection-readout').textContent = clip ? `${stamp(clip.start)} — ${stamp(clip.end)} · ${(clip.end - clip.start).toFixed(1)} ${isZh ? '秒' : 's'}` : (isZh ? '点击下方预测范围开始调整' : 'Click a predicted candidate below to start adjusting');
-    $('selection-readout').dataset.active = String(!!clip);
-    const position = drag?.kind === 'head' ? drag.position : source.review.position;
-    $('source-head').hidden = position < low || position > high;
-    $('source-head').style.left = `${percent(position)}%`;
-    $('source-head').setAttribute('aria-valuemin', canonicalLow);
-    $('source-head').setAttribute('aria-valuemax', canonicalHigh);
-    $('source-head').setAttribute('aria-valuenow', position);
-    $('source-head').setAttribute('aria-valuetext', `${position.toFixed(2)} 秒`);
-    const overviewPosition = overviewTarget ?? position;
-    $('overview').max = source.duration;
-    $('overview').value = overviewPosition;
-    $('overview').setAttribute('aria-valuetext', `${overviewPosition.toFixed(2)} 秒 / ${source.duration.toFixed(2)} 秒`);
-    $('overview-position').textContent = `${stamp(overviewPosition)} / ${stamp(source.duration)}`;
-    const span = predictionEnd - predictionStart;
-    const zoomed = (targetZoomed || !!transition) && high > predictionStart && low < predictionEnd && span > 0;
-    $('prediction-source-window').hidden = !zoomed;
-    if (zoomed) {
-      const winStart = Math.max(low, predictionStart), winEnd = Math.min(high, predictionEnd);
-      $('prediction-source-window').style.left = `${(winStart - predictionStart) / span * 100}%`;
-      $('prediction-source-window').style.width = `${(winEnd - winStart) / span * 100}%`;
-      $('prediction-source-window').dataset.windowLabel = `上方局部视野 · ${stamp(winStart)} — ${stamp(winEnd)}`;
-    }
-    const headVisible = span > 0 && overviewPosition >= predictionStart && overviewPosition <= predictionEnd;
-    $('prediction-playhead').hidden = !headVisible;
-    if (headVisible) $('prediction-playhead').style.left = `${(overviewPosition - predictionStart) / span * 100}%`;
-  }
-  function paintWaveform(source) {
-    if (!source) return;
-    const wave = source.waveform;
-    const canvas = $('prediction-wave'), context = canvas.getContext('2d');
-    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || 1200));
-    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || 64));
-    const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
-    const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
-    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
-    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
-    const waveColor = typeof getComputedStyle === 'function' ? (getComputedStyle(canvas).getPropertyValue('--wave-bar').trim() || '#94a3b8') : '#94a3b8';
-    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${predictionStart}:${predictionEnd}:${pixelWidth}:${pixelHeight}:${waveColor}`;
-    if (waveKey !== renderKey) {
-      waveKey = renderKey;
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      const columns = waveformColumns(wave, predictionStart, predictionEnd, canvas.width);
-      const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
-      context.fillStyle = waveColor;
-      columns.forEach((peak, x) => {
-        if (peak === null) return;
-        const height = Math.max(minBar, Math.round(Math.sqrt(peak) * (canvas.height - pad)));
-        context.fillRect(x, canvas.height - height, 1, height);
-      });
-    }
-    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
-  }
   function render(source) {
     if (!source) return;
     const [low, high] = windowFor(source);
     if (sourceId !== source.id) {
       stopTransition(false);
-      drag = null; overviewTarget = null; sourceId = source.id;
-      predictionStart = 0; predictionEnd = source.duration;
+      drag = null; overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; sourceId = source.id;
       displayLow = targetLow = low; displayHigh = targetHigh = high;
     } else if (Math.abs(low - targetLow) > 1e-3 || Math.abs(high - targetHigh) > 1e-3) {
       const fromLow = transition ? displayLow : targetLow;
@@ -197,72 +275,44 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (drag) stopTransition(true);
       else startTransition(fromLow, fromHigh, low, high);
     }
-    paintSelection(source);
-    paintWaveform(source);
+    paintTrack(source);
     const wave = source.waveform;
     const isZh = getLang() === 'zh';
     const track = wave ? (isZh ? `音轨 ${wave.trackIndex + 1}` : `Track ${wave.trackIndex + 1}`) : '';
-    $('waveform-status').textContent = wave?.decodedUntil > 0
-      ? (isZh ? `分析音频波形 · ${track} · 已读取至 ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}` : `Waveform · ${track} · Read to ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}`)
-      : source.analysis.status === 'completed' ? (isZh ? '此录像尚无已保存波形，重新分析后生成。' : 'No waveform saved for this video; re-analyze to generate.') : (isZh ? '音频波形将随分析逐步出现。' : 'Waveform will appear progressively with analysis.');
-    $('source-fit').disabled = low === 0 && high === source.duration;
-    const fullPrediction = predictionStart <= 1e-6 && predictionEnd >= source.duration - 1e-6;
-    $('prediction-window').textContent = fullPrediction ? (isZh ? '全片视野' : 'Full view') : (isZh ? `局部 · ${stamp(predictionStart)} — ${stamp(predictionEnd)}` : `Window · ${stamp(predictionStart)} — ${stamp(predictionEnd)}`);
-    $('prediction-fit').disabled = fullPrediction;
-    $('prediction-zoom-out').disabled = fullPrediction;
-    $('prediction-zoom').disabled = predictionEnd - predictionStart <= Math.min(source.duration, 1) + 1e-6;
-    $('prediction-prev').disabled = predictionStart <= 1e-6;
-    $('prediction-next').disabled = predictionEnd >= source.duration - 1e-6;
-    ticks($('source-ticks'), transition ? displayLow : low, transition ? displayHigh : high);
-    ticks($('prediction-ticks'), predictionStart, predictionEnd);
+    if ($('waveform-status')) {
+      $('waveform-status').textContent = wave?.decodedUntil > 0
+        ? (isZh ? `波形 · ${track} · ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}` : `Wave · ${track} · ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}`)
+        : source.analysis.status === 'completed' ? (isZh ? '暂无已保存波形' : 'No saved waveform') : (isZh ? '音频波形随分析逐步出现' : 'Waveform loading progressively');
+    }
+    const fullView = low <= 1e-6 && high >= source.duration - 1e-6;
+    if ($('source-fit')) $('source-fit').disabled = fullView;
+    if ($('prediction-zoom-out')) $('prediction-zoom-out').disabled = fullView;
+    if ($('prediction-zoom')) $('prediction-zoom').disabled = high - low <= Math.min(source.duration, 1) + 1e-6;
     const record = getRecord(source.id), key = `${source.id}:${!!record}:${low}:${high}`;
     if (evidenceKey !== key) { evidenceKey = key; evidence.request(record, low, high); }
-    $('exit-selection').disabled = low === 0 && high === source.duration;
-    $('exclude-selection').disabled = !clipFor(source);
-    $('undo-selection').disabled = !source.canUndo; $('redo-selection').disabled = !source.canRedo;
-    let number = 0;
-    const items = source.clips.map((clip) => ({ ...clip, label: clip.excluded ? (isZh ? '恢复' : 'Restore') : String(++number) })).filter((clip) => !clip.excluded || $('show-excluded').checked);
-    const visible = items.filter((item) => item.start < predictionEnd && item.end > predictionStart);
-    const ids = new Set(visible.map((item) => item.id));
-    for (const node of [...predictions.children]) if (!ids.has(node.dataset.clipId)) {
-      if (node === document.activeElement) $('prediction-workspace').focus({ preventScroll: true });
-      node.remove();
-    }
-    let previous = null;
-    visible.forEach((item) => {
-      let node = [...predictions.children].find((node) => node.dataset.clipId === item.id);
-      if (!node) { node = document.createElement('button'); node.dataset.clipId = item.id; }
-      const nextSibling = previous ? previous.nextElementSibling : predictions.firstElementChild;
-      if (nextSibling !== node) predictions.insertBefore(node, nextSibling);
-      previous = node;
-      const start = Math.max(item.start, predictionStart), end = Math.min(item.end, predictionEnd);
-      node.style.left = `${(start - predictionStart) / (predictionEnd - predictionStart) * 100}%`;
-      node.style.width = `${(end - start) / (predictionEnd - predictionStart) * 100}%`;
-      node.className = [item.excluded ? 'excluded' : item.provisional ? 'provisional' : item.supplemental ? 'supplemental' : '', !item.selected && !item.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
-      node.textContent = item.label;
-      const decision = source.decisions.find((d) => d.id === item.id);
-      const adjusted = decision && (decision.originRange.start !== item.start || decision.originRange.end !== item.end);
-      node.title = `${item.excluded ? (isZh ? '已排除 · 点击恢复 · ' : 'Excluded · Click to restore · ') : item.selected ? '' : (isZh ? '未勾选导出 · ' : 'Unchecked for export · ')}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? (isZh ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ` · Adjusted from ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}`) : ''}`;
-      node.setAttribute('aria-label', node.title); node.setAttribute('aria-pressed', item.id === source.review.selectedClipId); node.disabled = !!item.provisional;
-      node.onclick = () => run(() => item.excluded ? workspace.restoreExcluded(source.id, item.id) : selectRange(getSource().clips.find((clip) => clip.id === item.id)));
-    });
-    $('prediction-empty').textContent = !items.length
-      ? source.clips.some((clip) => clip.excluded)
-        ? (isZh ? '片段已排除，勾选“显示已排除”可查看并恢复。' : 'Clips are excluded. Check "Show excluded" to view and restore.')
-        : (isZh ? '候选将随分析逐步出现，也可从当前位置添加选片。' : 'Candidates will appear as analysis proceeds; you can also add clips manually.')
-      : !visible.length
-        ? (isZh ? '此视野没有候选，可适配全片查看。' : 'No candidates in this view; fit all to inspect.')
-        : '';
+    if ($('exclude-selection')) $('exclude-selection').disabled = !clipFor(source);
+    if ($('undo-selection')) $('undo-selection').disabled = !source.canUndo;
+    if ($('redo-selection')) $('redo-selection').disabled = !source.canRedo;
   }
-  const exit = () => { const source = getSource(); workspace.setReview(source.id, { zoomStart: 0, zoomEnd: source.duration }); };
-  $('source-fit').onclick = () => run(() => { const source = getSource(); workspace.setReview(source.id, { zoomStart: 0, zoomEnd: source.duration }); });
-  $('overview').oninput = () => {
-    overviewTarget = Number($('overview').value);
-    pause();
-    paintSelection(getSource());
+  const exit = () => { const source = getSource(); if (source) workspace.setReview(source.id, { zoomStart: 0, zoomEnd: source.duration }); };
+  if ($('source-fit')) $('source-fit').onclick = () => run(exit);
+  const zoomBy = (factor) => {
+    const source = getSource();
+    if (!source) return;
+    const [low, high] = windowFor(source);
+    const minSpan = Math.min(source.duration, 1);
+    const newSpan = Math.max(minSpan, Math.min(source.duration, (high - low) * factor));
+    const clip = clipFor(source);
+    const center = clip ? (clip.start + clip.end) / 2 : (low + high) / 2;
+    const zoomStart = Math.max(0, Math.min(source.duration - newSpan, center - newSpan / 2));
+    workspace.setReview(source.id, { zoomStart, zoomEnd: zoomStart + newSpan });
   };
-  $('overview').onchange = () => run(() => {
-    const source = getSource(), position = Number($('overview').value);
+  if ($('prediction-zoom')) $('prediction-zoom').onclick = () => run(() => zoomBy(0.5));
+  if ($('prediction-zoom-out')) $('prediction-zoom-out').onclick = () => run(() => zoomBy(2));
+  const overviewBar = $('player-overview-bar');
+  const commitOverviewSeek = (position) => run(() => {
+    const source = getSource();
+    if (!source) return;
     overviewTarget = null;
     const [low, high] = windowFor(source);
     if (position < low || position > high) {
@@ -271,17 +321,81 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     }
     return seek(position);
   });
+  const overviewTime = (event, source) => {
+    const box = overviewBar.getBoundingClientRect();
+    const ratio = box.width > 0 ? Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) : 0;
+    return ratio * source.duration;
+  };
+  if (overviewBar) {
+    overviewBar.onpointerdown = (event) => run(() => {
+      if (event.button !== 0 || overviewDrag) return;
+      const source = getSource();
+      if (!source) return;
+      pause();
+      const target = overviewTime(event, source);
+      overviewDrag = { sourceId: source.id, pointer: event.pointerId, position: target };
+      overviewTarget = target;
+      overviewBar.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      paintSelection(source);
+      $('selection-player-axis').focus({ preventScroll: true });
+    });
+    overviewBar.onpointermove = (event) => {
+      if (!overviewDrag || overviewDrag.pointer !== event.pointerId) return;
+      const source = getSource();
+      if (!source) return;
+      overviewDrag.position = overviewTime(event, source);
+      overviewTarget = overviewDrag.position;
+      paintSelection(source);
+    };
+    const endOverviewDrag = (cancel = false) => {
+      if (!overviewDrag) return;
+      const ended = overviewDrag;
+      overviewDrag = null;
+      if (overviewBar.hasPointerCapture?.(ended.pointer)) overviewBar.releasePointerCapture(ended.pointer);
+      overviewTarget = null;
+      const source = getSource();
+      if (!cancel && source?.id === ended.sourceId) commitOverviewSeek(ended.position);
+      else if (source) paintSelection(source);
+    };
+    overviewBar.onpointerup = () => endOverviewDrag(false);
+    overviewBar.onpointercancel = () => endOverviewDrag(true);
+    overviewBar.onlostpointercapture = () => endOverviewDrag(true);
+  }
+  $('overview').oninput = () => {
+    overviewTarget = Number($('overview').value);
+    pause();
+    paintSelection(getSource());
+  };
+  $('overview').onchange = () => commitOverviewSeek(Number($('overview').value));
   $('overview').onpointercancel = () => { overviewTarget = null; paintSelection(getSource()); };
-  const exclude = () => { const source = getSource(), clip = clipFor(source); if (clip) { workspace.exclude(source.id, clip.id); $('prediction-workspace').focus({ preventScroll: true }); } };
-  const xTime = (event, source) => { const box = axis.getBoundingClientRect(), [low, high] = windowFor(source); return low + Math.max(0, Math.min(1, (event.clientX - box.x) / box.width)) * (high - low); };
-  const bounded = (clip, key, value) => key === 'start' ? Math.max(0, Math.min(clip.end - 0.1, value)) : Math.min(getSource().duration, Math.max(clip.start + 0.1, value));
+  const exclude = () => {
+    const source = getSource(), clip = clipFor(source);
+    if (clip) {
+      workspace.exclude(source.id, clip.id);
+      $('selection-player-axis').focus({ preventScroll: true });
+    }
+  };
+  const xTime = (event, source) => {
+    const box = axis.getBoundingClientRect(), [low, high] = windowFor(source);
+    return low + Math.max(0, Math.min(1, (event.clientX - box.x) / box.width)) * (high - low);
+  };
+  const bounded = (clip, key, value) => key === 'start'
+    ? Math.max(0, Math.min(clip.end - 0.1, value))
+    : Math.min(getSource().duration, Math.max(clip.start + 0.1, value));
+  const hoverFrames = () => {
+    if (frames.length) return frames;
+    const strip = $('source-filmstrip');
+    if (!strip) return [];
+    return [...strip.children].map((img) => ({ time: Number(img.dataset?.time || 0), image: img.src })).filter((item) => item.image);
+  };
   axis.onpointerdown = (event) => run(() => {
     if (event.button !== 0 || drag) return;
+    if (event.target.closest?.('#overview-markers button')) return;
     const source = getSource(), clip = clipFor(source);
     if (transition) {
       stopTransition(true);
-      paintSelection(source);
-      ticks($('source-ticks'), targetLow, targetHigh);
+      paintTrack(source);
     }
     const key = event.target.id === 'selection-left' ? 'start' : event.target.id === 'selection-right' ? 'end' : null;
     if (key && !clip) return;
@@ -299,19 +413,19 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (drag.kind === 'head') drag.position = value;
       else {
         drag.range[drag.kind] = bounded(drag.range, drag.kind, value);
-        if ($('range-start')) $('range-start').value = drag.range.start.toFixed(2);
-        if ($('range-end')) $('range-end').value = drag.range.end.toFixed(2);
-        if ($('range-label')) $('range-label').textContent = `${drag.range.start.toFixed(2)}—${drag.range.end.toFixed(2)} s · ${(drag.range.end - drag.range.start).toFixed(2)} s`;
       }
       paintSelection(source); return;
     }
-    if (!frames.length) return;
-    const target = xTime(event, source), frame = frames.reduce((best, next) => Math.abs(next.time - target) < Math.abs(best.time - target) ? next : best);
+    const availableFrames = hoverFrames();
+    if (!availableFrames.length) return;
+    const target = xTime(event, source), frame = availableFrames.reduce((best, next) => Math.abs(next.time - target) < Math.abs(best.time - target) ? next : best);
     const hostBox = $('selection-player-axis').getBoundingClientRect(), hoverWidth = $('source-hover').offsetWidth || 180;
     const hoverLeft = Math.max(16, Math.min(Math.max(16, hostBox.width - hoverWidth - 16), event.clientX - hostBox.left - hoverWidth / 2));
     $('source-hover').style.left = `${hoverLeft}px`;
     $('source-hover').style.right = 'auto';
-    $('source-hover').hidden = false; $('source-hover').querySelector('img').src = frame.image; $('source-hover').querySelector('span').textContent = getLang() === 'zh' ? '原片参考画面' : 'Source preview frame';
+    $('source-hover').hidden = false;
+    $('source-hover').querySelector('img').src = frame.image;
+    $('source-hover').querySelector('span').textContent = `${stamp(target)} · ${getLang() === 'zh' ? '原片参考画面' : 'Source preview frame'}`;
   };
   axis.onpointerleave = () => { $('source-hover').hidden = true; };
   function finish(cancel = false) {
@@ -326,17 +440,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     paintSelection(getSource());
   }
   axis.onpointerup = () => finish(); axis.onpointercancel = () => finish(true); axis.onlostpointercapture = () => finish(true);
-  for (const [id, action] of Object.entries({ 'exit-selection': exit, 'exclude-selection': exclude, 'undo-selection': () => workspace.undo(getSource().id), 'redo-selection': () => workspace.redo(getSource().id) })) $(id).onclick = () => run(action);
-  $('show-excluded').onchange = () => render(getSource());
-  function predictionWindow(start, length) {
-    const source = getSource(); length = Math.min(source.duration, Math.max(1, length));
-    predictionStart = Math.max(0, Math.min(source.duration - length, start)); predictionEnd = predictionStart + length; render(source);
-  }
-  $('prediction-fit').onclick = () => predictionWindow(0, getSource().duration);
-  $('prediction-zoom').onclick = () => { const length = (predictionEnd - predictionStart) / 2, clip = clipFor(getSource()), center = clip ? (clip.start + clip.end) / 2 : (predictionStart + predictionEnd) / 2; predictionWindow(center - length / 2, length); };
-  $('prediction-zoom-out').onclick = () => { const length = (predictionEnd - predictionStart) * 2, clip = clipFor(getSource()), center = clip ? (clip.start + clip.end) / 2 : (predictionStart + predictionEnd) / 2; predictionWindow(center - length / 2, length); };
-  $('prediction-prev').onclick = () => predictionWindow(predictionStart - (predictionEnd - predictionStart) * 0.7, predictionEnd - predictionStart);
-  $('prediction-next').onclick = () => predictionWindow(predictionStart + (predictionEnd - predictionStart) * 0.7, predictionEnd - predictionStart);
+  for (const [id, action] of Object.entries({ 'exclude-selection': exclude, 'undo-selection': () => workspace.undo(getSource().id), 'redo-selection': () => workspace.redo(getSource().id) })) if ($(id)) $(id).onclick = () => run(action);
+  if ($('show-excluded')) $('show-excluded').onchange = () => render(getSource());
   const handleWheelGesture = ({ event, element, low, high, duration, onUpdate }) => {
     if (!isActive() || !duration) return;
     const rect = element.getBoundingClientRect();
@@ -380,28 +485,26 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (typeof element.addEventListener === 'function') element.addEventListener('wheel', handler, { passive: false });
     else element.onwheel = handler;
   };
-  bindWheel(axis, (source) => windowFor(source), (start, end) => workspace.setReview(source.id, { zoomStart: start, zoomEnd: end }));
-  const sharedAxis = document.querySelector('.prediction-shared-axis');
-  bindWheel(sharedAxis, () => [predictionStart, predictionEnd], (start, end) => predictionWindow(start, end - start));
-  if (sharedAxis) sharedAxis.onpointerdown = (event) => run(() => {
-    if (!isActive() || event.button !== 0 || event.target.closest('button,input,select,textarea,a')) return;
-    const source = getSource(); if (!source) return;
-    const box = event.currentTarget.getBoundingClientRect(); if (!(box.width > 0)) return;
-    const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
-    event.preventDefault();
-    $('prediction-workspace').focus({ preventScroll: true });
-    return seek(predictionStart + ratio * (predictionEnd - predictionStart));
-  });
+  bindWheel(axis, (source) => windowFor(source), (start, end) => workspace.setReview(getSource().id, { zoomStart: start, zoomEnd: end }));
   const keydown = (event) => {
     if (!isActive() || event.defaultPrevented || event.isComposing || !(event.target instanceof Element)) return;
     if (event.target.closest('input,select,textarea,[contenteditable]:not([contenteditable="false"])') || document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]:not([hidden])')) return;
     const source = getSource(); if (!source) return;
     const command = event.metaKey || event.ctrlKey;
     if (event.altKey || (command && event.key.toLowerCase() !== 'z')) return;
-    if (event.key === 'Escape' && (drag || event.target.closest('#selection-player-axis,#prediction-workspace'))) {
-      event.preventDefault(); if (drag) finish(true); else if (!event.repeat) run(exit); return;
+    if (event.key === 'Escape') {
+      if (drag) { event.preventDefault(); finish(true); return; }
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        const [low, high] = windowFor(source);
+        if (low > 1e-3 || high < source.duration - 1e-3) {
+          event.preventDefault();
+          if (!event.repeat) run(exit);
+          return;
+        }
+      }
     }
     if (drag) return;
+    const shortcutButtons = { i: 'quick-set-start', o: 'quick-set-end', k: 'toggle-current-clip', n: 'quick-manual' };
     if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); if (!event.repeat) run(() => workspace[event.shiftKey ? 'redo' : 'undo'](source.id)); }
     else if (['Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); if (!event.repeat) run(exclude); }
     else if (event.code === 'Space') {
@@ -415,20 +518,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     else if (event.key.toLowerCase() === 'f') {
       event.preventDefault(); if (!event.repeat && toggleFullscreen) run(toggleFullscreen);
     }
-    else if (event.key.toLowerCase() === 'i') {
-      const btn = $('range-start-current');
-      if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
-    }
-    else if (event.key.toLowerCase() === 'o') {
-      const btn = $('range-end-current');
-      if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
-    }
-    else if (event.key.toLowerCase() === 'k') {
-      const btn = $('toggle-current-clip');
-      if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
-    }
-    else if (event.key.toLowerCase() === 'n') {
-      const btn = $('manual');
+    else if (shortcutButtons[event.key.toLowerCase()]) {
+      const btn = $(shortcutButtons[event.key.toLowerCase()]);
       if (btn && !btn.disabled) { event.preventDefault(); if (!event.repeat) btn.click(); }
     }
     else if (event.key === '[' || event.key === ']') {
@@ -452,6 +543,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     }
   };
   window.addEventListener('keydown', keydown);
-  window.addEventListener('resize', () => { const current = getSource(); if (current) paintWaveform(current); });
-  return { render, suspend() { stopTransition(true); finish(true); overviewTarget = null; evidence.cancel(); evidenceKey = null; waveKey = null; $('source-hover').hidden = true; } };
+  window.addEventListener('resize', () => { const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintWaveform(current, low, high); } });
+  return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; $('source-hover').hidden = true; } };
 }

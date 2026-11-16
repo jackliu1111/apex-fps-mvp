@@ -22,7 +22,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   const settled = () => page.waitForFunction(() => reviewApp.player.state.status === 'paused');
   const closeTo = (actual, expected, tolerance = 0.025) => assert.ok(Math.abs(actual - expected) < tolerance, `${actual} should be within ${tolerance} of ${expected}`);
   const clickWave = async ratio => {
-    const axis = page.locator('.prediction-shared-axis');
+    const axis = page.locator('#source-axis');
     await axis.scrollIntoViewIfNeeded();
     const box = await axis.boundingBox();
     await page.mouse.click(box.x + box.width * ratio, box.y + box.height / 2);
@@ -56,29 +56,23 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.locator('#play-selection').isDisabled(), true);
     await page.locator('#overview-markers button').first().click();
     await settled();
-    await page.locator('.selection-details > summary').click();
     const initial = await source();
     const firstId = initial.review.selectedClipId;
-    const secondId = initial.clips.find(clip => clip.id !== firstId).id;
-    const firstRow = () => page.locator(`#clips [data-clip-id="${firstId}"]`);
-    const secondRow = () => page.locator(`#clips [data-clip-id="${secondId}"]`);
-    assert.equal(await firstRow().locator('.clip-badge').textContent(), '[1]');
-    assert.equal(await secondRow().locator('.clip-badge').textContent(), '[2]');
     const exportBg = await page.locator('#export').evaluate(node => getComputedStyle(node).backgroundColor);
     assert.ok(!exportBg.includes('176, 42, 36'), 'Export CTA should not use crimson');
     assert.equal(await page.locator('#status').evaluate(node => getComputedStyle(node).position), 'fixed');
     assert.equal(await page.locator('#play-selection').isEnabled(), true);
-    // Waveform and candidate buttons occupy the same complete, 64 px-high row.
-    const sharedBox = await page.locator('.prediction-shared-axis').boundingBox();
+    // Waveform and candidate buttons occupy the same single #source-axis track.
+    const sharedBox = await page.locator('#source-axis').boundingBox();
     const waveBox = await page.locator('#prediction-wave').boundingBox();
     const markersBox = await page.locator('#overview-markers').boundingBox();
     const markerBox = await page.locator('#overview-markers button').first().boundingBox();
-    closeTo(sharedBox.height, 64, .5);
+    closeTo(sharedBox.height, 68, .5);
     for (const box of [waveBox, markersBox]) {
-      closeTo(box.x, sharedBox.x, .5); closeTo(box.y, sharedBox.y, .5);
-      closeTo(box.width, sharedBox.width, .5); closeTo(box.height, 64, .5);
+      closeTo(box.x, sharedBox.x + 1, 1); closeTo(box.y, sharedBox.y + 1, 1);
+      closeTo(box.width, sharedBox.width - 2, 1); closeTo(box.height, 66, 1);
     }
-    closeTo(markerBox.y, sharedBox.y, .5); closeTo(markerBox.height, 64, .5);
+    closeTo(markerBox.y, sharedBox.y + 1, 1); closeTo(markerBox.height, 66, 1);
 
     // Set the slider before the first AudioContext is created, using a real pointer.
     await page.locator('#player-volume').scrollIntoViewIfNeeded();
@@ -97,9 +91,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     closeTo((await player()).volume, volume);
     assert.equal((await player()).muted, false);
 
-    // Blank space and list-button focus both control playback without native scrolling
+    // Blank space and candidate-button focus both control playback without native scrolling
     // or the focused candidate button firing a second click on keyup.
-    for (const target of [page.locator('.workspace-footer'), firstRow().locator('.clip-jump')]) {
+    for (const target of [page.locator('.review-heading'), page.locator('#overview-markers button').first()]) {
       await target.click();
       await settled();
       const before = await page.evaluate(() => ({ scroll: scrollY, selected: reviewApp.workspace.getSource(reviewApp.activeSourceId).review.selectedClipId }));
@@ -155,8 +149,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     closeTo((await player()).position, Math.round((precisePausedPosition + .1) * 100) / 100, .001);
 
     // An unselected export checkbox does not invalidate the active clip for listening.
-    await firstRow().locator('.clip-selected').uncheck();
-    await firstRow().locator('.clip-jump').click();
+    await page.locator('#toggle-current-clip').click();
+    await page.locator('#overview-markers button').first().click();
     await settled();
     await page.keyboard.press('Shift+Space');
     await page.waitForFunction(() => reviewApp.player.state.playing && reviewApp.player.state.position >= 2 && reviewApp.player.state.position < 2.7);
@@ -170,10 +164,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.keyboard.press('Space');
     await settled();
     assert.equal((await player()).playRange, null);
-    await firstRow().locator('.clip-selected').check();
+    await page.locator('#toggle-current-clip').click();
 
-    // Global navigation works from the list and moves exactly once per key event.
-    await firstRow().locator('.clip-jump').click(); await settled();
+    // Global navigation works and moves exactly once per key event.
+    await page.locator('#overview-markers button').first().click(); await settled();
     await page.keyboard.press(']'); await settled();
     closeTo((await source()).review.position, 8);
     assert.notEqual((await source()).review.selectedClipId, firstId);
@@ -188,8 +182,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     closeTo((await source()).review.position, 1.2);
 
     // Existing fields, select and editable regions retain their own keyboard behavior.
-    await page.locator('.precise-editor > summary').click();
-    for (const selector of ['#range-start', '#player-volume', '#source-select']) {
+    for (const selector of ['#player-volume', '#source-select']) {
       const before = await player();
       await page.locator(selector).focus();
       await page.keyboard.press('Space');
@@ -230,7 +223,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.deepEqual(ignoredEvents.prevented, [false, false, false]);
 
     // Seek against the shared wave coordinates, in both whole-source and local views.
-    if (await page.locator('#prediction-fit').isEnabled()) await page.locator('#prediction-fit').click();
+    if (await page.locator('#source-fit').isEnabled()) await page.locator('#source-fit').click();
     const waveBefore = await page.evaluate(() => ({
       pixels: document.querySelector('#prediction-wave').toDataURL(),
       waveform: reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform,
@@ -241,16 +234,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal((await source()).review.selectedClipId, beforeSeek.review.selectedClipId);
     assert.deepEqual((await source()).decisions, beforeSeek.decisions);
     assert.deepEqual(await page.evaluate(() => ({ pixels: document.querySelector('#prediction-wave').toDataURL(), waveform: reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform })), waveBefore);
-    // Wheel zoom gesture smoothly magnifies the prediction window
+    // Wheel zoom gesture smoothly magnifies the unified window
     const fitWidth = await page.evaluate(() => document.querySelector('#overview-markers button').getBoundingClientRect().width);
-    const sharedAxisEl = page.locator('.prediction-shared-axis');
+    const sharedAxisEl = page.locator('#source-axis');
     await sharedAxisEl.hover({ position: { x: 100, y: 32 } });
     await page.mouse.wheel(0, -200);
     await page.waitForFunction(w => {
       const el = document.querySelector('#overview-markers button');
       return el && el.getBoundingClientRect().width > w * 1.1;
     }, fitWidth);
-    await page.locator('#prediction-fit').click();
+    await page.locator('#source-fit').click();
     await page.locator('#prediction-zoom').click();
     // The first candidate is near the source start; half-source zoom clamps to zero.
     await clickWave(.75);
@@ -261,8 +254,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     closeTo((await source()).review.position, 2);
     assert.equal((await source()).review.selectedClipId, firstId);
 
-    // Delete, undo and redo remain explicit and globally available after list focus.
-    await firstRow().locator('.clip-jump').click(); await settled();
+    // Delete, undo and redo remain explicit and globally available.
+    await page.locator('#overview-markers button').first().click(); await settled();
     await page.keyboard.press('Delete');
     const excluded = await source();
     assert.equal(excluded.review.selectedClipId, null);
@@ -292,8 +285,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       assert.equal(await page.locator('#player-mute').isVisible(), true);
       assert.equal(await page.locator('#player-volume').isVisible(), true);
       if (process.env.REVIEW_SCREENSHOT_DIR) {
-        await page.locator('.player-panel').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/playback-${width}.png`, animations: 'disabled' });
-        await page.locator('.prediction-track-box').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/waveform-${width}.png`, animations: 'disabled' });
+        await page.locator('.review-workbench').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/playback-${width}.png`, animations: 'disabled' });
+        await page.locator('#selection-player-axis').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/waveform-${width}.png`, animations: 'disabled' });
       }
     }
     await page.locator('#nav-analysis').click();

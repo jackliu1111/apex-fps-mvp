@@ -97,7 +97,25 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
   border-bottom: 1px solid var(--border);
 }
 #analysis-page .heading-label { align-items: center; }
+#analysis-page .queue-heading-actions { gap: 10px; }
 #analysis-page h2 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+#analysis-page :is(#demo.demo-btn, .empty-demo-btn) {
+  min-height: 36px;
+  padding-inline: 16px;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.42);
+  color: #7dd3fc;
+  font-weight: 600;
+  box-shadow: none;
+}
+#analysis-page :is(#demo.demo-btn, .empty-demo-btn):hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: #38bdf8;
+  color: #f0f9ff;
+}
+#analysis-page .empty-demo-btn {
+  margin-top: 6px;
+}
 #analysis-page #import-files {
   position: relative;
   min-height: 36px;
@@ -120,7 +138,7 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
   color: var(--faint);
   box-shadow: none;
 }
-#analysis-page #import-files > span { font-size: 16px; line-height: 1; font-weight: 600; }
+#analysis-page #import-files > span:first-child { font-size: 16px; line-height: 1; font-weight: 600; }
 #analysis-page #drop-zone { border-radius: 8px; align-content: start; padding: 0 24px; }
 #analysis-page #drop-zone:has(.empty) {
   align-content: center;
@@ -235,57 +253,6 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 #analysis-page .file[data-status="failed"] .file-status::before { background: var(--negative); }
-#analysis-page .workflow-guide { background: var(--surface); border-color: var(--border); padding: 16px 24px; align-self: start; }
-#analysis-page .workflow-guide > summary { color: var(--text); font-weight: 650; font-size: 14px; }
-#analysis-page.has-recordings .workflow-guide { padding: 12px 20px; }
-#analysis-page.has-recordings .workflow-guide:not([open]) { background: var(--surface); border-color: var(--border); }
-#analysis-page.has-recordings .workflow-guide:not([open]) > summary { color: var(--muted); font-size: 13px; font-weight: 500; }
-#analysis-page .workflow-list { counter-reset: workflow; margin: 14px 0; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-#analysis-page .workflow-list li {
-  counter-increment: workflow;
-  padding: 14px 16px 14px 40px;
-  background: var(--surface-low);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-#analysis-page .workflow-list li::before {
-  content: "0" counter(workflow);
-  position: absolute;
-  left: 13px;
-  top: 14px;
-  width: auto;
-  height: auto;
-  background: none;
-  color: var(--accent);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  font-weight: 700;
-}
-#analysis-page .workflow-list strong { font-weight: 600; color: #f8fafc; }
-#analysis-page .demo-action { padding-top: 14px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 16px; align-items: center; }
-#analysis-page .demo-action button {
-  min-height: 36px;
-  border-color: rgba(56, 189, 248, 0.45);
-  background: rgba(56, 189, 248, 0.12);
-  color: #7dd3fc;
-  font-weight: 600;
-  padding-inline: 18px;
-}
-#analysis-page .demo-action button:hover:not(:disabled) {
-  background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
-  color: #f0f9ff;
-}
-#analysis-page .demo-action button span { transition: transform 100ms var(--task-ease); }
-#analysis-page .demo-action button:hover span { transform: translate(2px, -2px); }
-#analysis-page .settings-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  padding: 14px 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-}
-#analysis-page .settings-panel > summary { color: var(--muted); font-size: 13px; }
 
 #exports-section { background: transparent; padding: 4px 0 0; margin-top: 0; border: 0; border-radius: 0; box-shadow: none; }
 #exports-section > .panel-heading { padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
@@ -347,21 +314,20 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
   background: var(--task-well);
   color: var(--muted);
 }
-#exports-section .export-settings { padding: 14px 0; }
 
 /* Enter once per page display, not per progress update. */
 @media (prefers-reduced-motion: no-preference) {
-  :is(#analysis-page, #review-page, #exports-section):not([hidden]) { animation: task-enter 200ms cubic-bezier(.2, 0, 0, 1) both; }
+  :is(#analysis-page, #review-page, #exports-section):not([hidden]) { animation: task-enter 200ms cubic-bezier(.2, 0, 0, 1) backwards; }
   #analysis-page :is(.empty, .file[data-status="analyzing"]) .signal-left { animation: frame-left 600ms cubic-bezier(.2,0,0,1) both; }
   #analysis-page :is(.empty, .file[data-status="analyzing"]) .signal-right { animation: frame-right 600ms 60ms cubic-bezier(.2,0,0,1) both; }
   #analysis-page :is(.empty, .file[data-status="analyzing"]) .signal-center { animation: frame-select 500ms 120ms cubic-bezier(.2,0,0,1) both; }
   #analysis-page :is(.empty, .file[data-status="analyzing"]) .signal-brackets { animation: frame-lock 500ms 240ms cubic-bezier(.2,0,0,1) both; transform-box: fill-box; transform-origin: center; }
   #analysis-page :is(.empty, .file[data-status="analyzing"]) .signal-detail { animation: frame-detail 700ms ease-in-out both; }
 }
-@keyframes frame-left { from { opacity: 0; transform: translateX(18px) scale(.92); } to { opacity: 1; transform: translateX(0) scale(1); } }
-@keyframes frame-right { from { opacity: 0; transform: translateX(-18px) scale(.92); } to { opacity: 1; transform: translateX(0) scale(1); } }
-@keyframes frame-select { from { opacity: .3; transform: translateY(8px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@keyframes frame-lock { from { opacity: 0; transform: scale(1.12); } to { opacity: 1; transform: scale(1); } }
+@keyframes frame-left { from { opacity: .45; transform: translateX(12px) scale(.94); } to { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes frame-right { from { opacity: .45; transform: translateX(-12px) scale(.94); } to { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes frame-select { from { opacity: .55; transform: translateY(6px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes frame-lock { from { opacity: .6; transform: scale(1.08); } to { opacity: 1; transform: scale(1); } }
 @keyframes frame-detail { from { stroke-opacity: .25; } to { stroke-opacity: 1; } }
 @keyframes task-enter { from { opacity: .35; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 850px) {
@@ -371,10 +337,7 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
 }
 @media (max-width: 540px) {
   #analysis-page .page-heading { grid-template-columns: minmax(0, 1fr); }
-  #analysis-page .file, #analysis-page .workflow-list { grid-template-columns: minmax(0, 1fr); }
-  #analysis-page .demo-action { display: block; }
-  #analysis-page .demo-action button { width: 100%; }
-  #analysis-page .demo-action p { margin-top: 8px; }
+  #analysis-page .file { grid-template-columns: minmax(0, 1fr); }
   #analysis-page .file-info strong { white-space: normal; overflow-wrap: anywhere; }
   #exports-section .export-batch { grid-template-columns: minmax(0, 1fr); }
   #exports-section .batch-state { grid-column: 1; grid-row: auto; margin-top: 8px; max-width: none; }
@@ -388,6 +351,6 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
   #analysis-page #import-files { min-height: 44px; padding-inline: 14px; }
   #analysis-page .empty { padding: 24px 12px; }
   #analysis-page .empty strong { font-size: 17px; }
-  #analysis-page .workflow-guide, #analysis-page .settings-panel, #exports-section .export-batch { padding: 16px; }
+  #exports-section .export-batch { padding: 16px; }
   :is(#analysis-page, #exports-section) button { min-height: 44px; }
 }

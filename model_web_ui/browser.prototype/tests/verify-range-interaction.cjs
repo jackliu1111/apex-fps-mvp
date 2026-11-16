@@ -19,10 +19,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       workspace.setReview('range-test', { selectedClipId: id, position: 45, zoomStart: 20, zoomEnd: 80 });
       await reviewApp.openReview('range-test');
     });
-    await page.locator('.precise-editor > summary').click();
-    assert.equal(await page.locator('.local-range, #range-start-handle, #range-end-handle').count(), 0,
-      'Duplicate dual-range sliders are removed in favor of the primary timeline handles');
-    const field = key => page.locator(`#range-${key}`);
+    assert.equal(await page.locator('.precise-editor, .local-range, #range-start-handle, #range-end-handle').count(), 0,
+      'Duplicate dual-range sliders and folded drawers are removed in favor of the primary timeline handles');
+    const clip = () => page.evaluate(() => {
+      const s = reviewApp.workspace.getSource('range-test');
+      return s.clips.find(item => item.id === s.review.selectedClipId);
+    });
     const handle = key => page.locator(`#selection-${key === 'start' ? 'left' : 'right'}`);
     const axis = await page.locator('#source-axis').boundingBox();
     assert.ok(axis.width > 0);
@@ -32,44 +34,40 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.mouse.down();
     await page.mouse.move(axis.x + (75 - 20) / 60 * axis.width, leftBox.y + 20, { steps: 8 });
     await page.mouse.up();
-    assert.equal(await field('start').inputValue(), '59.90', 'Crossing clamps instead of rejecting the drag');
-    assert.equal(await field('end').inputValue(), '60.00');
+    assert.equal((await clip()).start.toFixed(2), '59.90', 'Crossing clamps instead of rejecting the drag');
+    assert.equal((await clip()).end.toFixed(2), '60.00');
     await page.evaluate(() => reviewApp.workspace.setReview('range-test', { position: 45 }));
-    await page.locator('#range-start-current').click();
-    assert.equal(await field('start').inputValue(), '45.00');
+    await page.locator('#quick-set-start').click();
+    assert.equal((await clip()).start.toFixed(2), '45.00');
     await handle('start').focus();
     await page.keyboard.press('ArrowLeft');
-    assert.equal(await field('start').inputValue(), '44.90');
+    assert.equal((await clip()).start.toFixed(2), '44.90');
 
     const draggedLeft = await handle('start').boundingBox();
     await page.mouse.move(draggedLeft.x + draggedLeft.width / 2, draggedLeft.y + 20);
     await page.mouse.down();
     await page.mouse.move(axis.x + 0.3 * axis.width, draggedLeft.y + 20, { steps: 8 });
     await page.mouse.up();
-    assert.ok(Math.abs(Number(await field('start').inputValue()) - 38) < 0.3, 'Pointer dragging follows the time scale');
+    assert.ok(Math.abs((await clip()).start - 38) < 0.3, 'Pointer dragging follows the time scale');
     const rightBox = await handle('end').boundingBox();
     await page.mouse.move(rightBox.x + rightBox.width / 2, rightBox.y + 20);
     await page.mouse.down();
     await page.mouse.move(axis.x, rightBox.y + 20, { steps: 8 });
     await page.mouse.up();
-    assert.ok(Math.abs(Number(await field('end').inputValue()) - Number(await field('start').inputValue()) - 0.1) < 0.01);
+    const afterClamp = await clip();
+    assert.ok(Math.abs(afterClamp.end - afterClamp.start - 0.1) < 0.01);
     await page.evaluate(() => reviewApp.workspace.setReview('range-test', { position: 45 }));
-    await page.locator('#range-end-current').click();
-    assert.equal(await field('end').inputValue(), '45.00');
-    const validStart = await field('start').inputValue();
-    await field('start').fill('');
-    await field('start').press('Tab');
-    assert.equal(Number(await field('start').inputValue()), Number(validStart), 'Blank input cannot silently become zero');
-    await page.locator('#range-heading').click();
+    await page.locator('#quick-set-end').click();
+    assert.equal((await clip()).end.toFixed(2), '45.00');
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
       if (process.env.RANGE_SCREENSHOT_PREFIX) {
-        await page.locator('#range-editor').screenshot({ path: `${process.env.RANGE_SCREENSHOT_PREFIX}-${width}.png` });
+        await page.locator('.review-workbench').screenshot({ path: `${process.env.RANGE_SCREENSHOT_PREFIX}-${width}.png` });
       }
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: shared scale, clamped boundaries, pointer and keyboard edits, current-position actions, fixed playhead, blank input, three widths');
+    console.log('PASS: unified single-track scale, clamped boundaries, pointer/keyboard/quick-set edits, fixed playhead, three widths');
   } finally {
     await browser.close();
   }

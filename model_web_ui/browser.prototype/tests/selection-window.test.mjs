@@ -130,7 +130,6 @@ test('selection timeline animates local zoom transitions and switches to compact
     getElementById: getNode,
     createElement: (tag) => makeNode(tag),
     querySelector(selector) {
-      if (selector === '.prediction-shared-axis') return getNode('prediction-shared-axis');
       assert.equal(selector, 'dialog[open], [role="dialog"][aria-modal="true"]:not([hidden])');
       return null;
     },
@@ -199,13 +198,16 @@ test('selection timeline animates local zoom transitions and switches to compact
     assert.ok(midWidth > 12 && midWidth < 33.3, `Expected intermediate width between 12% and 33.3%, got ${midWidth}%`);
     assert.equal(getNode('selection-overlay').dataset.compact, 'false');
     assert.equal(getNode('prediction-source-window').hidden, false);
+    assert.equal(getNode('player-overview-markers').children.length, 1);
+    assert.equal(getNode('player-overview-markers').children[0].dataset.active, 'true');
 
-    // Final frame settles at exact 1/3 local window
+    // Final frame settles at exact 1/3 local window across selection, markers, and ticks
     const end = rafQueue.shift();
     end.cb(started + 260);
     assert.equal(getNode('selection-player-axis').dataset.transitioning, undefined);
     assert.equal(getNode('selection-overlay').dataset.compact, 'false');
     assert.ok(Math.abs(parseFloat(getNode('selection-overlay').style.width) - 100 / 3) < 0.01);
+    assert.ok(Math.abs(parseFloat(getNode('overview-markers').children[0].style.width) - 100 / 3) < 0.01);
     assert.match(getNode('selection-player-axis').dataset.scopeLabel, /^局部视野/);
 
     // Clicking "全片" (#source-fit) keeps selection active, animates zoom-out, and enables compact handles
@@ -217,6 +219,7 @@ test('selection timeline animates local zoom transitions and switches to compact
     assert.equal(getNode('selection-player-axis').dataset.scopeLabel, '全片视野');
     assert.equal(getNode('selection-overlay').dataset.compact, 'true');
     assert.ok(Math.abs(parseFloat(getNode('selection-overlay').style.width) - 10) < 0.01);
+    assert.ok(Math.abs(parseFloat(getNode('overview-markers').children[0].style.width) - 10) < 0.01);
     timeline.suspend();
   } finally {
     globalThis.document = prevDoc;
