@@ -18,7 +18,7 @@ const seenCandidates = new Map();
 const presentedRecords = new WeakSet();
 const startingExports = new Set();
 let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
-let makingDemo = false, directoryHandle = null, exportQueue, selectionTimeline;
+let directoryHandle = null, exportQueue, selectionTimeline;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
 
 const getStatuses = () => ({
@@ -241,11 +241,7 @@ function renderQueue() {
     const title = element('strong', t('empty_drop_title')); title.dataset.i18n = 'empty_drop_title';
     const desc = element('span', t('empty_drop_desc')); desc.dataset.i18n = 'empty_drop_desc';
     const types = element('small', t('empty_drop_types')); types.dataset.i18n = 'empty_drop_types';
-    const emptyDemo = button(t('demo_btn'), () => demo());
-    emptyDemo.className = 'empty-demo-btn';
-    emptyDemo.dataset.i18n = 'demo_btn';
-    emptyDemo.disabled = makingDemo;
-    empty.append(createFrameSignal(), title, desc, types, emptyDemo);
+    empty.append(createFrameSignal(), title, desc, types);
     $('queue').append(empty);
   }
   const statusDict = getStatuses();
@@ -536,9 +532,6 @@ function render() {
   $('status').hidden = $('status').dataset.page !== currentPage && $('status').dataset.tone !== 'error';
   $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
   $('nav-review').setAttribute('aria-current', currentPage === 'review' ? 'page' : 'false'); $('nav-review').disabled = !view.sources.length;
-  if ($('demo')) $('demo').disabled = makingDemo;
-  const emptyDemoBtn = document.querySelector('.empty-demo-btn');
-  if (emptyDemoBtn) emptyDemoBtn.disabled = makingDemo;
   $('drop-zone').setAttribute('aria-disabled', String(currentPage !== 'analysis'));
   if (currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
 
@@ -550,23 +543,6 @@ function render() {
   } else if (currentPage === 'exports') {
     renderExports();
   }
-}
-
-async function demo() {
-  if (makingDemo) return;
-  makingDemo = true; render(); note(t('note_demo_loading'));
-  try {
-    const metadata = await fetch('/demo/manifest.json');
-    if (!metadata.ok) throw new Error(t('err_demo_not_found'));
-    const { name, bytes, lastModified } = await metadata.json();
-    if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes >= 100 * 1048576) throw new Error(t('err_demo_too_large'));
-    const response = await fetch('/demo/recording.mp4');
-    if (!response.ok) throw new Error(t('err_demo_read'));
-    const blob = await response.blob();
-    if (blob.size !== bytes) throw new Error(t('err_demo_corrupted'));
-    await importFiles([new File([blob], name, { type: 'video/mp4', lastModified })]);
-    note(t('note_demo_ready'));
-  } finally { makingDemo = false; render(); }
 }
 
 $('export').onclick = () => safely(submitExport);
@@ -598,7 +574,6 @@ document.addEventListener('drop', (event) => {
   const files = Array.from(event.dataTransfer.files);
   if (files.length) safely(() => importFiles(files));
 });
-$('demo').onclick = () => safely(demo);
 $('nav-exports').onclick = $('view-exports').onclick = showExports;
 $('nav-analysis').onclick = $('back-analysis').onclick = showAnalysis;
 $('nav-review').onclick = () => safely(() => openReview(activeSourceId || view.sources[0].id));
@@ -730,6 +705,6 @@ $('import-files').disabled = false;
 applyTranslations();
 render();
 note(t('status_ready'), 'quiet');
-window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, demo, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
+window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
 
 if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));

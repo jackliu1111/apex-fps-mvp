@@ -37,8 +37,6 @@ export const translations = {
     step2_desc: 'Browse the original video, retain clips, and adjust boundaries.',
     step3_title: 'Submit export when ready',
     step3_desc: 'Each clip is rendered independently while review continues.',
-    demo_btn: 'Try 1-Min Real Combat Sample',
-    demo_note: 'From actual Apex gameplay to test analysis, clipping, and export.',
 
     // Settings
     settings_heading: 'Analysis Settings & Runtime Logs',
@@ -236,8 +234,6 @@ export const translations = {
     output_format_render: '{format} ({video} + {audio}) at original resolution and frame rate',
 
     // Alerts / Notes
-    note_demo_loading: 'Loading 1-minute real combat sample...',
-    note_demo_ready: '1-minute real combat sample imported. You can review clips anytime.',
     note_export_submitted: 'Export submitted. Files will be saved directly to the chosen folder. Review can continue.',
     note_prep_files: 'Preparing {count} recordings; each analyzes independently once ready.',
     note_files_added: 'Recordings added · Review anytime',
@@ -257,10 +253,6 @@ export const translations = {
     err_no_batch_source: 'Source recording for this task is not in current page.',
     err_dir_permission_lost: 'Output folder write permission unavailable. Click "Choose Folder & Continue" to re-select.',
     err_dir_aborted: 'Output folder not chosen yet; clips are preserved. Click "Choose Folder & Continue" to retry.',
-    err_demo_not_found: 'Real combat sample is not configured or disk is unavailable. Use "Import Videos" to select local footage.',
-    err_demo_too_large: 'Demo sample must be smaller than 100 MiB; for larger recordings use "Import Videos".',
-    err_demo_read: 'Unable to read real sample; check disk mount and retry.',
-    err_demo_corrupted: 'Sample file modified or incomplete; please retry.',
     err_valid_trim_time: 'Please enter a valid cut time.',
     err_no_dir_picker: 'Output folder not acquired. If dialog did not appear, open in desktop Chrome and retry.'
   },
@@ -302,8 +294,6 @@ export const translations = {
     step2_desc: '浏览原片，保留片段、调整范围。',
     step3_title: '选好即可提交导出',
     step3_desc: '每段独立成片，期间可继续复核。',
-    demo_btn: '试用 1 分钟真实交战',
-    demo_note: '来自实际 Apex 对局，体验分析、选片与导出。',
 
     // Settings
     settings_heading: '分析设置与运行记录',
@@ -501,8 +491,6 @@ export const translations = {
     output_format_render: '原视频分辨率与帧率的 {format}（{video} + {audio}）',
 
     // Alerts / Notes
-    note_demo_loading: '正在加载一分钟真实交战样本…',
-    note_demo_ready: '已导入一分钟真实交战样本，可随时进入片段复核。',
     note_export_submitted: '已提交导出，文件将直接保存至所选目录。可以继续复核。',
     note_prep_files: '正在准备 {count} 份录像；每份就绪后独立进入分析。',
     note_files_added: '录像已加入 · 可随时复核',
@@ -522,10 +510,6 @@ export const translations = {
     err_no_batch_source: '当前页面没有这批任务的原录像。',
     err_dir_permission_lost: '输出目录写入权限不可用，请点击「选择目录并继续」重新选择。',
     err_dir_aborted: '尚未选择输出目录，选片已保留。点击「选择目录并继续」即可重试。',
-    err_demo_not_found: '真实样本尚未配置或所在磁盘不可用。请使用“导入录像”选择本地交战片段。',
-    err_demo_too_large: '演示样本需小于 100 MiB；较大录像请使用“导入录像”。',
-    err_demo_read: '无法读取真实样本，请确认样本所在磁盘已挂载后重试。',
-    err_demo_corrupted: '样本文件已变化或读取不完整，请重试。',
     err_valid_trim_time: '请输入有效的切点时间',
     err_no_dir_picker: '尚未取得输出目录。若未弹出目录窗口，请在桌面 Chrome 中打开本页后选择。'
   }

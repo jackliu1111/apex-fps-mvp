@@ -99,23 +99,6 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
 #analysis-page .heading-label { align-items: center; }
 #analysis-page .queue-heading-actions { gap: 10px; }
 #analysis-page h2 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
-#analysis-page :is(#demo.demo-btn, .empty-demo-btn) {
-  min-height: 36px;
-  padding-inline: 16px;
-  background: rgba(56, 189, 248, 0.12);
-  border-color: rgba(56, 189, 248, 0.42);
-  color: #7dd3fc;
-  font-weight: 600;
-  box-shadow: none;
-}
-#analysis-page :is(#demo.demo-btn, .empty-demo-btn):hover:not(:disabled) {
-  background: rgba(56, 189, 248, 0.22);
-  border-color: #38bdf8;
-  color: #f0f9ff;
-}
-#analysis-page .empty-demo-btn {
-  margin-top: 6px;
-}
 #analysis-page #import-files {
   position: relative;
   min-height: 36px;

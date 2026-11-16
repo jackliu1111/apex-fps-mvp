@@ -31,7 +31,7 @@ English | [简体中文](README_zh.md)
 
 - **Browser Requirements**: **Desktop Google Chrome** or **Microsoft Edge** is strongly recommended.
 - **Privacy & Security**: Web assets and models load once from the network; **all video decoding, AI audio inference, and clip exports run 100% locally on your machine. Your recordings are never uploaded to any server.**
-- **Quick Test**: Once the page loads, click "Try 1-Min Real Combat" to test immediately, or click "Import Video" to pick your local Apex recording.
+- **Import Videos**: Once the page loads, click "Import Videos" to pick your local Apex recording.
 
 ---
 

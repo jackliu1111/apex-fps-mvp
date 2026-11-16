@@ -15,8 +15,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.locator('#analysis-page .settings-panel').count(), 0);
     assert.equal(await page.locator('#analysis-page .workflow-guide').count(), 0);
     assert.equal(await page.locator('#exports-section .export-settings').count(), 0);
-    assert.equal(await page.locator('#analysis-page .queue-panel .panel-heading #demo').isVisible(), true);
-    assert.equal(await page.locator('#queue .empty .empty-demo-btn').isVisible(), true);
+    assert.equal(await page.locator('#demo, .empty-demo-btn').count(), 0);
+    assert.equal(await page.locator('#import-files').isVisible(), true);
 
     await page.locator('#nav-exports').click();
     await page.waitForFunction(() => !document.querySelector('#exports-section').hidden);
@@ -29,27 +29,17 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     }
 
-    // Trigger inline 1-minute sample button from empty state (falling back to synthetic /demo route when offline).
-    const hasDemo = await page.evaluate(async () => (await fetch('/demo/manifest.json').catch(() => null))?.ok || false);
-    if (!hasDemo) {
-      const demoBytes = await page.evaluate(async () => {
-        const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
-        const file = await createSyntheticFile();
-        return Array.from(new Uint8Array(await file.arrayBuffer()));
-      });
-      await page.route('**/demo/manifest.json', (route) => route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ name: 'demo-combat.mp4', bytes: demoBytes.length, lastModified: 1700000000000 }),
-      }));
-      await page.route('**/demo/recording.mp4', (route) => route.fulfill({
-        status: 200,
-        contentType: 'video/mp4',
-        body: Buffer.from(demoBytes),
-      }));
-    }
-    await page.locator('#queue .empty .empty-demo-btn').click();
+    // Import a local recording through the normal file input.
+    const mediaBytes = await page.evaluate(async () => {
+      const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
+      const file = await createSyntheticFile();
+      return Array.from(new Uint8Array(await file.arrayBuffer()));
+    });
+    await page.locator('#files').setInputFiles({
+      name: 'local-recording.mp4', mimeType: 'video/mp4', buffer: Buffer.from(mediaBytes),
+    });
     await page.waitForFunction(() => document.querySelectorAll('#queue .file').length >= 1, null, { timeout: 120000 });
+    await page.waitForFunction(() => !document.querySelector('#nav-review').disabled, null, { timeout: 120000 });
     assert.equal(await page.locator('#nav-review').isEnabled(), true);
 
     assert.deepEqual(errors, []);
