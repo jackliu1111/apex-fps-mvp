@@ -81,6 +81,9 @@ export const translations = {
     overview_aria: 'Full playback position',
     hover_sample_alt: 'Source preview frame',
     hover_sample_text: 'Source preview frame',
+    hover_no_frame: 'Preview frame unavailable',
+    hover_scores_unanalyzed: 'Not analyzed yet',
+    hover_scores_out_of_range: 'Outside audio range',
 
     // Precise editor
     precise_editor_summary: 'Precision Trimming & Local View',
@@ -124,6 +127,9 @@ export const translations = {
     group_music: 'Music',
     group_footsteps: 'Footsteps',
     group_impact: 'Impact',
+    group_toggles_label: 'Layers',
+    group_toggles_aria: 'Sound display groups',
+    group_toggle_title: 'Toggle {group} waveform layer',
     prediction_intervals_aria: 'Predicted intervals, click to select',
     export_note: 'Submitting locks the current batch; further edits apply to subsequent batches.',
     export_format_label: 'Export format',
@@ -348,6 +354,9 @@ export const translations = {
     overview_aria: '整片播放位置',
     hover_sample_alt: '附近原片抽样画面',
     hover_sample_text: '原片参考画面',
+    hover_no_frame: '暂无参考画面',
+    hover_scores_unanalyzed: '该位置尚未分析',
+    hover_scores_out_of_range: '超出音频范围',
 
     // Precise editor
     precise_editor_summary: '精确切点与局部视野',
@@ -391,6 +400,9 @@ export const translations = {
     group_music: '音乐',
     group_footsteps: '脚步',
     group_impact: '冲击／碎裂',
+    group_toggles_label: '声音分层',
+    group_toggles_aria: '声音展示分组开关',
+    group_toggle_title: '切换{group}波形分层显示',
     prediction_intervals_aria: '预测区间，点击选择',
     export_note: '提交后固定本批范围，后续修改用于下一批。',
     export_format_label: '导出格式',

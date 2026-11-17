@@ -184,6 +184,34 @@ export function layeredWaveColumns({
   });
 }
 
+/** Look up raw 5-group prediction scores at a source video timestamp using audioOffset without threshold filtering. */
+export function groupScoresAtTime(scoreData, videoTime) {
+  if (!scoreData || !scoreData.groupScores || !(scoreData.groupScoreFrames > 0) || !Number.isFinite(videoTime)) {
+    return { status: 'unanalyzed', videoTime, audioTime: null, frameIndex: null, scores: null };
+  }
+  const {
+    groupScores,
+    groupScoreFrames,
+    groupCount = DISPLAY_GROUPS.length,
+    frameSeconds = 0.04,
+    audioOffset = 0,
+    audioDuration,
+  } = scoreData;
+  const audioTime = videoTime - audioOffset;
+  const maxAnalyzedAudio = groupScoreFrames * frameSeconds;
+  const limit = Number.isFinite(audioDuration) ? audioDuration : maxAnalyzedAudio;
+  if (audioTime < 0 || audioTime >= limit) {
+    return { status: 'out-of-range', videoTime, audioTime, frameIndex: null, scores: null };
+  }
+  if (audioTime >= maxAnalyzedAudio) {
+    return { status: 'unanalyzed', videoTime, audioTime, frameIndex: null, scores: null };
+  }
+  const frameIndex = Math.min(groupScoreFrames - 1, Math.max(0, Math.floor(audioTime / frameSeconds + 1e-9)));
+  const start = frameIndex * groupCount;
+  const scores = groupScores.slice(start, start + groupCount);
+  return { status: 'ok', videoTime, audioTime, frameIndex, scores };
+}
+
 /** Build full-recording [0, duration] overview gunshot distribution columns using peak-preserving pyramid slices. */
 export function overviewDistributionColumns({
   wave = null,
@@ -194,6 +222,7 @@ export function overviewDistributionColumns({
   pad = 2,
   minBar = 1,
   threshold = DEFAULT_DISPLAY_THRESHOLD,
+  enabledGroups = null,
 }) {
   const count = Math.max(0, width);
   if (!(duration > 0) || !(count > 0)) return [];
@@ -201,6 +230,7 @@ export function overviewDistributionColumns({
   const scoreCols = groupScoreColumns(scoreData, 0, duration, count);
   const usableHeight = Math.max(0, canvasHeight - pad);
   const minGunshotPx = Math.max(2, Math.round(minBar) * 2);
+  const gunshotEnabled = isGroupEnabled(enabledGroups, DISPLAY_GROUPS[0].id);
 
   return Array.from({ length: count }, (_, x) => {
     const peak = peaks[x];
@@ -211,7 +241,7 @@ export function overviewDistributionColumns({
     const waveHeight = peak === null ? 0 : Math.max(minBar, Math.round(Math.sqrt(peak) * usableHeight));
     const waveTop = peak === null ? null : canvasHeight - waveHeight;
     const gunshotScore = scores ? scores[0] : 0;
-    const gunshotActive = gunshotScore >= threshold;
+    const gunshotActive = gunshotEnabled && gunshotScore >= threshold;
     const gunshotHeight = gunshotActive
       ? Math.min(usableHeight, Math.max(minGunshotPx, Math.round(gunshotScore * usableHeight)))
       : 0;

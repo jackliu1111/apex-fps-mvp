@@ -1,6 +1,6 @@
 import { createSelectionEvidence } from './selection-evidence.mjs';
 import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
-import { layeredWaveColumns, overviewDistributionColumns } from './waveform-layers.mjs';
+import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime, layeredWaveColumns, overviewDistributionColumns } from './waveform-layers.mjs';
 import { getLang, t } from './i18n.js';
 
 export function selectionWindow(duration, { start, end }) {
@@ -22,6 +22,67 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   let overviewTarget = null;
   let displayLow = 0, displayHigh = 1, targetLow = 0, targetHigh = 1, transition = null;
   let latestEvidenceStatus = '', evidenceProvisional = false;
+  const enabledGroups = new Set(DISPLAY_GROUPS.map((group) => group.id));
+  const groupButtons = new Map();
+  let groupToggleLang = null;
+  const hoverScoreRows = new Map();
+  let hoverStatusNode = null;
+  let hoverScoresLang = null;
+  const enabledGroupsKey = () => DISPLAY_GROUPS.map((group) => (enabledGroups.has(group.id) ? '1' : '0')).join('');
+  const syncGroupToggles = () => {
+    const host = $('waveform-group-toggles');
+    if (!host) return;
+    if (host.getAttribute('role') !== 'group') host.setAttribute('role', 'group');
+    const lang = getLang();
+    const aria = t('group_toggles_aria');
+    if (host.getAttribute('aria-label') !== aria) host.setAttribute('aria-label', aria);
+    if (groupButtons.size === 0 || host.children.length !== DISPLAY_GROUPS.length) {
+      groupButtons.clear();
+      const buttons = DISPLAY_GROUPS.map((group) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'group-toggle';
+        button.dataset.groupId = group.id;
+        const swatch = document.createElement('span');
+        swatch.className = 'group-swatch';
+        swatch.setAttribute('aria-hidden', 'true');
+        swatch.style.backgroundColor = group.color;
+        const label = document.createElement('span');
+        label.className = 'group-toggle-label';
+        button.replaceChildren(swatch, label);
+        button.onclick = () => {
+          if (enabledGroups.has(group.id)) enabledGroups.delete(group.id);
+          else enabledGroups.add(group.id);
+          syncGroupToggles();
+          const current = getSource();
+          if (current) {
+            const [low, high] = visibleBounds(current);
+            paintOverviewDistribution(current);
+            paintWaveform(current, low, high);
+          }
+        };
+        groupButtons.set(group.id, { button, label });
+        return button;
+      });
+      host.replaceChildren(...buttons);
+      groupToggleLang = null;
+    }
+    const langChanged = groupToggleLang !== lang;
+    groupToggleLang = lang;
+    for (const group of DISPLAY_GROUPS) {
+      const entry = groupButtons.get(group.id);
+      if (!entry) continue;
+      const pressed = String(enabledGroups.has(group.id));
+      if (entry.button.getAttribute('aria-pressed') !== pressed) {
+        entry.button.setAttribute('aria-pressed', pressed);
+      }
+      if (langChanged || !entry.label.textContent) {
+        const name = t(group.i18nKey);
+        entry.label.textContent = name;
+        entry.button.title = t('group_toggle_title', { group: name });
+      }
+    }
+  };
   const resolveWaveColor = (canvas) => {
     if (cachedWaveColor) return cachedWaveColor;
     cachedWaveColor = typeof getComputedStyle === 'function' && canvas
@@ -83,7 +144,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const groupFrames = scoreData?.groupScoreFrames ?? 0;
     const audioOffset = scoreData?.audioOffset ?? 0;
     const analysisStarted = record?.analysisStarted ?? 0;
-    const renderKey = `${source.id}:${source.duration}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    const gunshotEnabled = enabledGroups.has(DISPLAY_GROUPS[0].id);
+    const renderKey = `${source.id}:${source.duration}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${gunshotEnabled}:${pixelWidth}:${pixelHeight}:${waveColor}`;
     if (overviewWaveKey !== renderKey) {
       overviewWaveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -96,6 +158,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
         canvasHeight: canvas.height,
         pad,
         minBar,
+        enabledGroups,
       });
       context.fillStyle = waveColor;
       context.globalAlpha = 0.35;
@@ -129,7 +192,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const groupFrames = scoreData?.groupScoreFrames ?? 0;
     const audioOffset = scoreData?.audioOffset ?? 0;
     const analysisStarted = record?.analysisStarted ?? 0;
-    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${low}:${high}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${enabledGroupsKey()}:${low}:${high}:${pixelWidth}:${pixelHeight}:${waveColor}`;
     if (waveKey !== renderKey) {
       waveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
@@ -143,6 +206,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
         canvasHeight: canvas.height,
         pad,
         minBar,
+        enabledGroups,
       });
       // Base opaque neutral waveform contour first so unanalyzed gaps stay blank and amplitude silhouette stays intact.
       context.globalAlpha = 1;
@@ -376,11 +440,14 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   } });
   const run = (fn) => { try { Promise.resolve(fn()).catch(report); } catch (error) { report(error); } };
   function render(source) {
+    syncGroupToggles();
     if (!source) return;
     const [low, high] = windowFor(source);
     if (sourceId !== source.id) {
       stopTransition(false);
       drag = null; overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; sourceId = source.id;
+      frames = [];
+      if ($('source-filmstrip') && !$('source-filmstrip').dataset.previewFrames) $('source-filmstrip').replaceChildren();
       displayLow = targetLow = low; displayHigh = targetHigh = high;
     } else if (Math.abs(low - targetLow) > 1e-5 || Math.abs(high - targetHigh) > 1e-5) {
       const fromLow = transition ? displayLow : targetLow;
@@ -507,7 +574,9 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   };
   const xTime = (event, source) => {
     const box = axis.getBoundingClientRect(), [low, high] = windowFor(source);
-    return low + Math.max(0, Math.min(1, (event.clientX - box.x) / box.width)) * (high - low);
+    const left = box.x ?? box.left ?? 0;
+    const width = box.width > 0 ? box.width : 1;
+    return low + Math.max(0, Math.min(1, (event.clientX - left) / width)) * (high - low);
   };
   const bounded = (clip, key, value) => key === 'start'
     ? Math.max(0, Math.min(clip.end - 0.1, value))
@@ -517,6 +586,58 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const strip = $('source-filmstrip');
     if (!strip) return [];
     return [...strip.children].map((img) => ({ time: Number(img.dataset?.time || 0), image: img.src })).filter((item) => item.image);
+  };
+  const updateHoverScores = (scoreInfo) => {
+    const container = $('source-hover-scores');
+    if (!container) return;
+    if (hoverScoreRows.size === 0 || !container.children.length) {
+      hoverScoreRows.clear();
+      const rows = DISPLAY_GROUPS.map((group) => {
+        const row = document.createElement('div');
+        row.className = 'hover-score-row';
+        row.dataset.groupId = group.id;
+        const swatch = document.createElement('i');
+        swatch.className = 'hover-score-swatch';
+        swatch.setAttribute('aria-hidden', 'true');
+        swatch.style.backgroundColor = group.color;
+        const name = document.createElement('b');
+        name.className = 'hover-score-name';
+        const val = document.createElement('data');
+        val.className = 'hover-score-value';
+        row.replaceChildren(swatch, name, val);
+        hoverScoreRows.set(group.id, { row, name, val });
+        return row;
+      });
+      hoverStatusNode = document.createElement('div');
+      hoverStatusNode.className = 'hover-score-status';
+      container.replaceChildren(...rows, hoverStatusNode);
+      hoverScoresLang = null;
+    }
+    const lang = getLang();
+    const langChanged = hoverScoresLang !== lang;
+    hoverScoresLang = lang;
+    const ok = scoreInfo.status === 'ok' && scoreInfo.scores;
+    DISPLAY_GROUPS.forEach((group, idx) => {
+      const entry = hoverScoreRows.get(group.id);
+      if (!entry) return;
+      if (langChanged || !entry.name.textContent) entry.name.textContent = t(group.i18nKey);
+      entry.row.dataset.enabled = String(enabledGroups.has(group.id));
+      if (ok) {
+        const raw = scoreInfo.scores[idx] ?? 0;
+        entry.row.dataset.active = String(raw >= DEFAULT_DISPLAY_THRESHOLD);
+        entry.val.value = raw.toFixed(4);
+        entry.val.textContent = raw.toFixed(2);
+      } else {
+        entry.row.dataset.active = 'false';
+        entry.val.value = '';
+        entry.val.textContent = '—';
+      }
+    });
+    if (hoverStatusNode) {
+      hoverStatusNode.textContent = ok
+        ? ''
+        : t(scoreInfo.status === 'out-of-range' ? 'hover_scores_out_of_range' : 'hover_scores_unanalyzed');
+    }
   };
   axis.onpointerdown = (event) => run(() => {
     if (event.button !== 0 || drag) return;
@@ -537,6 +658,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   axis.onpointermove = (event) => {
     const source = getSource(); if (!source) return;
     if (drag) {
+      $('source-hover').hidden = true;
       if (drag.pointer !== event.pointerId) return;
       const value = xTime(event, source);
       if (drag.kind === 'head') drag.position = value;
@@ -545,16 +667,47 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       }
       paintSelection(source); return;
     }
+    if (overviewDrag || !(source.duration > 0)) {
+      $('source-hover').hidden = true;
+      return;
+    }
+    const axisBox = axis.getBoundingClientRect?.();
+    if (!axisBox || !(axisBox.width > 0)) return;
+    const target = xTime(event, source);
+    const [low, high] = windowFor(source);
+    const decimals = spanDecimals(high - low);
     const availableFrames = hoverFrames();
-    if (!availableFrames.length) return;
-    const target = xTime(event, source), frame = availableFrames.reduce((best, next) => Math.abs(next.time - target) < Math.abs(best.time - target) ? next : best);
-    const hostBox = $('selection-player-axis').getBoundingClientRect(), hoverWidth = $('source-hover').offsetWidth || 180;
-    const hoverLeft = Math.max(16, Math.min(Math.max(16, hostBox.width - hoverWidth - 16), event.clientX - hostBox.left - hoverWidth / 2));
-    $('source-hover').style.left = `${hoverLeft}px`;
-    $('source-hover').style.right = 'auto';
-    $('source-hover').hidden = false;
-    $('source-hover').querySelector('img').src = frame.image;
-    $('source-hover').querySelector('span').textContent = `${stamp(target)} · ${getLang() === 'zh' ? '原片参考画面' : 'Source preview frame'}`;
+    const frame = availableFrames.length
+      ? availableFrames.reduce((best, next) => Math.abs(next.time - target) < Math.abs(best.time - target) ? next : best)
+      : null;
+    const hover = $('source-hover');
+    const hostBox = $('selection-player-axis').getBoundingClientRect?.() || axisBox;
+    const hostLeft = hostBox.left ?? hostBox.x ?? 0;
+    const hoverWidth = hover.offsetWidth || 204;
+    const hoverLeft = Math.max(16, Math.min(Math.max(16, hostBox.width - hoverWidth - 16), event.clientX - hostLeft - hoverWidth / 2));
+    hover.style.left = `${hoverLeft}px`;
+    hover.style.right = 'auto';
+    hover.hidden = false;
+    hover.dataset.time = target.toFixed(3);
+    const hoverImg = $('source-hover-img') || hover.querySelector('img');
+    if (hoverImg) {
+      if (frame) {
+        hoverImg.hidden = false;
+        hoverImg.src = frame.image;
+        hoverImg.alt = t('hover_sample_alt');
+      } else {
+        hoverImg.hidden = true;
+        hoverImg.removeAttribute?.('src');
+      }
+    }
+    const hoverLabel = $('source-hover-label') || hover.querySelector('span');
+    if (hoverLabel) {
+      hoverLabel.textContent = `${stamp(target, decimals)} · ${frame ? t('hover_sample_text') : t('hover_no_frame')}`;
+    }
+    const lookupTime = target >= source.duration ? Math.max(0, source.duration - 1e-6) : target;
+    const scoreInfo = groupScoresAtTime(scoreDataFor(getRecord(source.id)), lookupTime);
+    hover.dataset.scoreStatus = scoreInfo.status;
+    updateHoverScores(scoreInfo);
   };
   axis.onpointerleave = () => { $('source-hover').hidden = true; };
   function finish(cancel = false) {
@@ -671,6 +824,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       });
     }
   };
+  syncGroupToggles();
   window.addEventListener('keydown', keydown);
   window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintOverviewDistribution(current); paintWaveform(current, low, high); } });
   return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; overviewWaveKey = null; cachedWaveColor = null; $('source-hover').hidden = true; } };
