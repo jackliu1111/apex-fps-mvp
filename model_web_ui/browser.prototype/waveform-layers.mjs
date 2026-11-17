@@ -1,9 +1,78 @@
 import { waveformColumns } from './audio-peaks.mjs';
 import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
+import { buildLevelDescriptors, propagatePyramidRange, selectPyramidLevel, visitPyramidRange } from './pyramid-cache.mjs';
 
 export const DEFAULT_DISPLAY_THRESHOLD = 0.2;
 
 const NON_GUNSHOT_ORDER = Object.freeze([1, 2, 3, 4]);
+
+/** Preallocate a session-only multi-resolution max pyramid over preallocated groupScores. */
+export function createGroupScorePyramid(groupScores, totalFrames, groupCount = DISPLAY_GROUPS.length, frameSeconds = 0.04) {
+  const descriptors = buildLevelDescriptors(totalFrames, frameSeconds);
+  const levels = descriptors.map((desc) => ({
+    ...desc,
+    scores: new Float32Array(desc.length * groupCount),
+  }));
+  return {
+    version: 1,
+    totalFrames,
+    analyzedFrames: 0,
+    groupCount,
+    frameSeconds,
+    baseScores: groupScores,
+    levels,
+  };
+}
+
+/** Incrementally propagate newly finalized frames [startFrame, startFrame + frameCount) up the pyramid. */
+export function updateGroupScorePyramid(pyramid, startFrame, frameCount) {
+  if (!pyramid || !(frameCount > 0)) return;
+  const endFrame = Math.min(pyramid.totalFrames, startFrame + frameCount);
+  pyramid.analyzedFrames = Math.max(pyramid.analyzedFrames, endFrame);
+  const { levels, groupCount, baseScores, totalFrames } = pyramid;
+  if (!levels?.length || !(endFrame > startFrame)) return;
+  propagatePyramidRange(levels.length, startFrame, endFrame, (idx, start, end) => {
+    const prev = idx === 0 ? baseScores : levels[idx - 1].scores;
+    const prevLen = idx === 0 ? totalFrames : levels[idx - 1].length;
+    const curr = levels[idx].scores;
+    const limit = Math.min(levels[idx].length, end);
+    for (let i = start; i < limit; i++) {
+      const a = i * 2 * groupCount;
+      const b = (i * 2 + 1) * groupCount;
+      const dst = i * groupCount;
+      if (i * 2 + 1 < prevLen) {
+        for (let g = 0; g < groupCount; g++) {
+          const va = prev[a + g];
+          const vb = prev[b + g];
+          curr[dst + g] = va > vb ? va : vb;
+        }
+      } else {
+        for (let g = 0; g < groupCount; g++) curr[dst + g] = prev[a + g];
+      }
+    }
+  });
+}
+
+/** Select the score pyramid zoom level matching secondsPerColumn. */
+export function selectScoreLevel(pyramid, secondsPerColumn) {
+  if (!pyramid) return null;
+  return selectPyramidLevel(pyramid.levels, pyramid.frameSeconds, pyramid.totalFrames, secondsPerColumn);
+}
+
+function mergeScoreSlot(arr, idx, groupCount, out) {
+  const base = idx * groupCount;
+  for (let g = 0; g < groupCount; g++) {
+    const value = arr[base + g];
+    if (value > out[g]) out[g] = value;
+  }
+}
+
+function queryGroupScoreRange(pyramid, groupScores, groupCount, firstFrame, lastFrame, out) {
+  const levels = pyramid?.baseScores === groupScores ? pyramid.levels : null;
+  visitPyramidRange(levels?.length || 0, firstFrame, lastFrame, (lvlIdx, index) => {
+    mergeScoreSlot(lvlIdx < 0 ? groupScores : levels[lvlIdx].scores, index, groupCount, out);
+  });
+}
 
 /** Project session frame-level display group scores onto video-time columns using per-column max preservation. */
 export function groupScoreColumns(scoreData, start, end, width) {
@@ -14,6 +83,7 @@ export function groupScoreColumns(scoreData, start, end, width) {
   const {
     groupScores,
     groupScoreFrames,
+    groupScorePyramid = null,
     groupCount = DISPLAY_GROUPS.length,
     frameSeconds = 0.04,
     audioOffset = 0,
@@ -37,13 +107,7 @@ export function groupScoreColumns(scoreData, start, end, width) {
     if (lastFrame <= firstFrame) continue;
 
     const columnMax = new Float32Array(groupCount);
-    for (let frame = firstFrame; frame < lastFrame; frame++) {
-      const base = frame * groupCount;
-      for (let g = 0; g < groupCount; g++) {
-        const value = groupScores[base + g];
-        if (value > columnMax[g]) columnMax[g] = value;
-      }
-    }
+    queryGroupScoreRange(groupScorePyramid, groupScores, groupCount, firstFrame, lastFrame, columnMax);
     columns[x] = columnMax;
   }
   return columns;
@@ -116,6 +180,48 @@ export function layeredWaveColumns({
       waveTop,
       waveHeight,
       layers,
+    };
+  });
+}
+
+/** Build full-recording [0, duration] overview gunshot distribution columns using peak-preserving pyramid slices. */
+export function overviewDistributionColumns({
+  wave = null,
+  scoreData = null,
+  duration,
+  width,
+  canvasHeight,
+  pad = 2,
+  minBar = 1,
+  threshold = DEFAULT_DISPLAY_THRESHOLD,
+}) {
+  const count = Math.max(0, width);
+  if (!(duration > 0) || !(count > 0)) return [];
+  const peaks = waveformColumns(wave, 0, duration, count);
+  const scoreCols = groupScoreColumns(scoreData, 0, duration, count);
+  const usableHeight = Math.max(0, canvasHeight - pad);
+  const minGunshotPx = Math.max(2, Math.round(minBar) * 2);
+
+  return Array.from({ length: count }, (_, x) => {
+    const peak = peaks[x];
+    const scores = scoreCols[x];
+    if (peak === null && !scores) {
+      return { state: 'unanalyzed', waveTop: null, waveHeight: 0, gunshotScore: 0, gunshotHeight: 0, gunshotY: null };
+    }
+    const waveHeight = peak === null ? 0 : Math.max(minBar, Math.round(Math.sqrt(peak) * usableHeight));
+    const waveTop = peak === null ? null : canvasHeight - waveHeight;
+    const gunshotScore = scores ? scores[0] : 0;
+    const gunshotActive = gunshotScore >= threshold;
+    const gunshotHeight = gunshotActive
+      ? Math.min(usableHeight, Math.max(minGunshotPx, Math.round(gunshotScore * usableHeight)))
+      : 0;
+    return {
+      state: gunshotActive ? 'active' : 'neutral',
+      waveTop,
+      waveHeight,
+      gunshotScore,
+      gunshotHeight,
+      gunshotY: gunshotActive ? canvasHeight - gunshotHeight : null,
     };
   });
 }

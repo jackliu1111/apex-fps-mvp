@@ -1,6 +1,6 @@
 import { createSelectionEvidence } from './selection-evidence.mjs';
 import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
-import { layeredWaveColumns } from './waveform-layers.mjs';
+import { layeredWaveColumns, overviewDistributionColumns } from './waveform-layers.mjs';
 import { getLang, t } from './i18n.js';
 
 export function selectionWindow(duration, { start, end }) {
@@ -13,15 +13,18 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   isActive = () => true, playPause, playRange, toggleMute, toggleFullscreen }) {
   const $ = (id) => document.getElementById(id);
   const axis = $('source-axis'), predictions = $('overview-markers');
-  const stamp = (t) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+  const stamp = (t, decimals = 1) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(decimals).padStart(decimals + 3, '0')}`;
+  const spanDecimals = (span) => (span < 0.5 ? 3 : span < 5 ? 2 : 1);
   const ZOOM_TRANSITION_MS = 220;
-  let sourceId, evidenceKey, waveKey, cachedWaveColor = null, overviewMarkerKey, frames = [], drag, overviewDrag;
+  const MIN_ZOOM_SPAN = 0.04;
+  let sourceId, evidenceKey, waveKey, overviewWaveKey, cachedWaveColor = null, overviewMarkerKey, markerRenderKey, frames = [], drag, overviewDrag;
+  let wavePaintCount = 0, overviewPaintCount = 0;
   let overviewTarget = null;
   let displayLow = 0, displayHigh = 1, targetLow = 0, targetHigh = 1, transition = null;
   let latestEvidenceStatus = '', evidenceProvisional = false;
   const resolveWaveColor = (canvas) => {
     if (cachedWaveColor) return cachedWaveColor;
-    cachedWaveColor = typeof getComputedStyle === 'function'
+    cachedWaveColor = typeof getComputedStyle === 'function' && canvas
       ? (getComputedStyle(canvas).getPropertyValue('--wave-bar').trim() || '#7b8391')
       : '#7b8391';
     return cachedWaveColor;
@@ -34,7 +37,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   };
   const ticks = (node, low, high) => {
     if (!node) return;
-    const value = [0, 0.5, 1].map((ratio) => stamp(low + ratio * (high - low)));
+    const decimals = spanDecimals(high - low);
+    const value = [0, 0.5, 1].map((ratio) => stamp(low + ratio * (high - low), decimals));
     if (node.textContent === value.join('')) return;
     node.replaceChildren(...value.map((text) => { const span = document.createElement('span'); span.textContent = text; return span; }));
   };
@@ -43,29 +47,85 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (strip) strip.dataset.provisional = String(!!(evidenceProvisional || transition));
     $('selection-player-axis').dataset.evidenceStatus = latestEvidenceStatus;
   }
+  function ensureCanvasSize(canvas, fallbackWidth, fallbackHeight) {
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || fallbackWidth));
+    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || fallbackHeight));
+    const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
+    const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    return { dpr, pixelWidth, pixelHeight };
+  }
+  function scoreDataFor(record) {
+    if (!record?.groupScores || !(record.groupScoreFrames > 0)) return null;
+    return {
+      groupScores: record.groupScores,
+      groupScoreFrames: record.groupScoreFrames,
+      groupScorePyramid: record.groupScorePyramid || null,
+      groupCount: record.groupCount || DISPLAY_GROUPS.length,
+      frameSeconds: record.frameSeconds || 0.04,
+      audioOffset: record.audioOffset ?? 0,
+      audioDuration: record.audioDuration ?? record.duration,
+    };
+  }
+  function paintOverviewDistribution(source) {
+    if (!source || !(source.duration > 0)) return;
+    const canvas = $('player-overview-distribution');
+    if (!canvas) return;
+    const context = canvas.getContext?.('2d');
+    if (!context) return;
+    const { dpr, pixelWidth, pixelHeight } = ensureCanvasSize(canvas, 1200, 16);
+    const waveColor = resolveWaveColor($('prediction-wave') || canvas);
+    const wave = source.waveform;
+    const record = getRecord(source.id);
+    const scoreData = scoreDataFor(record);
+    const groupFrames = scoreData?.groupScoreFrames ?? 0;
+    const audioOffset = scoreData?.audioOffset ?? 0;
+    const analysisStarted = record?.analysisStarted ?? 0;
+    const renderKey = `${source.id}:${source.duration}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    if (overviewWaveKey !== renderKey) {
+      overviewWaveKey = renderKey;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      const pad = Math.round(2 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const columns = overviewDistributionColumns({
+        wave,
+        scoreData,
+        duration: source.duration,
+        width: canvas.width,
+        canvasHeight: canvas.height,
+        pad,
+        minBar,
+      });
+      context.fillStyle = waveColor;
+      context.globalAlpha = 0.35;
+      for (let x = 0; x < columns.length; x++) {
+        const col = columns[x];
+        if (col.waveHeight > 0) context.fillRect(x, col.waveTop, 1, col.waveHeight);
+      }
+      const gunshot = DISPLAY_GROUPS[0];
+      context.fillStyle = gunshot.color;
+      context.globalAlpha = 0.92;
+      for (let x = 0; x < columns.length; x++) {
+        const col = columns[x];
+        if (col.gunshotHeight > 0) context.fillRect(x, col.gunshotY, 1, col.gunshotHeight);
+      }
+      context.globalAlpha = 1;
+      canvas.dataset.paintCount = String(++overviewPaintCount);
+    }
+    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
+    canvas.dataset.groupScoreFrames = String(groupFrames);
+  }
   function paintWaveform(source, low, high) {
     if (!source) return;
     const wave = source.waveform;
     const canvas = $('prediction-wave');
     if (!canvas) return;
     const context = canvas.getContext('2d');
-    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || 1200));
-    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || 68));
-    const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
-    const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
-    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
-    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    const { dpr, pixelWidth, pixelHeight } = ensureCanvasSize(canvas, 1200, 68);
     const waveColor = resolveWaveColor(canvas);
     const record = getRecord(source.id);
-    const scoreData = record?.groupScores && record.groupScoreFrames > 0 ? {
-      groupScores: record.groupScores,
-      groupScoreFrames: record.groupScoreFrames,
-      groupCount: record.groupCount || DISPLAY_GROUPS.length,
-      frameSeconds: record.frameSeconds || 0.04,
-      audioOffset: record.audioOffset ?? 0,
-      audioDuration: record.audioDuration ?? record.duration,
-    } : null;
+    const scoreData = scoreDataFor(record);
     const groupFrames = scoreData?.groupScoreFrames ?? 0;
     const audioOffset = scoreData?.audioOffset ?? 0;
     const analysisStarted = record?.analysisStarted ?? 0;
@@ -108,6 +168,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
         }
       }
       context.globalAlpha = 1;
+      canvas.dataset.paintCount = String(++wavePaintCount);
     }
     canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
     canvas.dataset.groupScoreFrames = String(groupFrames);
@@ -121,6 +182,9 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       .map((clip) => ({ ...clip, label: clip.excluded ? (isZh ? '恢复' : 'Restore') : String(++number) }))
       .filter((clip) => !clip.excluded || showExcluded);
     const visible = items.filter((item) => item.start < high && item.end > low);
+    const nextMarkerKey = `${source.id}:${low}:${high}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
+    if (markerRenderKey === nextMarkerKey) return;
+    markerRenderKey = nextMarkerKey;
     const ids = new Set(visible.map((item) => item.id));
     for (const node of [...predictions.children]) {
       if (!ids.has(node.dataset.clipId)) {
@@ -165,13 +229,14 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const [low, high] = visibleBounds(source);
     const spanWindow = Math.max(1e-6, high - low);
     const percent = (t) => (t - low) / spanWindow * 100;
-    const targetZoomed = canonicalLow > 1e-3 || canonicalHigh < source.duration - 1e-3;
+    const targetZoomed = canonicalLow > 1e-5 || canonicalHigh < source.duration - 1e-5;
     const isZh = getLang() === 'zh';
+    const decimals = spanDecimals(high - low);
     const scopeLabel = targetZoomed
-      ? (isZh ? `局部 ${stamp(low)}—${stamp(high)}` : `${stamp(low)}—${stamp(high)}`)
+      ? (isZh ? `局部 ${stamp(low, decimals)}—${stamp(high, decimals)}` : `${stamp(low, decimals)}—${stamp(high, decimals)}`)
       : (isZh ? '全片视野' : 'Full view');
     const canonicalScopeLabel = targetZoomed
-      ? `局部视野 · ${stamp(low)} — ${stamp(high)}`
+      ? `局部视野 · ${stamp(low, decimals)} — ${stamp(high, decimals)}`
       : '全片视野';
     $('selection-player-axis').dataset.zoomed = String(targetZoomed);
     $('selection-player-axis').dataset.scopeLabel = canonicalScopeLabel;
@@ -243,6 +308,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   function paintTrack(source) {
     const [low, high] = visibleBounds(source);
     paintSelection(source);
+    paintOverviewDistribution(source);
     paintWaveform(source, low, high);
     paintMarkers(source, low, high);
     ticks($('source-ticks'), low, high);
@@ -314,9 +380,9 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const [low, high] = windowFor(source);
     if (sourceId !== source.id) {
       stopTransition(false);
-      drag = null; overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; sourceId = source.id;
+      drag = null; overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; sourceId = source.id;
       displayLow = targetLow = low; displayHigh = targetHigh = high;
-    } else if (Math.abs(low - targetLow) > 1e-3 || Math.abs(high - targetHigh) > 1e-3) {
+    } else if (Math.abs(low - targetLow) > 1e-5 || Math.abs(high - targetHigh) > 1e-5) {
       const fromLow = transition ? displayLow : targetLow;
       const fromHigh = transition ? displayHigh : targetHigh;
       targetLow = low; targetHigh = high;
@@ -347,10 +413,10 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
             ? t('wave_status_fallback_loading', { track: trackNumber, outputTrack: outputTrackNumber })
             : t('wave_status_loading');
     }
-    const fullView = low <= 1e-6 && high >= source.duration - 1e-6;
+    const fullView = low <= 1e-5 && high >= source.duration - 1e-5;
     if ($('source-fit')) $('source-fit').disabled = fullView;
     if ($('prediction-zoom-out')) $('prediction-zoom-out').disabled = fullView;
-    if ($('prediction-zoom')) $('prediction-zoom').disabled = high - low <= Math.min(source.duration, 1) + 1e-6;
+    if ($('prediction-zoom')) $('prediction-zoom').disabled = high - low <= Math.min(source.duration, MIN_ZOOM_SPAN) + 1e-6;
     const key = `${source.id}:${!!record}:${low}:${high}`;
     if (evidenceKey !== key) { evidenceKey = key; evidence.request(record, low, high); }
     if ($('exclude-selection')) $('exclude-selection').disabled = !clipFor(source);
@@ -363,7 +429,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const source = getSource();
     if (!source) return;
     const [low, high] = windowFor(source);
-    const minSpan = Math.min(source.duration, 1);
+    const minSpan = Math.min(source.duration, MIN_ZOOM_SPAN);
     const newSpan = Math.max(minSpan, Math.min(source.duration, (high - low) * factor));
     const clip = clipFor(source);
     const center = clip ? (clip.start + clip.end) / 2 : (low + high) / 2;
@@ -525,7 +591,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       event.preventDefault();
       if (!event.deltaY) return;
       const factor = Math.max(0.5, Math.min(2.0, 1 + event.deltaY * 0.002));
-      const minSpan = Math.min(duration, 1);
+      const minSpan = Math.min(duration, MIN_ZOOM_SPAN);
       const newSpan = Math.max(minSpan, Math.min(duration, span * factor));
       const newLow = Math.max(0, Math.min(duration - newSpan, anchorTime - ratio * newSpan));
       onUpdate(newLow, newLow + newSpan);
@@ -559,7 +625,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (drag) { event.preventDefault(); finish(true); return; }
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         const [low, high] = windowFor(source);
-        if (low > 1e-3 || high < source.duration - 1e-3) {
+        if (low > 1e-5 || high < source.duration - 1e-5) {
           event.preventDefault();
           if (!event.repeat) run(exit);
           return;
@@ -606,6 +672,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     }
   };
   window.addEventListener('keydown', keydown);
-  window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintWaveform(current, low, high); } });
-  return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; cachedWaveColor = null; $('source-hover').hidden = true; } };
+  window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintOverviewDistribution(current); paintWaveform(current, low, high); } });
+  return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; overviewWaveKey = null; cachedWaveColor = null; $('source-hover').hidden = true; } };
 }

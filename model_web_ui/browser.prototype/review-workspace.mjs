@@ -8,7 +8,7 @@ const sameRange = (a, b) => a.start === b.start && a.end === b.end;
 const choiceKey = (clip) => clip.manual ? clip.id : `${clip.start}:${clip.end}`;
 const ordered = (clips) => clips.sort((a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id));
 const freeze = (value) => {
-  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+  if (value && typeof value === 'object' && !ArrayBuffer.isView(value) && !Object.isFrozen(value)) {
     Object.values(value).forEach(freeze);
     Object.freeze(value);
   }
