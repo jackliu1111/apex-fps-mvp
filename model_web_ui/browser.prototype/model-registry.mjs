@@ -84,6 +84,8 @@ function normalizeModelSpec(id, raw) {
     scoreType,
     inputName: raw.inputName,
     inputShape: Object.freeze([...raw.inputShape]),
+    ...(typeof raw.outputName === 'string' && raw.outputName ? { outputName: raw.outputName } : {}),
+    ...(Array.isArray(raw.outputShape) && raw.outputShape.length ? { outputShape: Object.freeze([...raw.outputShape]) } : {}),
     gunshotClasses,
   });
 }

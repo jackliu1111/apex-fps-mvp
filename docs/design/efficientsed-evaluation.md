@@ -66,7 +66,7 @@
   - **选区配合调整**：全片概览条选中高亮 `#player-overview-markers > span[data-active="true"]` 使用 `rgba(59, 130, 246, 0.24)` 与 `#3b82f6` 边框，主时间轴 `#selection-overlay` 下边框收敛为 `1px solid rgba(59, 130, 246, 0.55)`（上边框保持 `2px` `#60a5fa`），保证红色枪声指示不被遮挡。
 - **显示阈值截断方式**：采用硬阈值截断 **`score >= 0.2`（`DEFAULT_DISPLAY_THRESHOLD = 0.2`）**。低于 `0.2` 的帧不绘制彩色叠层，保持中性灰 `#7b8391` 轮廓以防止低分微弱噪声把整条波形染成杂色；鼠标悬停 `#source-hover` 始终通过 `groupScoresAtTime` 展示包括 `< 0.2` 在内的 5 组原始分数。
 - **低振幅区枪声最小外缘厚度（实测拍板）**：经低振幅（`peak = 0.0005`、`waveHeight = 1–2 px`）与选区遮罩叠加截图对照，无保底厚度时 `1 px` 枪声会被选区底边完全淹没。现已固化 **`DEFAULT_MIN_GUNSHOT_PX = 4`（`4 CSS px`，按 `dpr` 缩放）**：当 `waveHeight < 4 CSS px` 且枪声 `>= 0.2` 时，自基线向上维持 `4 CSS px` 顶边指示；正常振幅（`waveHeight >= 4 CSS px`）仍按 `round(score * waveHeight)` 自波形顶缘 `waveTop` 向下绘制。
-- **Q7 极短断点连接参数（纯展示层）**：固化 **`DEFAULT_GAP_BRIDGE_MS = 80`（即 40 ms 帧率下最多 `2` 帧的同组内部凹陷）**。仅当同组在 `<= 80 ms` 内部低谷两侧均存在 `>= 0.2` 的激活帧时，在展示投影层以两侧边缘帧较低分数（`min(leftScore, rightScore)`）平滑连接，采用 `O(width)` 邻域有界查表，不在缩放/平移时扫描全片。**孤立短事件外边界绝不延长**，且绝不修改 `record.groupScores`、`record.scores`、`record.groupScorePyramid`、`record.candidates`、`groupScoresAtTime` 原始悬停读数、人工复核决定或导出批次。
+- **Q7 极短断点连接参数（纯展示层）**：固化 **`DEFAULT_GAP_BRIDGE_MS = 80`（即 40 ms 帧率下最多 `2` 帧的同组内部凹陷）**。仅当同组在 `<= 80 ms` 内部低谷两侧均存在 `>= 0.2` 的激活帧时，在展示投影层以两侧边缘帧较低分数（`min(leftScore, rightScore)`）平滑连接，采用 `O(width)` 邻域有界查表，不在缩放/平移时扫描全片。**孤立短事件外边界绝不延长**，且绝不修改 `record.scoreTimeline.groupScores`、`record.scores`、`record.scoreTimeline.groupScorePyramid`、`record.candidates`、`groupScoresAtTime` 原始悬停读数、人工复核决定或导出批次。
 
 ### 修订后的展示方案（主分支实施摘要）
 
@@ -77,8 +77,8 @@
 ### 验证范围与未验证边界（如实记录）
 
 - **已验证范围**：
-  - 全部 118 项 Node 单元测试与 6 项 Python 单元测试通过，覆盖 `FrameOverlap` 重叠平均、5 组归约、金字塔增量化与 45 分钟 `O(width log N)` 延迟、负/正 `audioOffset`、Q7 `<= 80 ms` 展示连接与外边界不延长、低振幅 `4 px` 顶边指示、`>= 0.2` 截断、开关与悬停隔离。
-  - 无头 Chrome CDP 全链路验收通过（`sample-combat.mp4`，`1440×900` / `1280×800` 零滚动、`768×900` 零横向溢出）：覆盖导入、EfficientSED 单次解码推理（`decoderPasses === 1`）、金字塔缩放平移（概览不重绘、寻道波形像素不变）、5 组开关隔离、悬停原始读数、选片裁边/保留/排除撤销、OPFS 替换系统目录接口后的真实 MP4 导出读回及刷新会话清空，零 `pageErrors`。
+  - 全部 122 项 Node 单元测试（含 `tests/efficientsed-frontend.test.mjs` 对 `createSedFrontend` 的确定性单测及 `ASSETS_DIR` 下的 `reference-mel.f32` 数值对照）与 6 项 Python 单元测试通过，覆盖 `FrameOverlap` 重叠平均、自定义注册模型经 Worker 边界序列化、5 组归约与 `scoreTimeline`、金字塔增量化与 45 分钟 `O(width log N)` 延迟、负/正 `audioOffset`、Q7 `<= 80 ms` 展示连接与外边界不延长、低振幅 `4 px` 顶边指示、`>= 0.2` 截断、开关与悬停隔离。
+  - 已提交端到端回归脚本 `model_web_ui/browser.prototype/tests/verify-efficientsed-timeline.cjs`（支持 Playwright 与 CDP 驱动），在真实样本 `sample-combat.mp4` 与合成媒体 `SYNTHETIC=1` 下通过（`1440×900` / `1280×800` 零滚动、`768×900` 零横向溢出）：覆盖 `reference-waveform.f32` 与 PyTorch 概率对照（`maxError < 1e-4`）、自定义注册模型经真实 `inference-worker.js` 推理、EfficientSED 默认单次解码（`decoderPasses === 1`）、`#player-overview-distribution` 与 5 组分层画布渲染、40 ms 金字塔缩放平移及播放/寻道 `toDataURL()` 不变性、`#waveform-group-toggles` 隔离、`#source-hover` 原始读数、裁边/排除与 OPFS 目录导出读回及刷新会话清空，零 `pageErrors`。
   - 真实 Apex 战斗样本与合成低振幅/短点射/五组并发重叠的浏览器渲染截图已完成视觉审查，确认低振幅与 40 ms 孤立枪声可辨性。
 - **未验证边界（保持透明）**：
   - **未建立人工标注真值集前，不宣称任何 Apex 识别准确率、召回率或 F1 指标。**

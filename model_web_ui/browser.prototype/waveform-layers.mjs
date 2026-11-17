@@ -1,6 +1,6 @@
 import { waveformColumns } from './audio-peaks.mjs';
 import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
-import { buildLevelDescriptors, propagatePyramidRange, selectPyramidLevel, visitPyramidRange } from './pyramid-cache.mjs';
+import { buildLevelDescriptors, propagatePyramidRange, visitPyramidRange } from './pyramid-cache.mjs';
 
 export const DEFAULT_DISPLAY_THRESHOLD = 0.2;
 export const DEFAULT_GAP_BRIDGE_MS = 80;
@@ -55,12 +55,6 @@ export function updateGroupScorePyramid(pyramid, startFrame, frameCount) {
   });
 }
 
-/** Select the score pyramid zoom level matching secondsPerColumn. */
-export function selectScoreLevel(pyramid, secondsPerColumn) {
-  if (!pyramid) return null;
-  return selectPyramidLevel(pyramid.levels, pyramid.frameSeconds, pyramid.totalFrames, secondsPerColumn);
-}
-
 function mergeScoreSlot(arr, idx, groupCount, out) {
   const base = idx * groupCount;
   for (let g = 0; g < groupCount; g++) {
@@ -100,20 +94,35 @@ function bridgedGapScore(groupScores, groupCount, maxSearchFrame, firstFrame, la
   return 0;
 }
 
-function projectGroupColumns(scoreData, start, end, width, { threshold = DEFAULT_DISPLAY_THRESHOLD, gapBridgeMs = 0 } = {}) {
+function normalizeScoreTimeline(scoreTimeline) {
+  if (!scoreTimeline?.groupScores || !(scoreTimeline.groupScoreFrames > 0)) return null;
+  return {
+    groupScores: scoreTimeline.groupScores,
+    groupScoreFrames: scoreTimeline.groupScoreFrames,
+    groupScorePyramid: scoreTimeline.groupScorePyramid || null,
+    groupCount: scoreTimeline.groupCount || DISPLAY_GROUPS.length,
+    frameSeconds: scoreTimeline.frameSeconds || 0.04,
+    audioOffset: scoreTimeline.audioOffset ?? 0,
+    audioDuration: scoreTimeline.audioDuration,
+  };
+}
+
+/** Project session frame-level display group scores onto video-time columns using per-column max preservation. */
+export function groupScoreColumns(scoreTimeline, start, end, width, { threshold = DEFAULT_DISPLAY_THRESHOLD, gapBridgeMs = 0 } = {}) {
   const columns = new Array(Math.max(0, width)).fill(null);
-  if (!scoreData || !scoreData.groupScores || !(scoreData.groupScoreFrames > 0) || !(end > start) || !(width > 0)) {
+  const timeline = normalizeScoreTimeline(scoreTimeline);
+  if (!timeline || !(end > start) || !(width > 0)) {
     return columns;
   }
   const {
     groupScores,
     groupScoreFrames,
-    groupScorePyramid = null,
-    groupCount = DISPLAY_GROUPS.length,
-    frameSeconds = 0.04,
-    audioOffset = 0,
+    groupScorePyramid,
+    groupCount,
+    frameSeconds,
+    audioOffset,
     audioDuration,
-  } = scoreData;
+  } = timeline;
   const maxAudio = groupScoreFrames * frameSeconds;
   const audioLimit = Number.isFinite(audioDuration) ? Math.min(audioDuration, maxAudio) : maxAudio;
   const maxSearchFrame = Math.min(groupScoreFrames, Math.ceil(audioLimit / frameSeconds - 1e-9));
@@ -148,11 +157,6 @@ function projectGroupColumns(scoreData, start, end, width, { threshold = DEFAULT
   return columns;
 }
 
-/** Project session frame-level display group scores onto video-time columns using per-column max preservation. */
-export function groupScoreColumns(scoreData, start, end, width) {
-  return projectGroupColumns(scoreData, start, end, width);
-}
-
 function isGroupEnabled(enabledGroups, groupId) {
   if (!enabledGroups) return true;
   if (typeof enabledGroups.has === 'function') return enabledGroups.has(groupId);
@@ -179,7 +183,7 @@ function independentLayer(group, score, waveHeight, waveTop, canvasHeight, usabl
 /** Build per-column waveform contours and non-softmax independent foreground layers across the 3 display states. */
 export function layeredWaveColumns({
   wave,
-  scoreData = null,
+  scoreTimeline = null,
   start,
   end,
   width,
@@ -192,7 +196,7 @@ export function layeredWaveColumns({
   enabledGroups = null,
 }) {
   const peaks = waveformColumns(wave, start, end, width);
-  const scoreCols = projectGroupColumns(scoreData, start, end, width, { threshold, gapBridgeMs });
+  const scoreCols = groupScoreColumns(scoreTimeline, start, end, width, { threshold, gapBridgeMs });
   const usableHeight = Math.max(0, canvasHeight - pad);
   const minOverlayPx = Math.max(1, Math.round(minBar));
 
@@ -230,18 +234,19 @@ export function layeredWaveColumns({
 }
 
 /** Look up raw 5-group prediction scores at a source video timestamp using audioOffset without threshold filtering. */
-export function groupScoresAtTime(scoreData, videoTime) {
-  if (!scoreData || !scoreData.groupScores || !(scoreData.groupScoreFrames > 0) || !Number.isFinite(videoTime)) {
+export function groupScoresAtTime(scoreTimeline, videoTime) {
+  const timeline = normalizeScoreTimeline(scoreTimeline);
+  if (!timeline || !Number.isFinite(videoTime)) {
     return { status: 'unanalyzed', videoTime, audioTime: null, frameIndex: null, scores: null };
   }
   const {
     groupScores,
     groupScoreFrames,
-    groupCount = DISPLAY_GROUPS.length,
-    frameSeconds = 0.04,
-    audioOffset = 0,
+    groupCount,
+    frameSeconds,
+    audioOffset,
     audioDuration,
-  } = scoreData;
+  } = timeline;
   const audioTime = videoTime - audioOffset;
   const maxAnalyzedAudio = groupScoreFrames * frameSeconds;
   const limit = Number.isFinite(audioDuration) ? audioDuration : maxAnalyzedAudio;
@@ -260,7 +265,7 @@ export function groupScoresAtTime(scoreData, videoTime) {
 /** Build full-recording [0, duration] overview gunshot distribution columns using peak-preserving pyramid slices. */
 export function overviewDistributionColumns({
   wave = null,
-  scoreData = null,
+  scoreTimeline = null,
   duration,
   width,
   canvasHeight,
@@ -273,7 +278,7 @@ export function overviewDistributionColumns({
   const count = Math.max(0, width);
   if (!(duration > 0) || !(count > 0)) return [];
   const peaks = waveformColumns(wave, 0, duration, count);
-  const scoreCols = projectGroupColumns(scoreData, 0, duration, count, { threshold, gapBridgeMs });
+  const scoreCols = groupScoreColumns(scoreTimeline, 0, duration, count, { threshold, gapBridgeMs });
   const usableHeight = Math.max(0, canvasHeight - pad);
   const minGunshotPx = Math.max(2, Math.round(minBar) * 2);
   const gunshotEnabled = isGroupEnabled(enabledGroups, DISPLAY_GROUPS[0].id);

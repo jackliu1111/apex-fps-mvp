@@ -8,7 +8,6 @@ import {
   DEFAULT_MIN_GUNSHOT_PX,
   createGroupScorePyramid,
   updateGroupScorePyramid,
-  selectScoreLevel,
   groupScoreColumns,
   layeredWaveColumns,
   overviewDistributionColumns,
@@ -120,7 +119,7 @@ test('layeredWaveColumns computes sqrt(peak) contour, 3 visual states, top-down 
   const base = { wave, start: 0, end: 10, width: 10, canvasHeight: 68, pad: 8, minBar: 1 };
   const cols = layeredWaveColumns({
     ...base,
-    scoreData: { groupScores: scores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
+    scoreTimeline: { groupScores: scores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
   });
 
   // State 1: unanalyzed region
@@ -157,7 +156,7 @@ test('layeredWaveColumns computes sqrt(peak) contour, 3 visual states, top-down 
   mutedScores[55 * 5 + 2] = 0.95; // add loud music
   const mutedCols = layeredWaveColumns({
     ...base,
-    scoreData: { groupScores: mutedScores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
+    scoreTimeline: { groupScores: mutedScores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
   });
   const gunshotAfter = mutedCols[2].layers.find((l) => l.id === 'gunshot');
   const footstepsAfter = mutedCols[2].layers.find((l) => l.id === 'footsteps');
@@ -168,12 +167,12 @@ test('layeredWaveColumns computes sqrt(peak) contour, 3 visual states, top-down 
   const filteredCols = layeredWaveColumns({
     ...base,
     enabledGroups: new Set(['gunshot', 'footsteps']),
-    scoreData: { groupScores: scores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
+    scoreTimeline: { groupScores: scores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
   });
   assert.deepEqual(filteredCols[2].layers.map((l) => [l.id, l.height]), [['footsteps', 15], ['gunshot', 18]]);
 
-  // Missing scoreData (reviewPreview or EfficientAT) falls back gracefully to neutral contour
-  const previewCols = layeredWaveColumns({ ...base, scoreData: null });
+  // Missing scoreTimeline (reviewPreview or EfficientAT) falls back gracefully to neutral contour
+  const previewCols = layeredWaveColumns({ ...base, scoreTimeline: null });
   assert.equal(previewCols[2].state, 'neutral');
   assert.equal(previewCols[2].waveHeight, 30);
   assert.deepEqual(previewCols[2].layers, []);
@@ -202,17 +201,9 @@ test('group score pyramid updates incrementally over 45-min audio, preserves 0.1
     updateGroupScorePyramid(pyramid, start, 125);
   }
   assert.equal(pyramid.analyzedFrames, analyzedFrames);
+  assert.ok(pyramid.levels.length > 0);
 
-  // Level switching between 40ms frame zoom and full-recording overview
-  const detailLevel = selectScoreLevel(pyramid, 0.04);
-  const fullLevel = selectScoreLevel(pyramid, 2700 / 1200);
-  const overviewLevel = selectScoreLevel(pyramid, 2700 / 200);
-  assert.equal(detailLevel.stride, 1);
-  assert.equal(detailLevel.step, 0.04);
-  assert.ok(fullLevel.stride > 1 && fullLevel.step <= 2.25);
-  assert.ok(overviewLevel.stride > fullLevel.stride);
-
-  const scoreData = {
+  const scoreTimeline = {
     groupScores,
     groupScoreFrames: analyzedFrames,
     groupScorePyramid: pyramid,
@@ -223,7 +214,7 @@ test('group score pyramid updates incrementally over 45-min audio, preserves 0.1
   };
 
   // Full 45-min view (1080 cols -> 2.5s/col): col 480 [1200, 1202.5) preserves 0.88 gunshot; col 240 preserves 0.76 speech
-  const fullCols = groupScoreColumns(scoreData, 0, duration, 1080);
+  const fullCols = groupScoreColumns(scoreTimeline, 0, duration, 1080);
   assert.ok(Math.abs(fullCols[480][0] - 0.88) < 1e-6);
   assert.equal(fullCols[479][0], 0);
   assert.equal(fullCols[481][0], 0);
@@ -231,7 +222,7 @@ test('group score pyramid updates incrementally over 45-min audio, preserves 0.1
   assert.equal(fullCols[600], null); // unanalyzed tail starts at 1500s
 
   // Zoomed 40ms frame detail [1199.88, 1200.28) across 10 columns (0.04s/col) matches exact frame layout
-  const frameCols = groupScoreColumns(scoreData, 1199.88, 1200.28, 10);
+  const frameCols = groupScoreColumns(scoreTimeline, 1199.88, 1200.28, 10);
   assert.equal(frameCols[2][0], 0);
   for (let i = 3; i <= 6; i++) assert.ok(Math.abs(frameCols[i][0] - 0.88) < 1e-6);
   assert.equal(frameCols[7][0], 0);
@@ -239,7 +230,7 @@ test('group score pyramid updates incrementally over 45-min audio, preserves 0.1
   // Bounded zoom/pan latency across 60 full-recording 1200-column frames
   const t0 = performance.now();
   for (let i = 0; i < 60; i++) {
-    groupScoreColumns(scoreData, i * 0.5, duration - (59 - i) * 0.5, 1200);
+    groupScoreColumns(scoreTimeline, i * 0.5, duration - (59 - i) * 0.5, 1200);
   }
   const elapsedMs = performance.now() - t0;
   assert.ok(elapsedMs < 250, `Expected 60 45-min pyramid renders < 250ms, took ${elapsedMs.toFixed(1)}ms`);
@@ -267,7 +258,7 @@ test('overviewDistributionColumns shares video-time coordinates, aligns positive
   }, 0, duration);
   const posOverview = overviewDistributionColumns({
     wave: wavePos,
-    scoreData: {
+    scoreTimeline: {
       groupScores: scores,
       groupScoreFrames: totalFrames,
       groupScorePyramid: pyramid,
@@ -290,7 +281,7 @@ test('overviewDistributionColumns shares video-time coordinates, aligns positive
   // Negative offset -5s: audio [0, 5) clipped before video t=0; audio 100s -> video 95s (col 9)
   const negOverview = overviewDistributionColumns({
     wave: null,
-    scoreData: {
+    scoreTimeline: {
       groupScores: scores,
       groupScoreFrames: totalFrames,
       groupScorePyramid: pyramid,
@@ -322,10 +313,10 @@ test('overviewDistributionColumns respects enabledGroups when gunshot is toggled
     buffer: { numberOfChannels: 1, sampleRate: 10, duration, getChannelData: () => new Float32Array(200).fill(0.25) },
   }, 0, duration);
 
-  const scoreData = { groupScores: scores, groupScoreFrames: totalFrames, frameSeconds, audioOffset: 0, audioDuration: duration };
+  const scoreTimeline = { groupScores: scores, groupScoreFrames: totalFrames, frameSeconds, audioOffset: 0, audioDuration: duration };
   const speechDisabled = overviewDistributionColumns({
     wave,
-    scoreData,
+    scoreTimeline,
     duration,
     width: 10,
     canvasHeight: 16,
@@ -336,7 +327,7 @@ test('overviewDistributionColumns respects enabledGroups when gunshot is toggled
 
   const gunshotDisabled = overviewDistributionColumns({
     wave,
-    scoreData,
+    scoreTimeline,
     duration,
     width: 10,
     canvasHeight: 16,
@@ -359,7 +350,7 @@ test('groupScoresAtTime applies audioOffset, returns all 5 raw scores including 
   scores[50 * 5 + 3] = 0.19;
   scores[50 * 5 + 4] = 0.00;
 
-  // Missing scoreData -> unanalyzed
+  // Missing scoreTimeline -> unanalyzed
   const missing = groupScoresAtTime(null, 2.5);
   assert.equal(missing.status, 'unanalyzed');
   assert.equal(missing.scores, null);
@@ -447,10 +438,10 @@ test('layeredWaveColumns bridges <= 80ms interior dips per group without extendi
   const rawSnapshot = groupScores.slice();
   const pyramid = createGroupScorePyramid(groupScores, totalFrames, 5, frameSeconds);
   updateGroupScorePyramid(pyramid, 0, totalFrames);
-  const scoreData = { groupScores, groupScoreFrames: totalFrames, groupScorePyramid: pyramid, frameSeconds, audioOffset: 0, audioDuration: duration };
+  const scoreTimeline = { groupScores, groupScoreFrames: totalFrames, groupScorePyramid: pyramid, frameSeconds, audioOffset: 0, audioDuration: duration };
 
   // 50 columns -> 1 frame (40ms) per column
-  const cols = layeredWaveColumns({ wave, scoreData, start: 0, end: duration, width: 50, canvasHeight: 68, pad: 8, minBar: 1 });
+  const cols = layeredWaveColumns({ wave, scoreTimeline, start: 0, end: duration, width: 50, canvasHeight: 68, pad: 8, minBar: 1 });
 
   // Isolated event stays exactly frame 3
   assert.equal(cols[2].state, 'neutral');
@@ -480,7 +471,7 @@ test('layeredWaveColumns bridges <= 80ms interior dips per group without extendi
   assert.equal(cols[49].state, 'neutral');
 
   // Zoomed even closer (0.02s/col -> 2 columns per frame, width 100) still bridges frames 11..12 (cols 22..25)
-  const zoomedCols = layeredWaveColumns({ wave, scoreData, start: 0, end: duration, width: 100, canvasHeight: 68, pad: 8, minBar: 1 });
+  const zoomedCols = layeredWaveColumns({ wave, scoreTimeline, start: 0, end: duration, width: 100, canvasHeight: 68, pad: 8, minBar: 1 });
   for (const x of [22, 23, 24, 25]) {
     assert.equal(zoomedCols[x].layers.some((l) => l.id === 'gunshot'), true);
   }
@@ -488,13 +479,18 @@ test('layeredWaveColumns bridges <= 80ms interior dips per group without extendi
 
   // Raw scores & hover lookup remain completely untouched
   assert.deepEqual([...groupScores], [...rawSnapshot]);
-  const rawDip = groupScoresAtTime(scoreData, 11 * frameSeconds + 0.01);
+  const rawDip = groupScoresAtTime(scoreTimeline, 11 * frameSeconds + 0.01);
   assert.ok(Math.abs(rawDip.scores[0] - 0.05) < 1e-6);
 
   // Disabling gap bridging via gapBridgeMs: 0 leaves interior dips unbridged
-  const unbridged = layeredWaveColumns({ wave, scoreData, start: 0, end: duration, width: 50, canvasHeight: 68, pad: 8, minBar: 1, gapBridgeMs: 0 });
+  const unbridged = layeredWaveColumns({ wave, scoreTimeline, start: 0, end: duration, width: 50, canvasHeight: 68, pad: 8, minBar: 1, gapBridgeMs: 0 });
   assert.equal(unbridged[11].state, 'neutral');
   assert.equal(unbridged[12].state, 'neutral');
+
+  // Unified groupScoreColumns supports gapBridgeMs directly without a middle-man wrapper
+  const bridgedCols = groupScoreColumns(scoreTimeline, 0, duration, 50, { threshold: DEFAULT_DISPLAY_THRESHOLD, gapBridgeMs: DEFAULT_GAP_BRIDGE_MS });
+  assert.ok(Math.abs(bridgedCols[11][0] - 0.70) < 1e-6);
+  assert.ok(Math.abs(bridgedCols[12][0] - 0.70) < 1e-6);
 });
 
 test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-amplitude regions and enforces exact >= threshold cutoff', () => {
@@ -521,7 +517,7 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
 
   const cols = layeredWaveColumns({
     wave,
-    scoreData: { groupScores, groupScoreFrames: frames, frameSeconds: 0.04, audioOffset: 0, audioDuration: 6 },
+    scoreTimeline: { groupScores, groupScoreFrames: frames, frameSeconds: 0.04, audioOffset: 0, audioDuration: 6 },
     start: 0,
     end: 6,
     width: 6,
@@ -557,7 +553,7 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
   // DPR scaling: minBar = 2 scales min gunshot indicator proportionally (8px)
   const retinaCols = layeredWaveColumns({
     wave,
-    scoreData: { groupScores, groupScoreFrames: frames, frameSeconds: 0.04, audioOffset: 0, audioDuration: 6 },
+    scoreTimeline: { groupScores, groupScoreFrames: frames, frameSeconds: 0.04, audioOffset: 0, audioDuration: 6 },
     start: 0,
     end: 6,
     width: 6,
@@ -575,7 +571,7 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
     longScores[(f + 3) * 5 + 0] = 0.75;
   }
   const longWave = createAudioPeaks(2700, 0);
-  const longScoreData = {
+  const longScoreTimeline = {
     groupScores: longScores,
     groupScoreFrames: longFrames,
     groupScorePyramid: createGroupScorePyramid(longScores, longFrames, 5, 0.04),
@@ -583,12 +579,12 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
     audioOffset: 0,
     audioDuration: 2700,
   };
-  updateGroupScorePyramid(longScoreData.groupScorePyramid, 0, longFrames);
+  updateGroupScorePyramid(longScoreTimeline.groupScorePyramid, 0, longFrames);
   const t0 = performance.now();
   for (let i = 0; i < 60; i++) {
     layeredWaveColumns({
       wave: longWave,
-      scoreData: longScoreData,
+      scoreTimeline: longScoreTimeline,
       start: 40 + i * 0.2,
       end: 50 + i * 0.2,
       width: 1200,

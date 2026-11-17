@@ -326,14 +326,9 @@ test('selection timeline paints layered group overlays, invalidates waveKey on g
     let record = {
       id: 'src-layered',
       duration: 10,
-      audioDuration: 10,
-      audioOffset: 0,
-      frameSeconds: 0.04,
       outputAudioTrackIndex: 0,
       audioPolicy: { fallback: true },
-      groupCount: 5,
-      groupScores: null,
-      groupScoreFrames: 0,
+      scoreTimeline: null,
       analysisStarted: 1,
     };
     setLang('en');
@@ -376,7 +371,17 @@ test('selection timeline paints layered group overlays, invalidates waveKey on g
     const groupScores = new Float32Array(125 * 5);
     groupScores[25 * 5 + 0] = 0.7; // gunshot at 1.0s (column x=10)
     groupScores[25 * 5 + 1] = 0.9; // speech at 1.0s (column x=10)
-    record = { ...record, groupScores, groupScoreFrames: 125 };
+    record = {
+      ...record,
+      scoreTimeline: {
+        groupScores,
+        groupScoreFrames: 125,
+        groupCount: 5,
+        frameSeconds: 0.04,
+        audioOffset: 0,
+        audioDuration: 10,
+      },
+    };
     timeline.render(source);
     assert.equal(waveCanvas.clearCount, 2);
     assert.equal(overviewCanvas.clearCount, 2);
@@ -523,13 +528,15 @@ test('selection timeline zooms down to 40ms frame detail, aligns overview distri
     const record = {
       id: 'src-40ms',
       duration,
-      audioDuration: 1000,
-      audioOffset: 100,
-      frameSeconds,
-      groupCount: 5,
-      groupScores,
-      groupScoreFrames,
       analysisStarted: 1,
+      scoreTimeline: {
+        audioDuration: 1000,
+        audioOffset: 100,
+        frameSeconds,
+        groupCount: 5,
+        groupScores,
+        groupScoreFrames,
+      },
     };
 
     timeline = createSelectionTimeline({
@@ -719,13 +726,15 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
     const record = {
       id: 'src-toggles',
       duration: 10,
-      audioDuration: 10,
-      audioOffset: 0,
-      frameSeconds: 0.04,
-      groupCount: 5,
-      groupScores,
-      groupScoreFrames: 250,
       analysisStarted: 1,
+      scoreTimeline: {
+        audioDuration: 10,
+        audioOffset: 0,
+        frameSeconds: 0.04,
+        groupCount: 5,
+        groupScores,
+        groupScoreFrames: 250,
+      },
     };
     let playPauseCount = 0;
 
@@ -794,7 +803,7 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
     assert.ok(waveCanvas.drawOps.length === 100 && waveCanvas.drawOps.every((op) => op.fillStyle === '#7b8391' && op.globalAlpha === 1));
 
     // 4. Presentation-only guarantee & shortcut preservation while toggle button is focused
-    assert.deepEqual([...record.groupScores], [...rawSnapshot]);
+    assert.deepEqual([...record.scoreTimeline.groupScores], [...rawSnapshot]);
     assert.deepEqual(workspaceCalls, []);
     assert.equal(source.clips, clips);
     assert.equal(source.decisions, decisions);
@@ -935,13 +944,15 @@ test('selection timeline hover shows xTime timestamp and all 5 raw scores with a
     const record = {
       id: 'src-hover',
       duration: 10,
-      audioDuration: 6,
-      audioOffset: 2.0,
-      frameSeconds: 0.04,
-      groupCount: 5,
-      groupScores,
-      groupScoreFrames: 100,
       analysisStarted: 1,
+      scoreTimeline: {
+        audioDuration: 6,
+        audioOffset: 2.0,
+        frameSeconds: 0.04,
+        groupCount: 5,
+        groupScores,
+        groupScoreFrames: 100,
+      },
     };
     const seeks = [];
     timeline = createSelectionTimeline({
@@ -1147,14 +1158,16 @@ test('selection timeline bridges <= 80ms interior dips and shows min gunshot thi
     const record = {
       id: 'src-bridge',
       duration,
-      audioDuration: duration,
-      audioOffset: 0,
-      frameSeconds: 0.04,
-      groupCount: 5,
-      groupScores,
-      groupScoreFrames: 50,
       candidates,
       analysisStarted: 1,
+      scoreTimeline: {
+        audioDuration: duration,
+        audioOffset: 0,
+        frameSeconds: 0.04,
+        groupCount: 5,
+        groupScores,
+        groupScoreFrames: 50,
+      },
     };
 
     timeline = createSelectionTimeline({
@@ -1188,7 +1201,7 @@ test('selection timeline bridges <= 80ms interior dips and shows min gunshot thi
     // Hovering directly over bridged dip frame 11 (x = 11.5 -> 0.46s) MUST display raw unbridged score 0.04
     getNode('source-axis').onpointermove({ clientX: 11.5, pointerId: 1 });
     assert.match(getNode('source-hover-scores').textContent, /0\.04/);
-    assert.deepEqual([...record.groupScores], [...rawSnapshot]);
+    assert.deepEqual([...record.scoreTimeline.groupScores], [...rawSnapshot]);
     assert.equal(record.candidates, candidates);
     assert.equal(source.decisions, decisions);
   } finally {

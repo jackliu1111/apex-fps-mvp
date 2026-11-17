@@ -367,12 +367,12 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 5 session group
       return { values, dims: [1, 250, classes.length], timings: {} };
     },
     onWaveform(record) {
-      waveformResets.push({ name: record.file.name, groupScores: record.groupScores, frames: record.groupScoreFrames });
+      waveformResets.push({ name: record.file.name, scoreTimeline: record.scoreTimeline });
     },
     onCandidates(record) {
-      if (record.groupScores) {
-        groupBuffers.push(record.groupScores.buffer);
-        progressFrames.push(record.groupScoreFrames);
+      if (record.scoreTimeline) {
+        groupBuffers.push(record.scoreTimeline.groupScores.buffer);
+        progressFrames.push(record.scoreTimeline.groupScoreFrames);
       }
     },
   });
@@ -384,41 +384,47 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 5 session group
   const [sedRecord, atRecord] = queue.records;
   assert.equal(sedRecord.status, 'complete', sedRecord.error);
   assert.equal(sedRecord.audioOffset, -1.5);
-  assert.equal(sedRecord.groupCount, 5);
-  assert.equal(sedRecord.groupScoreFrames, 251);
-  assert.ok(sedRecord.groupScores instanceof Float32Array);
-  assert.equal(sedRecord.groupScores.length, 251 * 5);
+  assert.equal('groupScores' in sedRecord, false);
+  assert.equal('groupScoreFrames' in sedRecord, false);
+  assert.equal('groupScorePyramid' in sedRecord, false);
+  assert.equal('groupCount' in sedRecord, false);
+  assert.ok(sedRecord.scoreTimeline);
+  assert.equal(sedRecord.scoreTimeline.groupCount, 5);
+  assert.equal(sedRecord.scoreTimeline.groupScoreFrames, 251);
+  assert.equal(sedRecord.scoreTimeline.frameSeconds, 0.04);
+  assert.equal(sedRecord.scoreTimeline.audioOffset, -1.5);
+  assert.equal(sedRecord.scoreTimeline.audioDuration, 10.04);
+  assert.ok(sedRecord.scoreTimeline.groupScores instanceof Float32Array);
+  assert.equal(sedRecord.scoreTimeline.groupScores.length, 251 * 5);
   assert.ok(groupBuffers.length >= 2);
   assert.ok(groupBuffers.every((buf) => buf === groupBuffers[0]));
   assert.deepEqual(progressFrames.slice(0, 2), [125, 251]);
 
   // Frame 130: Speech group max after overlap average is 0.5 (not avg(max)=0.8), Gunshot is 0.45.
-  assert.ok(Math.abs(sedRecord.groupScores[130 * 5 + 0] - 0.45) < 1e-6);
-  assert.ok(Math.abs(sedRecord.groupScores[130 * 5 + 1] - 0.50) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[130 * 5 + 0] - 0.45) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[130 * 5 + 1] - 0.50) < 1e-6);
   // Frame 140: Music=0.50, Footsteps=0.50, Impact=0.40
-  assert.ok(Math.abs(sedRecord.groupScores[140 * 5 + 2] - 0.50) < 1e-6);
-  assert.ok(Math.abs(sedRecord.groupScores[140 * 5 + 3] - 0.50) < 1e-6);
-  assert.ok(Math.abs(sedRecord.groupScores[140 * 5 + 4] - 0.40) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 5 + 2] - 0.50) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 5 + 3] - 0.50) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 5 + 4] - 0.40) < 1e-6);
 
-  // Recomputing gunshot candidates does not mutate groupScores and ignores non-gunshot groups.
-  const groupSnapshot = sedRecord.groupScores.slice();
+  // Recomputing gunshot candidates does not mutate scoreTimeline.groupScores and ignores non-gunshot groups.
+  const groupSnapshot = sedRecord.scoreTimeline.groupScores.slice();
   const recomputed = queue.recompute(sedRecord.id, 0.8);
   assert.equal(recomputed.length, 0);
-  assert.deepEqual(sedRecord.groupScores, groupSnapshot);
+  assert.deepEqual(sedRecord.scoreTimeline.groupScores, groupSnapshot);
 
-  // EfficientAT window model keeps groupScores null cleanly.
+  // EfficientAT window model keeps scoreTimeline null cleanly.
   assert.equal(atRecord.status, 'complete', atRecord.error);
-  assert.equal(atRecord.groupScores, null);
-  assert.equal(atRecord.groupScoreFrames, 0);
+  assert.equal(atRecord.scoreTimeline, null);
 
-  // Retry resets groupScores before re-populating.
+  // Retry resets scoreTimeline before re-populating.
   sedWindow = 0;
   waveformResets.length = 0;
   await queue.retry(sedRecord.id);
   await queue.whenIdle();
-  assert.equal(waveformResets[0].groupScores, null);
-  assert.equal(waveformResets[0].frames, 0);
-  assert.equal(sedRecord.groupScoreFrames, 251);
+  assert.equal(waveformResets[0].scoreTimeline, null);
+  assert.equal(sedRecord.scoreTimeline.groupScoreFrames, 251);
 });
 
 test('createBrowserAnalysis incrementally updates session groupScorePyramid per batch and resets cleanly on retry', async () => {
@@ -454,14 +460,15 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
       return { values, dims: [1, 250, classes.length], timings: {} };
     },
     onWaveform(record) {
-      resetPyramids.push(record.groupScorePyramid);
+      resetPyramids.push(record.scoreTimeline?.groupScorePyramid ?? null);
     },
     onCandidates(record) {
-      if (record.groupScorePyramid) {
+      const pyramid = record.scoreTimeline?.groupScorePyramid;
+      if (pyramid) {
         snapshots.push({
-          analyzedFrames: record.groupScorePyramid.analyzedFrames,
-          levelBuffer: record.groupScorePyramid.levels[0]?.scores.buffer,
-          cols: groupScoreColumns(record, 0, 25, 25),
+          analyzedFrames: pyramid.analyzedFrames,
+          levelBuffer: pyramid.levels[0]?.scores.buffer,
+          cols: groupScoreColumns(record.scoreTimeline, 0, 25, 25),
         });
       }
     },
@@ -473,8 +480,8 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
 
   const [sedRecord, atRecord] = queue.records;
   assert.equal(sedRecord.status, 'complete', sedRecord.error);
-  assert.ok(sedRecord.groupScorePyramid);
-  assert.equal(sedRecord.groupScorePyramid.analyzedFrames, 500);
+  assert.ok(sedRecord.scoreTimeline?.groupScorePyramid);
+  assert.equal(sedRecord.scoreTimeline.groupScorePyramid.analyzedFrames, 500);
   assert.ok(snapshots.length >= 3);
   assert.deepEqual(snapshots.slice(0, 3).map((s) => s.analyzedFrames), [125, 250, 500]);
   assert.ok(snapshots.every((s) => s.levelBuffer === snapshots[0].levelBuffer));
@@ -488,8 +495,8 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
   assert.ok(Math.abs(snapshots[1].cols[10][0] - 0.92) < 1e-6);
   assert.equal(snapshots[1].cols[15], null);
 
-  // EfficientAT window model keeps groupScorePyramid null
-  assert.equal(atRecord.groupScorePyramid, null);
+  // EfficientAT window model keeps scoreTimeline null
+  assert.equal(atRecord.scoreTimeline, null);
 
   // Retry resets groupScorePyramid before re-populating
   windowIdx = 0;
@@ -497,5 +504,109 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
   await queue.retry(sedRecord.id);
   await queue.whenIdle();
   assert.equal(resetPyramids[0], null);
-  assert.equal(sedRecord.groupScorePyramid.analyzedFrames, 500);
+  assert.equal(sedRecord.scoreTimeline.groupScorePyramid.analyzedFrames, 500);
+});
+
+test('createBrowserAnalysis serializes custom registered model spec across Worker boundary', async () => {
+  const registry = createModelRegistry();
+  registry.register('custom-sed-v2', {
+    manifestUrl: '/assets/custom/model.json',
+    onnxUrl: '/assets/custom/custom-sed.onnx',
+    frontendUrl: '/assets/custom/frontend.json',
+    frontendType: 'efficientsed',
+    sampleRate: 16000,
+    windowSeconds: 10,
+    strideSeconds: 5,
+    frameSeconds: 0.04,
+    framesPerWindow: 250,
+    hopFrames: 125,
+    scoreType: 'frame',
+    inputName: 'mel',
+    inputShape: [1, 1, 128, 1000],
+    outputName: 'probabilities',
+    outputShape: [1, 250, 3],
+  });
+  const classes = ['Speech', 'Gunshot, gunfire', 'Machine gun'];
+  const customManifest = {
+    model: 'CustomSED',
+    modelFile: 'custom-sed.onnx',
+    sha256: 'abc123',
+    bytes: 1024,
+    classes,
+    sampleRate: 16000,
+    scoreType: 'frame',
+    frameSeconds: 0.04,
+    inputName: 'mel',
+    input: [1, 1, 128, 1000],
+    output: [1, 250, 3],
+  };
+
+  const posted = [];
+  let terminated = 0;
+  class FakeWorker {
+    constructor(url, options) {
+      this.url = url;
+      this.options = options;
+      this.onmessage = null;
+      this.onerror = null;
+    }
+    postMessage(msg, transfer) {
+      const cloned = structuredClone(msg);
+      posted.push({ msg: cloned, transferCount: transfer?.length ?? 0 });
+      queueMicrotask(() => {
+        const values = new Float32Array(250 * classes.length);
+        values[20 * 3 + 1] = 0.85;
+        values[21 * 3 + 1] = 0.85;
+        this.onmessage?.({
+          data: { id: msg.id, type: 'result', values, dims: [1, 250, 3], timings: { frontendMs: 1, inferenceMs: 2 } },
+        });
+      });
+    }
+    terminate() {
+      terminated++;
+    }
+  }
+
+  const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 10, audioDuration: 10 });
+  const queue = createBrowserAnalysis({
+    MB,
+    models: registry,
+    Worker: FakeWorker,
+    openAudioStream,
+    fetch: async (url) => ({
+      ok: url === '/assets/custom/model.json',
+      status: url === '/assets/custom/model.json' ? 200 : 404,
+      json: async () => customManifest,
+    }),
+  });
+
+  await queue.importFiles([{ name: 'custom.mp4', size: 512, lastModified: 1 }], { model: 'custom-sed-v2' });
+  await queue.whenIdle();
+
+  const record = queue.records[0];
+  assert.equal(record.status, 'complete', record.error);
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].msg.model, 'custom-sed-v2');
+  assert.equal(posted[0].transferCount, 1);
+  assert.deepEqual(posted[0].msg.spec, {
+    id: 'custom-sed-v2',
+    manifestUrl: '/assets/custom/model.json',
+    onnxUrl: '/assets/custom/custom-sed.onnx',
+    frontendUrl: '/assets/custom/frontend.json',
+    frontendType: 'efficientsed',
+    sampleRate: 16000,
+    windowSeconds: 10,
+    strideSeconds: 5,
+    frameSeconds: 0.04,
+    framesPerWindow: 250,
+    hopFrames: 125,
+    scoreType: 'frame',
+    inputName: 'mel',
+    inputShape: [1, 1, 128, 1000],
+    outputName: 'probabilities',
+    outputShape: [1, 250, 3],
+    gunshotClasses: ['Gunshot, gunfire', 'Machine gun'],
+  });
+  assert.equal(record.candidates.length, 1);
+  assert.equal(terminated, 0);
 });
