@@ -594,3 +594,434 @@ test('selection timeline zooms down to 40ms frame detail, aligns overview distri
     globalThis.cancelAnimationFrame = prevCaf;
   }
 });
+
+test('selection timeline group toggles isolate rendered waveform & overview layers without mutating scores, candidates, decisions, or review shortcuts', () => {
+  const nodes = new Map();
+  class FakeElement {
+    constructor(id = '') {
+      this.id = id;
+      this.tagName = id.toUpperCase();
+      this.dataset = {};
+      this.style = {};
+      this.attributes = {};
+      this.children = [];
+      this._text = '';
+      this.hidden = false;
+      this.disabled = false;
+      this.checked = false;
+      this.clientWidth = 100;
+      this.clientHeight = id === 'player-overview-distribution' ? 16 : 68;
+      this.width = 100;
+      this.height = id === 'player-overview-distribution' ? 16 : 68;
+      this.offsetWidth = 204;
+      this.clearCount = 0;
+      this.drawOps = [];
+    }
+    get textContent() {
+      return this.children.length ? this.children.map((c) => c.textContent || '').join('') : this._text;
+    }
+    set textContent(v) {
+      this._text = String(v ?? '');
+      this.children = [];
+    }
+    get firstElementChild() { return this.children[0] || null; }
+    setAttribute(k, v) { this.attributes[k] = String(v); }
+    getAttribute(k) { return this.attributes[k]; }
+    removeAttribute(k) { delete this.attributes[k]; }
+    closest() { return null; }
+    getBoundingClientRect() { return { left: 0, x: 0, width: 100, height: 68 }; }
+    replaceChildren(...items) {
+      this.children = items;
+    }
+    insertBefore(nodeToInsert, ref) {
+      const existing = this.children.indexOf(nodeToInsert);
+      if (existing >= 0) this.children.splice(existing, 1);
+      const index = ref ? this.children.indexOf(ref) : -1;
+      if (index >= 0) this.children.splice(index, 0, nodeToInsert);
+      else this.children.push(nodeToInsert);
+      nodeToInsert.nextElementSibling = this.children[this.children.indexOf(nodeToInsert) + 1] || null;
+    }
+    getContext() {
+      if (!this._ctx) {
+        const self = this;
+        this._ctx = {
+          fillStyle: '',
+          globalAlpha: 1,
+          clearRect() { self.clearCount++; self.drawOps.length = 0; },
+          fillRect(x, y, w, h) {
+            self.drawOps.push({ x, y, w, h, fillStyle: self._ctx.fillStyle, globalAlpha: self._ctx.globalAlpha });
+          },
+        };
+      }
+      return this._ctx;
+    }
+    addEventListener(type, fn) { this[`on${type}`] = fn; }
+    querySelector(sel) {
+      if (sel === 'img') return nodes.get('source-hover-img') || null;
+      if (sel === 'span') return nodes.get('source-hover-label') || null;
+      return new FakeElement();
+    }
+    focus() {}
+  }
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, new FakeElement(id));
+    return nodes.get(id);
+  };
+  const prevDoc = globalThis.document;
+  const prevWin = globalThis.window;
+  const prevElem = globalThis.Element;
+  const prevGetComputedStyle = globalThis.getComputedStyle;
+  const prevLang = getLang();
+  const winListeners = {};
+  globalThis.Element = FakeElement;
+  globalThis.document = {
+    documentElement: { lang: 'en' },
+    title: '',
+    getElementById: getNode,
+    createElement: (tag) => new FakeElement(tag),
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    activeElement: null,
+  };
+  globalThis.window = {
+    devicePixelRatio: 1,
+    addEventListener(type, fn) { winListeners[type] = fn; },
+  };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: (name) => name === '--wave-bar' ? '#7b8391' : '' });
+
+  let timeline;
+  try {
+    setLang('en');
+    const waveCanvas = getNode('prediction-wave');
+    const overviewCanvas = getNode('player-overview-distribution');
+    const peaks = new Array(200).fill(0.25);
+    const groupScores = new Float32Array(250 * 5);
+    // At t = 1.0s (frame 25, col x = 10): gunshot 0.65, speech 0.85, footsteps 0.50
+    groupScores[25 * 5 + 0] = 0.65;
+    groupScores[25 * 5 + 1] = 0.85;
+    groupScores[25 * 5 + 3] = 0.50;
+    const rawSnapshot = groupScores.slice();
+
+    const workspaceCalls = [];
+    const clips = [{ id: 'clip-1', start: 2, end: 5, selected: true, excluded: false }];
+    const decisions = [{ id: 'clip-1', kind: 'keep', range: { start: 2, end: 5 }, originRange: { start: 2, end: 5 } }];
+    let source = {
+      id: 'src-toggles',
+      duration: 10,
+      canUndo: true,
+      canRedo: false,
+      analysis: { status: 'completed' },
+      waveform: { step: 0.05, trackIndex: 0, decodedUntil: 10, peaks },
+      clips,
+      decisions,
+      review: { selectedClipId: 'clip-1', position: 0, zoomStart: 0, zoomEnd: 10 },
+    };
+    const record = {
+      id: 'src-toggles',
+      duration: 10,
+      audioDuration: 10,
+      audioOffset: 0,
+      frameSeconds: 0.04,
+      groupCount: 5,
+      groupScores,
+      groupScoreFrames: 250,
+      analysisStarted: 1,
+    };
+    let playPauseCount = 0;
+
+    timeline = createSelectionTimeline({
+      MB: null,
+      workspace: {
+        setReview() { workspaceCalls.push('setReview'); },
+        trim() { workspaceCalls.push('trim'); },
+        exclude() { workspaceCalls.push('exclude'); },
+        choose() { workspaceCalls.push('choose'); },
+        undo() { workspaceCalls.push('undo'); },
+        redo() { workspaceCalls.push('redo'); },
+      },
+      getSource: () => source,
+      getRecord: () => record,
+      selectRange: () => workspaceCalls.push('selectRange'),
+      seek: () => {},
+      pause: () => {},
+      playPause: () => { playPauseCount++; },
+      isPlayerBusy: () => false,
+      report: (err) => { throw err; },
+    });
+
+    timeline.render(source);
+
+    const toggleGroup = getNode('waveform-group-toggles');
+    assert.equal(toggleGroup.getAttribute('role'), 'group');
+    assert.ok(toggleGroup.getAttribute('aria-label'));
+    assert.equal(toggleGroup.children.length, 5);
+    assert.deepEqual(toggleGroup.children.map((b) => b.dataset.groupId), ['gunshot', 'speech', 'music', 'footsteps', 'impact']);
+    assert.ok(toggleGroup.children.every((b) => b.getAttribute('aria-pressed') === 'true'));
+    assert.deepEqual(toggleGroup.children.map((b) => b.textContent), ['Gunshot', 'Speech', 'Music', 'Footsteps', 'Impact']);
+
+    // Baseline layers at col 10: neutral + speech + footsteps + gunshot
+    const baseCol10 = waveCanvas.drawOps.filter((op) => op.x === 10);
+    assert.equal(baseCol10.length, 4);
+    const baseFootsteps = baseCol10[2];
+    const baseGunshot = baseCol10[3];
+    const overviewClearBefore = overviewCanvas.clearCount;
+
+    // 1. Toggle speech off: only speech disappears; footsteps & gunshot keep identical y and height; overview unaffected
+    const speechBtn = toggleGroup.children[1];
+    speechBtn.onclick();
+    assert.equal(speechBtn.getAttribute('aria-pressed'), 'false');
+    assert.equal(overviewCanvas.clearCount, overviewClearBefore);
+    const noSpeechCol10 = waveCanvas.drawOps.filter((op) => op.x === 10);
+    assert.equal(noSpeechCol10.length, 3);
+    assert.equal(noSpeechCol10[1].h, baseFootsteps.h);
+    assert.equal(noSpeechCol10[1].y, baseFootsteps.y);
+    assert.equal(noSpeechCol10[2].h, baseGunshot.h);
+    assert.equal(noSpeechCol10[2].y, baseGunshot.y);
+
+    // 2. Toggle gunshot off: removes gunshot from both waveform AND overview distribution
+    const gunshotBtn = toggleGroup.children[0];
+    gunshotBtn.onclick();
+    assert.equal(gunshotBtn.getAttribute('aria-pressed'), 'false');
+    assert.equal(overviewCanvas.clearCount, overviewClearBefore + 1);
+    assert.equal(overviewCanvas.drawOps.some((op) => op.fillStyle !== '#7b8391'), false);
+    const noGunshotCol10 = waveCanvas.drawOps.filter((op) => op.x === 10);
+    assert.equal(noGunshotCol10.length, 2); // neutral + footsteps only
+    assert.equal(noGunshotCol10[1].h, baseFootsteps.h);
+
+    // 3. Toggle all 5 off: only opaque neutral waveform remains
+    for (const btn of toggleGroup.children.slice(2)) btn.onclick();
+    assert.ok(toggleGroup.children.every((b) => b.getAttribute('aria-pressed') === 'false'));
+    assert.ok(waveCanvas.drawOps.length === 100 && waveCanvas.drawOps.every((op) => op.fillStyle === '#7b8391' && op.globalAlpha === 1));
+
+    // 4. Presentation-only guarantee & shortcut preservation while toggle button is focused
+    assert.deepEqual([...record.groupScores], [...rawSnapshot]);
+    assert.deepEqual(workspaceCalls, []);
+    assert.equal(source.clips, clips);
+    assert.equal(source.decisions, decisions);
+    let prevented = false;
+    winListeners.keydown({
+      key: ' ',
+      code: 'Space',
+      target: speechBtn,
+      defaultPrevented: false,
+      isComposing: false,
+      repeat: false,
+      preventDefault() { prevented = true; },
+    });
+    assert.equal(prevented, true);
+    assert.equal(playPauseCount, 1);
+
+    // 5. Language switching updates toggle labels & aria-label
+    setLang('zh');
+    timeline.render(source);
+    assert.deepEqual(toggleGroup.children.map((b) => b.textContent), ['枪声', '语音', '音乐', '脚步', '冲击／碎裂']);
+  } finally {
+    timeline?.suspend();
+    setLang(prevLang);
+    globalThis.Element = prevElem;
+    globalThis.document = prevDoc;
+    globalThis.window = prevWin;
+    globalThis.getComputedStyle = prevGetComputedStyle;
+  }
+});
+
+test('selection timeline hover shows xTime timestamp and all 5 raw scores with audioOffset without keyframes, hides during drag, and keeps keyframe preview intact', () => {
+  const nodes = new Map();
+  class FakeElement {
+    constructor(id = '') {
+      this.id = id;
+      this.tagName = id.toUpperCase();
+      this.dataset = {};
+      this.style = {};
+      this.attributes = {};
+      this.children = [];
+      this._text = '';
+      this.hidden = false;
+      this.disabled = false;
+      this.checked = false;
+      this.src = '';
+      this.value = '';
+      this.clientWidth = 1000;
+      this.clientHeight = id === 'player-overview-distribution' ? 16 : 68;
+      this.width = 1000;
+      this.height = id === 'player-overview-distribution' ? 16 : 68;
+      this.offsetWidth = 204;
+    }
+    get textContent() {
+      return this.children.length ? this.children.map((c) => c.textContent || '').join('') : this._text;
+    }
+    set textContent(v) {
+      this._text = String(v ?? '');
+      this.children = [];
+    }
+    get firstElementChild() { return this.children[0] || null; }
+    setAttribute(k, v) { this.attributes[k] = String(v); }
+    getAttribute(k) { return this.attributes[k]; }
+    removeAttribute(k) { delete this.attributes[k]; if (k === 'src') this.src = ''; }
+    closest() { return null; }
+    setPointerCapture() {}
+    hasPointerCapture() { return false; }
+    releasePointerCapture() {}
+    getBoundingClientRect() { return { left: 0, x: 0, width: 1000, height: 68 }; }
+    replaceChildren(...items) { this.children = items; }
+    insertBefore(nodeToInsert, ref) {
+      const existing = this.children.indexOf(nodeToInsert);
+      if (existing >= 0) this.children.splice(existing, 1);
+      const index = ref ? this.children.indexOf(ref) : -1;
+      if (index >= 0) this.children.splice(index, 0, nodeToInsert);
+      else this.children.push(nodeToInsert);
+      nodeToInsert.nextElementSibling = this.children[this.children.indexOf(nodeToInsert) + 1] || null;
+    }
+    getContext() { return { clearRect() {}, fillRect() {} }; }
+    addEventListener(type, fn) { this[`on${type}`] = fn; }
+    querySelector(sel) {
+      if (sel === 'img') return nodes.get('source-hover-img') || null;
+      if (sel === 'span') return nodes.get('source-hover-label') || null;
+      return new FakeElement();
+    }
+    focus() {}
+  }
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, new FakeElement(id));
+    return nodes.get(id);
+  };
+  const prevDoc = globalThis.document;
+  const prevWin = globalThis.window;
+  const prevElem = globalThis.Element;
+  const prevGetComputedStyle = globalThis.getComputedStyle;
+  const prevLang = getLang();
+  globalThis.Element = FakeElement;
+  globalThis.document = {
+    documentElement: { lang: 'en' },
+    title: '',
+    getElementById: getNode,
+    createElement: (tag) => new FakeElement(tag),
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    activeElement: null,
+  };
+  globalThis.window = { devicePixelRatio: 1, addEventListener() {} };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#7b8391' });
+
+  let timeline;
+  try {
+    setLang('en');
+    // Pre-create hover sub-elements mirroring index.html
+    getNode('source-hover');
+    getNode('source-hover-img').hidden = true;
+    getNode('source-hover-label');
+    getNode('source-hover-scores');
+
+    const groupScores = new Float32Array(100 * 5); // 4.0s analyzed
+    // Frame 25 = audio 1.00..1.04s -> video 3.00..3.04s with audioOffset = +2.0
+    groupScores[25 * 5 + 0] = 0.08; // below display threshold 0.2
+    groupScores[25 * 5 + 1] = 0.81;
+    groupScores[25 * 5 + 2] = 0.14; // below threshold
+    groupScores[25 * 5 + 3] = 0.44;
+    groupScores[25 * 5 + 4] = 0.03;
+
+    const clips = [{ id: 'clip-1', start: 2, end: 5, selected: true, excluded: false }];
+    const source = {
+      id: 'src-hover',
+      duration: 10,
+      canUndo: false,
+      canRedo: false,
+      analysis: { status: 'analyzing' },
+      waveform: { step: 0.05, trackIndex: 0, decodedUntil: 6, peaks: new Array(200).fill(0.2) },
+      clips,
+      decisions: [],
+      review: { selectedClipId: 'clip-1', position: 0, zoomStart: 0, zoomEnd: 10 },
+    };
+    const record = {
+      id: 'src-hover',
+      duration: 10,
+      audioDuration: 6,
+      audioOffset: 2.0,
+      frameSeconds: 0.04,
+      groupCount: 5,
+      groupScores,
+      groupScoreFrames: 100,
+      analysisStarted: 1,
+    };
+    const seeks = [];
+    timeline = createSelectionTimeline({
+      MB: null,
+      workspace: { setReview() {}, trim() {} },
+      getSource: () => source,
+      getRecord: () => record,
+      selectRange: () => {},
+      seek: (pos) => seeks.push(pos),
+      pause: () => {},
+      isPlayerBusy: () => false,
+      report: (err) => { throw err; },
+    });
+    timeline.render(source);
+
+    const axis = getNode('source-axis');
+    const hover = getNode('source-hover');
+    const hoverImg = getNode('source-hover-img');
+    const hoverLabel = getNode('source-hover-label');
+    const hoverScores = getNode('source-hover-scores');
+
+    // 1. Hover works even with empty hoverFrames(); timestamp matches xTime (click-to-seek at clientX=302 -> 3.02s)
+    axis.onpointermove({ clientX: 302, pointerId: 1 });
+    assert.equal(hover.hidden, false);
+    assert.equal(hoverImg.hidden, true);
+    assert.match(hoverLabel.textContent, /^00:03\.0/);
+    // Clicking at the same clientX seeks to the exact same coordinate
+    axis.onpointerdown({ button: 0, pointerId: 1, clientX: 302, target: axis, preventDefault() {} });
+    axis.onpointerup();
+    assert.ok(Math.abs(seeks[0] - 3.02) < 1e-6);
+
+    // Toggle speech off -> hover MUST still show all 5 raw scores including speech 0.81 and sub-threshold scores
+    getNode('waveform-group-toggles').children[1].onclick();
+    axis.onpointermove({ clientX: 302, pointerId: 1 });
+    const scoreText = hoverScores.textContent;
+    assert.match(scoreText, /0\.08/);
+    assert.match(scoreText, /0\.81/);
+    assert.match(scoreText, /0\.14/);
+    assert.match(scoreText, /0\.44/);
+    assert.match(scoreText, /0\.03/);
+
+    // 2. Out-of-audio-range (video 1.0s < audioOffset +2.0s) and unanalyzed tail (video 7.0s -> audio 5.0s >= 4.0s analyzed)
+    axis.onpointermove({ clientX: 100, pointerId: 1 });
+    assert.match(hoverLabel.textContent, /^00:01\.0/);
+    assert.doesNotMatch(hoverScores.textContent, /0\.00/);
+    assert.match(hoverScores.textContent, /—/);
+
+    axis.onpointermove({ clientX: 700, pointerId: 1 });
+    assert.match(hoverLabel.textContent, /^00:07\.0/);
+    assert.doesNotMatch(hoverScores.textContent, /0\.00/);
+    assert.match(hoverScores.textContent, /—/);
+
+    // 3. With keyframes in #source-filmstrip, img becomes visible and label keeps 'Source preview frame' / '原片参考画面'
+    const frameImg = new FakeElement('img');
+    frameImg.dataset.time = '3.0';
+    frameImg.src = 'data:image/jpeg;base64,abc';
+    getNode('source-filmstrip').replaceChildren(frameImg);
+    axis.onpointermove({ clientX: 302, pointerId: 1 });
+    assert.equal(hoverImg.hidden, false);
+    assert.equal(hoverImg.src, 'data:image/jpeg;base64,abc');
+    assert.match(hoverLabel.textContent, /Source preview frame/);
+    setLang('zh');
+    axis.onpointermove({ clientX: 302, pointerId: 1 });
+    assert.match(hoverLabel.textContent, /原片参考画面/);
+
+    // 4. Hidden during active drag (trim handle)
+    const leftHandle = getNode('selection-left');
+    axis.onpointerdown({ button: 0, pointerId: 2, clientX: 200, target: leftHandle, preventDefault() {} });
+    assert.equal(hover.hidden, true);
+    axis.onpointermove({ clientX: 220, pointerId: 2 });
+    assert.equal(hover.hidden, true);
+    axis.onpointerup();
+    axis.onpointerleave();
+    assert.equal(hover.hidden, true);
+  } finally {
+    timeline?.suspend();
+    setLang(prevLang);
+    globalThis.Element = prevElem;
+    globalThis.document = prevDoc;
+    globalThis.window = prevWin;
+    globalThis.getComputedStyle = prevGetComputedStyle;
+  }
+});

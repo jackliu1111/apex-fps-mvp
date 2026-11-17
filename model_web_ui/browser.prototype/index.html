@@ -110,6 +110,10 @@
                 <button id="source-fit" class="quiet" data-i18n="fit_all">Fit All</button>
               </div>
             </div>
+            <div class="waveform-group-bar">
+              <span class="group-toggles-label" data-i18n="group_toggles_label">Layers</span>
+              <div id="waveform-group-toggles" class="waveform-group-toggles" role="group" aria-label="Sound display groups" data-i18n-aria="group_toggles_aria"></div>
+            </div>
             <div id="source-axis" class="source-axis">
               <canvas id="prediction-wave" height="68" role="img" aria-label="Audio waveform, click to seek; generated progressively with analysis" data-i18n-aria="wave_aria" aria-describedby="waveform-status"></canvas>
               <div id="source-filmstrip" class="source-filmstrip" hidden></div>
@@ -121,7 +125,7 @@
               <div id="source-ticks" class="axis-ticks"></div>
               <div class="axis-meta-status"><span id="waveform-status" class="muted"></span><span id="prediction-empty" class="muted"></span></div>
             </div>
-            <div id="source-hover" hidden><img alt="Source preview frame"><span data-i18n="hover_sample_text">Source preview frame</span></div>
+            <div id="source-hover" hidden role="status" aria-live="polite" aria-atomic="true"><img id="source-hover-img" alt="Source preview frame" hidden><span id="source-hover-label" data-i18n="hover_sample_text">Source preview frame</span><div id="source-hover-scores" class="hover-scores"></div></div>
           </div>
           <div class="selection-actions">
             <div class="selection-summary-group"><p id="selection-summary" role="status"></p></div>

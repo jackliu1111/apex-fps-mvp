@@ -10,6 +10,7 @@ import {
   groupScoreColumns,
   layeredWaveColumns,
   overviewDistributionColumns,
+  groupScoresAtTime,
 } from '../waveform-layers.mjs';
 
 function hexToRgb(hex) {
@@ -302,4 +303,105 @@ test('overviewDistributionColumns shares video-time coordinates, aligns positive
   assert.equal(negOverview[0].state, 'neutral'); // [0, 10) corresponds to audio [5, 15) -> early 2s gunshot clipped!
   assert.equal(negOverview[9].state, 'active'); // [90, 100) contains audio 100s - 5s = 95s
   assert.equal(negOverview[40].state, 'unanalyzed'); // [400, 410) past 395s video limit
+});
+
+test('overviewDistributionColumns respects enabledGroups when gunshot is toggled off without altering neutral contour or non-gunshot toggles', () => {
+  const duration = 20;
+  const frameSeconds = 0.04;
+  const totalFrames = 500;
+  const scores = new Float32Array(totalFrames * 5);
+  // Gunshot at 4.00..4.16s (col 2 in width 10 -> 2s/col), speech at 8.00s
+  for (let f = 100; f < 104; f++) scores[f * 5 + 0] = 0.85;
+  scores[200 * 5 + 1] = 0.75;
+
+  const wave = createAudioPeaks(duration, 0);
+  appendAudioPeaks(wave, {
+    timestamp: 0,
+    buffer: { numberOfChannels: 1, sampleRate: 10, duration, getChannelData: () => new Float32Array(200).fill(0.25) },
+  }, 0, duration);
+
+  const scoreData = { groupScores: scores, groupScoreFrames: totalFrames, frameSeconds, audioOffset: 0, audioDuration: duration };
+  const speechDisabled = overviewDistributionColumns({
+    wave,
+    scoreData,
+    duration,
+    width: 10,
+    canvasHeight: 16,
+    enabledGroups: new Set(['gunshot', 'music', 'footsteps', 'impact']),
+  });
+  assert.equal(speechDisabled[2].state, 'active');
+  assert.ok(speechDisabled[2].gunshotHeight > 0);
+
+  const gunshotDisabled = overviewDistributionColumns({
+    wave,
+    scoreData,
+    duration,
+    width: 10,
+    canvasHeight: 16,
+    enabledGroups: new Set(['speech', 'music', 'footsteps', 'impact']),
+  });
+  assert.equal(gunshotDisabled[2].state, 'neutral');
+  assert.equal(gunshotDisabled[2].gunshotHeight, 0);
+  assert.equal(gunshotDisabled[2].gunshotY, null);
+  assert.equal(gunshotDisabled[2].waveHeight, speechDisabled[2].waveHeight);
+});
+
+test('groupScoresAtTime applies audioOffset, returns all 5 raw scores including sub-threshold values, and marks unanalyzed/out-of-range cleanly', () => {
+  const frameSeconds = 0.04;
+  const analyzedFrames = 125; // [0, 5.0)s of a 10s audio track analyzed
+  const scores = new Float32Array(analyzedFrames * 5);
+  // Frame 50 -> audio [2.00, 2.04)s
+  scores[50 * 5 + 0] = 0.12; // below 0.2 display threshold
+  scores[50 * 5 + 1] = 0.74;
+  scores[50 * 5 + 2] = 0.03;
+  scores[50 * 5 + 3] = 0.19;
+  scores[50 * 5 + 4] = 0.00;
+
+  // Missing scoreData -> unanalyzed
+  const missing = groupScoresAtTime(null, 2.5);
+  assert.equal(missing.status, 'unanalyzed');
+  assert.equal(missing.scores, null);
+
+  // Positive offset +2.0s: video [0, 2.0) is before audio; video 4.01s -> audio 2.01s -> frame 50; video 7.5s -> audio 5.5s (unanalyzed tail < audioDuration 10)
+  const posScoreData = {
+    groupScores: scores,
+    groupScoreFrames: analyzedFrames,
+    frameSeconds,
+    audioOffset: 2.0,
+    audioDuration: 10,
+  };
+  const beforeAudio = groupScoresAtTime(posScoreData, 1.5);
+  assert.equal(beforeAudio.status, 'out-of-range');
+  assert.equal(beforeAudio.scores, null);
+
+  const hit = groupScoresAtTime(posScoreData, 4.01);
+  assert.equal(hit.status, 'ok');
+  assert.equal(hit.frameIndex, 50);
+  assert.ok(Math.abs(hit.audioTime - 2.01) < 1e-6);
+  assert.equal(hit.scores.length, 5);
+  assert.ok(Math.abs(hit.scores[0] - 0.12) < 1e-6);
+  assert.ok(Math.abs(hit.scores[1] - 0.74) < 1e-6);
+  assert.ok(Math.abs(hit.scores[2] - 0.03) < 1e-6);
+  assert.ok(Math.abs(hit.scores[3] - 0.19) < 1e-6);
+  assert.equal(hit.scores[4], 0);
+
+  const unanalyzedTail = groupScoresAtTime(posScoreData, 7.5);
+  assert.equal(unanalyzedTail.status, 'unanalyzed');
+  assert.equal(unanalyzedTail.scores, null);
+
+  const pastAudioEnd = groupScoresAtTime(posScoreData, 12.1);
+  assert.equal(pastAudioEnd.status, 'out-of-range');
+  assert.equal(pastAudioEnd.scores, null);
+
+  // Negative offset -1.0s: video 1.02s -> audio 2.02s -> frame 50
+  const negHit = groupScoresAtTime({
+    groupScores: scores,
+    groupScoreFrames: analyzedFrames,
+    frameSeconds,
+    audioOffset: -1.0,
+    audioDuration: 10,
+  }, 1.02);
+  assert.equal(negHit.status, 'ok');
+  assert.equal(negHit.frameIndex, 50);
+  assert.ok(Math.abs(negHit.scores[1] - 0.74) < 1e-6);
 });
