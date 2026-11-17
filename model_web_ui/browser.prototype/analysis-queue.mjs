@@ -1,4 +1,6 @@
 // Owns task lifetime only. Review navigation and human decisions live elsewhere.
+import { DEFAULT_MODEL } from './model-registry.mjs';
+
 export function createAnalysisQueue({ prepare, analyze, onPrepared = async () => {}, onChange = () => {}, onCandidates = () => {}, release = () => {} }) {
   const records = [], waiters = [], jobs = new Map(), generations = new Map(), prepared = new Set();
   let running = false, preparations = 0, disposed = false;
@@ -64,7 +66,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
     records, get,
     async importFiles(files, options = {}) {
       if (disposed) throw new Error('分析队列已关闭');
-      const added = [...files].map((file) => ({ id: crypto.randomUUID(), file, model: options.model || 'efficientat', threshold: options.threshold ?? 0.2, status: 'preparing', error: null, candidates: [], processedUntil: 0, windows: 0, frontier: -Infinity }));
+      const added = [...files].map((file) => ({ id: crypto.randomUUID(), file, model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2, status: 'preparing', error: null, candidates: [], processedUntil: 0, windows: 0, frontier: -Infinity }));
       records.push(...added); added.forEach(emit);
       await Promise.all(added.map(prepareOne));
       return added;
