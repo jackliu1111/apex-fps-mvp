@@ -21,7 +21,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     });
     assert.equal(partial.status, 'analyzing');
     assert.ok(partial.until < partial.duration && partial.blank > 0);
-    if (process.env.REVIEW_SCREENSHOT_DIR) await page.locator('#prediction-workspace').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/progressive.png` });
+    if (process.env.REVIEW_SCREENSHOT_DIR) await page.locator('#selection-player-axis').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/progressive.png` });
     await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 120000 });
     const complete = await page.evaluate(async () => {
       const r = reviewApp.queue.records[0];
@@ -32,7 +32,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.ok(complete.until > 134.9 && complete.painted);
     assert.equal(complete.passes, 1);
     await page.locator('#prediction-zoom').click();
-    await page.locator('#prediction-fit').click();
+    await page.locator('#source-fit').click();
     page.on('dialog', dialog => dialog.accept());
     await page.reload(); await page.waitForFunction(() => window.reviewApp);
     await page.evaluate(() => reviewApp.ready);

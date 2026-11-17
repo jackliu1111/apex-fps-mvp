@@ -13,12 +13,12 @@ import { t, getLang, setLang, onLanguageChange, applyTranslations } from './i18n
 
 const $ = (id) => document.getElementById(id);
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Set();
-const queueRows = new Map(), clipRows = new Map(), batchRows = new Map();
+const queueRows = new Map(), batchRows = new Map();
 const seenCandidates = new Map();
 const presentedRecords = new WeakSet();
 const startingExports = new Set();
 let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
-let makingDemo = false, directoryHandle = null, exportQueue, selectionTimeline;
+let directoryHandle = null, exportQueue, selectionTimeline;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
 
 const getStatuses = () => ({
@@ -76,8 +76,12 @@ const queue = createBrowserAnalysis({ MB,
     exportQueue?.pump();
   },
 });
-let idleTimer = null;
-function resetPlayerIdle() {
+let idleTimer = null, lastMouseX = null, lastMouseY = null;
+function resetPlayerIdle(event) {
+  if ((event?.type === 'mousemove' || event?.type === 'mouseenter') && Number.isFinite(event.clientX)) {
+    if (event.clientX === lastMouseX && event.clientY === lastMouseY) return;
+    lastMouseX = event.clientX; lastMouseY = event.clientY;
+  }
   if (idleTimer) clearTimeout(idleTimer);
   const frame = $('player-frame');
   if (!frame) return;
@@ -170,7 +174,7 @@ async function startExport(id) {
 
 async function importFiles(files) {
   await ready;
-  const options = { model: $('model').value, threshold: 0.2 };
+  const options = { model: 'efficientat', threshold: 0.2 };
   const failures = [];
   const importMessage = t('note_prep_files', { count: files.length });
   note(importMessage);
@@ -199,7 +203,6 @@ async function openReview(id) {
   seenCandidates.set(id, workspace.getSource(id).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
   render();
   const record = bindings.get(id), token = ++loadToken;
-  $('threshold').value = record?.threshold ?? 0.2;
   playerSourceId = null; loadingSource = true;
   $('source-canvas').getContext('2d').clearRect(0, 0, $('source-canvas').width, $('source-canvas').height);
   try {
@@ -222,15 +225,9 @@ function renderQueue() {
   const rows = view.sources.map((saved) => ({ key: saved.id, saved, record: bindings.get(saved.id) }));
   for (const record of queue.records) if (!record.sourceId) rows.push({ key: `runtime:${record.id}`, record });
   const populated = rows.length > 0;
-  const guide = document.querySelector('.workflow-guide');
-  if (guide.dataset.populated !== String(populated)) {
-    if (populated && guide.contains(document.activeElement)) guide.querySelector('summary').focus({ preventScroll: true });
-    guide.open = !populated;
-    guide.dataset.populated = String(populated);
-  }
   $('analysis-page').classList.toggle('has-recordings', populated);
-  const analyzing = rows.filter(({ record }) => record?.status === 'analyzing').length;
-  const waiting = rows.filter(({ record }) => ['preparing', 'queued'].includes(record?.status)).length;
+  const analyzing = rows.filter(({ record, saved }) => (record?.status || saved?.analysis?.status) === 'analyzing').length;
+  const waiting = rows.filter(({ record, saved }) => ['preparing', 'queued'].includes(record?.status || saved?.analysis?.status)).length;
   $('queue-count').textContent = t('queue_count', { count: rows.length });
   $('queue-summary').textContent = analyzing || waiting
     ? t('queue_summary_analyzing', { analyzing, waiting })
@@ -241,7 +238,10 @@ function renderQueue() {
   if (rows.length) $('queue').querySelector('.empty')?.remove();
   if (!rows.length && !$('queue').querySelector('.empty')) {
     const empty = element('div', undefined, 'empty');
-    empty.append(createFrameSignal(), element('strong', t('empty_drop_title')), element('span', t('empty_drop_desc')), element('small', t('empty_drop_types')));
+    const title = element('strong', t('empty_drop_title')); title.dataset.i18n = 'empty_drop_title';
+    const desc = element('span', t('empty_drop_desc')); desc.dataset.i18n = 'empty_drop_desc';
+    const types = element('small', t('empty_drop_types')); types.dataset.i18n = 'empty_drop_types';
+    empty.append(createFrameSignal(), title, desc, types);
     $('queue').append(empty);
   }
   const statusDict = getStatuses();
@@ -355,78 +355,19 @@ function selectRange(clip, jump = true) {
   });
   if (jump && bindings.has(activeSourceId)) return player.seek(clip.start);
 }
-function renderClips(saved) {
-  let number = 0;
-  const clipNumbers = new Map();
-  for (const item of (saved?.clips || [])) {
-    if (!item.excluded) clipNumbers.set(item.id, ++number);
-  }
-  const clips = (saved?.clips || []).filter((clip) => !clip.excluded || $('show-excluded').checked), keys = new Set(clips.map((clip) => clip.id));
-  for (const [key, node] of clipRows) if (!keys.has(key) || node.sourceId !== saved?.id) {
-    if (node.contains(document.activeElement)) $('prediction-workspace').focus({ preventScroll: true });
-    node.remove(); clipRows.delete(key);
-  }
-  $('clips').querySelector('.empty')?.remove();
-  if (!clips.length) $('clips').append(element('p', saved?.clips.some((clip) => clip.excluded) ? t('clip_empty_excluded') : saved?.analysis.status === 'completed' ? t('clip_empty_filtered') : t('clip_empty_analyzing'), 'empty'));
-  for (const clip of clips) {
-    let row = clipRows.get(clip.id);
-    if (!row) {
-      row = element('div', undefined, 'clip'); row.dataset.clipId = clip.id; row.sourceId = saved.id;
-      const selected = element('input'); selected.type = 'checkbox'; selected.className = 'clip-selected';
-      selected.onchange = () => safely(() => workspace.choose(row.sourceId, row.dataset.clipId, selected.checked));
-      const title = element('span', undefined, 'clip-title');
-      const badge = element('span', undefined, 'clip-badge');
-      const text = element('span', undefined, 'clip-text');
-      title.append(badge, text);
-      const jump = button(t('clip_locate_btn'), () => selectRange(workspace.getSource(row.sourceId).clips.find((item) => item.id === row.dataset.clipId))); jump.className = 'clip-jump';
-      const exclude = button(t('clip_exclude_btn'), () => {
-        const clip = workspace.getSource(row.sourceId).clips.find((item) => item.id === row.dataset.clipId);
-        return clip.excluded ? workspace.restoreExcluded(row.sourceId, clip.id) : workspace.exclude(row.sourceId, clip.id);
-      }); exclude.className = 'clip-exclude';
-      row.append(selected, title, jump, exclude); clipRows.set(clip.id, row); $('clips').append(row);
-    }
-    row.querySelector('.clip-selected').checked = clip.selected;
-    row.querySelector('.clip-selected').setAttribute('aria-label', `${time(clip.start)} — ${time(clip.end)}`);
-    const badgeNumber = clipNumbers.get(clip.id);
-    const badgeText = clip.excluded ? t('clip_excluded_badge') : (badgeNumber ? `[${badgeNumber}]` : '');
-    let badge = row.querySelector('.clip-badge');
-    if (!badge) {
-      badge = element('span', undefined, 'clip-badge');
-      row.querySelector('.clip-title').prepend(badge);
-    }
-    badge.textContent = badgeText;
-    let text = row.querySelector('.clip-text');
-    if (!text) {
-      text = element('span', undefined, 'clip-text');
-      row.querySelector('.clip-title').append(text);
-    }
-    const clipType = clip.excluded ? t('clip_excluded_desc') : clip.provisional ? t('clip_provisional_desc') : clip.supplemental ? t('clip_supplemental_desc') : clip.manual ? t('clip_manual_desc') : t('clip_candidate_desc');
-    text.textContent = ` ${time(clip.start)}—${time(clip.end)} · ${clipType}`;
-    row.classList.toggle('selected-range', saved.review.selectedClipId === clip.id);
-    row.querySelector('.clip-jump').textContent = saved.review.selectedClipId === clip.id ? t('clip_editing_btn') : t('clip_locate_btn');
-    row.classList.toggle('supplemental', clip.supplemental);
-    row.classList.toggle('unselected', !clip.selected && !clip.excluded);
-    row.classList.toggle('excluded', clip.excluded);
-    row.querySelector('.clip-exclude').textContent = clip.excluded ? t('clip_restore_btn') : t('clip_exclude_btn');
-    row.querySelector('.clip-exclude').disabled = clip.provisional;
-    row.querySelector('.clip-selected').disabled = clip.provisional || clip.excluded;
-    row.querySelector('.clip-jump').disabled = clip.provisional || clip.excluded;
-  }
-  // Appending existing nodes would move focus; only move a row when its order changed.
-  let previous = null;
-  for (const clip of clips) { const row = clipRows.get(clip.id); if (previous ? previous.nextElementSibling !== row : $('clips').firstElementChild !== row) $('clips').insertBefore(row, previous ? previous.nextElementSibling : $('clips').firstElementChild); previous = row; }
-}
 function renderRange(saved) {
   const clip = selectedClip(), valid = !!clip && !clip.provisional;
-  $('range-label').textContent = clip ? `${clip.start.toFixed(2)}—${clip.end.toFixed(2)} s · ${(clip.end - clip.start).toFixed(2)} s` : t('range_select_hint');
   for (const key of ['start', 'end']) {
-    const field = $(`range-${key}`);
-    field.disabled = !valid; field.max = saved.duration;
-    $(`range-${key}-current`).disabled = !valid || (key === 'start' ? saved.review.position >= clip.end : saved.review.position <= clip.start);
-    setValue(field, clip ? clip[key].toFixed(2) : '');
-    setValue($(`zoom-${key}`), saved.review[`zoom${key === 'start' ? 'Start' : 'End'}`].toFixed(2));
+    const quickBtn = $(`quick-set-${key}`);
+    if (quickBtn) quickBtn.disabled = !valid || (key === 'start' ? saved.review.position >= clip.end : saved.review.position <= clip.start);
   }
-  $('fit-selection').disabled = !valid;
+  if ($('quick-fit-clip')) $('quick-fit-clip').disabled = !valid;
+  const toggleBtn = $('toggle-current-clip');
+  if (toggleBtn) {
+    toggleBtn.disabled = !valid;
+    toggleBtn.setAttribute('aria-pressed', String(!!(valid && clip.selected)));
+    toggleBtn.textContent = !valid ? t('toggle_clip_export') : clip.selected ? t('toggle_clip_export_on') : t('toggle_clip_export_off');
+  }
 }
 function renderPlayer() {
   if (currentPage === 'review') selectionTimeline?.render(source());
@@ -468,16 +409,12 @@ function renderReview() {
   const analyzing = ['analyzing', 'queued', 'preparing'].includes(saved.analysis.status);
   $('review-progress').textContent = t('review_progress_text', { name: saved.identity.name, current: time(saved.analysis.processedUntil), total: time(saved.duration), status: getStatuses()[saved.analysis.status] || saved.analysis.status, analyzing: analyzing ? t('analyzing_ongoing') : '' });
   const added = saved.clips.filter((clip) => !clip.provisional && !clip.excluded).length - (seenCandidates.get(saved.id) || 0);
-  $('new-candidates').textContent = added > 0 ? t('new_candidates_badge', { count: added }) : '';
-  $('candidate-tail').textContent = analyzing ? t('tail_analyzing') : t('tail_done');
+  if ($('new-candidates')) $('new-candidates').textContent = added > 0 ? t('new_candidates_badge', { count: added }) : '';
   const selectionSummary = t('selection_summary_text', { count: selected.length, duration: selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2), unexported: saved.hasUnexportedChanges ? t('unexported_changes_tag') : '' });
   if ($('selection-summary').textContent !== selectionSummary) $('selection-summary').textContent = selectionSummary;
   $('export').disabled = !selected.length || !record;
   $('export').textContent = t('submit_export');
-  $('recompute').disabled = !(record?.scores || record?.windowScores);
-  $('reset-decisions').disabled = !saved.decisions.length && !Object.keys(saved.selection).length;
-  $('retain-all').disabled = $('exclude-all').disabled = !saved.clips.some((clip) => !clip.provisional);
-  renderClips(saved); renderRange(saved); renderPlayer();
+  renderRange(saved); renderPlayer();
 }
 function renderExports() {
   const batchStatusMap = {
@@ -586,11 +523,6 @@ function renderExports() {
     }
   }
 }
-function renderDiagnostics() {
-  const record = bindings.get(activeSourceId) || queue.records.find((item) => item.status === 'analyzing') || queue.records.at(-1);
-  $('analysis-report').disabled = !record;
-  $('analysis-timing').textContent = record ? JSON.stringify({ name: record.file.name, status: record.status, model: record.model, windows: record.windows, audioPolicy: record.audioPolicy, timings: record.timings }, null, 2) : (getLang() === 'zh' ? '尚无分析记录。' : 'No analysis records yet.');
-}
 function render() {
   $('exports-section').hidden = currentPage !== 'exports';
   $('nav-exports').setAttribute('aria-current', currentPage === 'exports' ? 'page' : 'false');
@@ -600,7 +532,6 @@ function render() {
   $('status').hidden = $('status').dataset.page !== currentPage && $('status').dataset.tone !== 'error';
   $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
   $('nav-review').setAttribute('aria-current', currentPage === 'review' ? 'page' : 'false'); $('nav-review').disabled = !view.sources.length;
-  $('demo').disabled = makingDemo;
   $('drop-zone').setAttribute('aria-disabled', String(currentPage !== 'analysis'));
   if (currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
 
@@ -612,29 +543,17 @@ function render() {
   } else if (currentPage === 'exports') {
     renderExports();
   }
-  renderDiagnostics();
-}
-
-async function demo() {
-  if (makingDemo) return;
-  makingDemo = true; render(); note(t('note_demo_loading'));
-  try {
-    const metadata = await fetch('/demo/manifest.json');
-    if (!metadata.ok) throw new Error(t('err_demo_not_found'));
-    const { name, bytes, lastModified } = await metadata.json();
-    if (!Number.isSafeInteger(bytes) || bytes <= 0 || bytes >= 100 * 1048576) throw new Error(t('err_demo_too_large'));
-    const response = await fetch('/demo/recording.mp4');
-    if (!response.ok) throw new Error(t('err_demo_read'));
-    const blob = await response.blob();
-    if (blob.size !== bytes) throw new Error(t('err_demo_corrupted'));
-    await importFiles([new File([blob], name, { type: 'video/mp4', lastModified })]);
-    note(t('note_demo_ready'));
-  } finally { makingDemo = false; render(); }
 }
 
 $('export').onclick = () => safely(submitExport);
 $('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) => note(error.name === 'AbortError' ? t('err_no_dir_picker') : errorText(error), 'error')); };
 $('import-files').onclick = () => { $('files').click(); };
+$('drop-zone').addEventListener('click', (event) => {
+  if (event.target.closest('button')) return;
+  if (currentPage === 'analysis' && !$('import-files').disabled && event.target.closest('.empty')) {
+    $('import-files').click();
+  }
+});
 $('files').onchange = () => { const files = [...$('files').files]; $('files').value = ''; safely(() => importFiles(files)); };
 const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
 document.addEventListener('dragover', (event) => {
@@ -655,7 +574,6 @@ document.addEventListener('drop', (event) => {
   const files = Array.from(event.dataTransfer.files);
   if (files.length) safely(() => importFiles(files));
 });
-$('demo').onclick = () => safely(demo);
 $('nav-exports').onclick = $('view-exports').onclick = showExports;
 $('nav-analysis').onclick = $('back-analysis').onclick = showAnalysis;
 $('nav-review').onclick = () => safely(() => openReview(activeSourceId || view.sources[0].id));
@@ -673,7 +591,6 @@ $('player-volume').oninput = () => {
 const playerFrame = $('player-frame');
 if (playerFrame) {
   playerFrame.addEventListener('mousemove', resetPlayerIdle);
-  playerFrame.addEventListener('mouseenter', resetPlayerIdle);
   playerFrame.addEventListener('mouseleave', () => {
     if (playerState.playing) {
       if (idleTimer) clearTimeout(idleTimer);
@@ -702,6 +619,7 @@ function toggleFullscreen() {
   }
 }
 $('player-fullscreen').onclick = () => safely(toggleFullscreen);
+$('source-canvas').onclick = () => { if (!$('play-pause').disabled) $('play-pause').click(); };
 $('source-canvas').ondblclick = () => safely(toggleFullscreen);
 document.addEventListener('fullscreenchange', updateFullscreenState);
 document.addEventListener('webkitfullscreenchange', updateFullscreenState);
@@ -725,23 +643,28 @@ function stepCandidate(direction) {
 }
 $('prev-candidate').onclick = () => safely(() => stepCandidate(-1));
 $('next-candidate').onclick = () => safely(() => stepCandidate(1));
-$('manual').onclick = () => safely(() => { const saved = source(), start = Math.min(saved.review.position, Math.max(0, saved.duration - 5)); const id = workspace.addManual(saved.id, { start, end: Math.min(saved.duration, start + 5) }); selectRange(workspace.getSource(saved.id).clips.find((clip) => clip.id === id), false); });
+const addManualAtPlayhead = () => safely(() => {
+  const saved = source();
+  if (!saved) return;
+  const start = Math.min(saved.review.position, Math.max(0, saved.duration - 5));
+  const id = workspace.addManual(saved.id, { start, end: Math.min(saved.duration, start + 5) });
+  selectRange(workspace.getSource(saved.id).clips.find((clip) => clip.id === id), false);
+});
+if ($('quick-manual')) $('quick-manual').onclick = addManualAtPlayhead;
+if ($('toggle-current-clip')) $('toggle-current-clip').onclick = () => safely(() => {
+  const saved = source(), clip = selectedClip();
+  if (!saved || !clip || clip.provisional || clip.excluded) return;
+  workspace.choose(saved.id, clip.id, !clip.selected);
+});
 function trimBoundary(key, value) {
   const saved = source(), clip = selectedClip();
   if (!clip || clip.provisional) return;
   if (value === '' || !Number.isFinite(Number(value))) throw new Error(t('err_valid_trim_time'));
-  const next = Number(value);
-  workspace.trim(saved.id, clip.id, { start: clip.start, end: clip.end, [key]: next });
-  $(`range-${key}`).value = next.toFixed(2);
+  workspace.trim(saved.id, clip.id, { start: clip.start, end: clip.end, [key]: Number(value) });
 }
 for (const key of ['start', 'end']) {
-  const commit = (node) => safely(() => {
-    try { trimBoundary(key, node.value); }
-    catch (error) { const clip = selectedClip(); node.value = clip ? clip[key].toFixed(2) : ''; throw error; }
-  });
-  $(`range-${key}`).onchange = () => commit($(`range-${key}`));
-  $(`range-${key}-current`).onclick = () => safely(() => trimBoundary(key, source().review.position));
-  $(`zoom-${key}`).onchange = () => safely(() => workspace.setReview(activeSourceId, { [`zoom${key === 'start' ? 'Start' : 'End'}`]: Number($(`zoom-${key}`).value) }));
+  const quickSet = $(`quick-set-${key}`);
+  if (quickSet) quickSet.onclick = () => safely(() => trimBoundary(key, source().review.position));
 }
 selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(),
   isActive: () => currentPage === 'review' && !loadingSource,
@@ -750,27 +673,9 @@ selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, 
   toggleMute: () => player.toggleMute(),
   toggleFullscreen: () => { if (!$('player-fullscreen').disabled) $('player-fullscreen').click(); },
   isPlayerBusy: () => loadingSource || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
-$('show-excluded').addEventListener('change', () => renderClips(source()));
-$('fit-selection').onclick = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
-$('recompute').onclick = () => safely(() => { const record = bindings.get(activeSourceId); queue.recompute(record.id, Number($('threshold').value)); note(t('note_recompute_done')); });
-$('retain-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, true));
-$('exclude-all').onclick = () => safely(() => workspace.chooseAll(activeSourceId, false));
-$('reset-decisions').onclick = () => { const saved = source(); if (confirm(t('confirm_reset_decisions', { name: saved.identity.name }))) safely(() => workspace.resetDecisions(saved.id)); };
-$('analysis-report').onclick = () => { const record = bindings.get(activeSourceId) || queue.records.find((item) => item.status === 'analyzing') || queue.records.at(-1); if (!record) return; const report = { date: new Date().toISOString(), source: { name: record.file.name, bytes: record.file.size, duration: record.duration }, model: record.modelInfo, audioPolicy: record.audioPolicy, status: record.status, windows: record.windows, timings: record.timings, candidates: record.candidates }; const link = element('a'); link.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })); link.download = 'apex-analysis-report.json'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); };
-function renderOutputFormat() {
-  $('output-format').textContent = t('output_format_render', {
-    format: outputSettings.format.toUpperCase(),
-    video: outputSettings.videoCodec === 'avc' ? 'H.264' : outputSettings.videoCodec.toUpperCase(),
-    audio: outputSettings.audioCodec.toUpperCase()
-  });
-}
-function renderCapabilities() {
-  const audioOk = typeof AudioDecoder !== 'undefined';
-  const videoOk = typeof VideoDecoder !== 'undefined';
-  const isoOk = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
-  $('capabilities').textContent = `${t('audio_decoder')} ${audioOk ? t('cap_available') : t('cap_unavailable')} · ${t('video_decoder')} ${videoOk ? t('cap_available') : t('cap_unavailable')} · ${t('isolated_context')} ${isoOk ? t('cap_available') : t('cap_unavailable')}`;
-}
-$('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); renderOutputFormat(); };
+const fitSelectedClip = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
+if ($('quick-fit-clip')) $('quick-fit-clip').onclick = fitSelectedClip;
+$('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); };
 
 // Language switcher
 const langBtn = $('lang-toggle');
@@ -782,8 +687,6 @@ if (langBtn) {
 onLanguageChange(() => {
   applyTranslations();
   render();
-  renderOutputFormat();
-  renderCapabilities();
 });
 
 // Session state is intentionally not written to browser storage.
@@ -800,10 +703,8 @@ window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.s
 const ready = Promise.resolve();
 $('import-files').disabled = false;
 applyTranslations();
-renderOutputFormat();
-renderCapabilities();
 render();
 note(t('status_ready'), 'quiet');
-window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, demo, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
+window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
 
 if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));

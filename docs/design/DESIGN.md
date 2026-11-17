@@ -1,30 +1,30 @@
 # Design System: Apex Local Cut (本地选片工作区)
 
 ## 1. Visual Theme & Atmosphere
-A unified **Descript Studio Pro (B1)** desktop video review and timeline editing workbench inspired by modern document-and-canvas editors (Descript) and precision linear workspaces.
-- **Task & Queue Views (`#analysis-page`, `#exports-section`):** Bright cloud-white studio canvas (`#f1f3f9` / `#eceff8 → #f5f6fb` gradient ground) with elevated pure-white cards (`#ffffff`, `16px` radius), frosted-glass sticky navigation (`rgba(255, 255, 255, 0.88)` with `backdrop-filter: blur(16px)`), crisp `1px` slate hairlines (`#e2e5f0`), and electric indigo-violet pill actions (`#6366f1 → #4f46e5`).
-- **Clip Review Studio (`#review-page`):** A tactile, high-contrast studio canvas pairing a recessed dot-matrix timeline well (`#eaecf5` with radial dot grid `#cbd5e1`) and a floating deep-obsidian `16:9` video stage (`#090b10` frame, `clamp(280px, 38vh, 380px)` tall) so game footage colors and HUD elements pop cleanly while timeline editing feels lightweight and approachable.
+A **Monochrome Pure-White Rounded Workbench & LosslessCut-Inspired Minimal NLE** engineered for FPS combat audio analysis and frame-accurate local video cutting, pairing clean pure-white and neutral gray surfaces with crisp ink-black controls and an airy light-blue active timeline selection.
+- **Task & Queue Views (`#analysis-page`, `#exports-section`):** Soft alabaster ground (`#f7f8fa`) paired with crisp pure-white rounded workbench cards (`#ffffff`, `16px` radius), frosted-white sticky navigation (`rgba(255, 255, 255, 0.88)` with `backdrop-filter: blur(16px)`), neutral pill navigation tabs (`#f3f4f6` active pill), hairline borders (`#e5e7eb`), and clean ink-black primary CTAs (`#18181b`).
+- **Single-Screen Clip Review Workbench (`#review-page`):** A single unified pure-white rounded workbench card (`.review-workbench`) engineered for **zero vertical scrolling** at standard desktop viewports (`1440×900` and `1280×800`), consisting of:
+  1. Compact single-row review header (`#back-analysis`, title, `#review-progress`, `#new-candidates`, `#source-select`).
+  2. Clean rounded `16:9` `.player-stage` (`#141619`, `12px` radius) housing only the video canvas and translucent `#player-status` badge—keeping the transport dock below in crisp pure-white light surfaces so gameplay is framed cleanly without a heavy black block. (Fullscreen mode switches `.player-dock` to a centered auto-hiding dark frosted-glass capsule.)
+  3. Light-surface **Global Scrub Bar** (`#player-overview-bar`, `18px`, `#f3f4f6` well) docked between `.player-stage` and `.player-controls` (housing full-source playback progress, cool-gray candidate micro-markers with light-blue active highlight, ink-slate viewport zoom frame `#prediction-source-window`, and crisp `#18181b` ink playhead needle).
+  4. Unified single-row `.timeline-toolbar` + single `68px` zoomable **Main Timeline** (`#source-axis`, `#f5f6f8` light recessed well) overlaying progressive graphite audio waveform (`#prediction-wave`, `--wave-bar: #6b7280`), subtle neutral-mist candidate interval blocks (`#overview-markers`), airy sky-blue selection window (`rgba(59, 130, 246, 0.12)` + `#60a5fa` rails and `18px`-hit-target trim handles `#selection-left` / `#selection-right`), and crisp `#18181b` playhead needle (`#source-head`). Permanent filmstrip tiles stay hidden (`#source-filmstrip[hidden]`) so waveform peaks stay crisp; hovering the track opens `#source-hover` with the closest reference keyframe and timestamp.
+  5. Single-row bottom `.selection-actions` export summary & submission bar (`#fafafa`).
 
 ## 2. Color Palette & Roles
-- **Studio Canvas Ground (`#f1f3f9`):** Cool cloud-slate background used across the workspace to provide clear visual separation from elevated white cards.
-- **Elevated Card Surface (`#ffffff`) & Tinted Wells (`#f7f8fc` / `#eef2ff`):** Pure white card containers with subtle multi-layered elevation shadows, paired with cool slate recessed wells for headers, empty drop zones, and disclosure drawers.
-- **Recessed Dot-Matrix Track Well (`#eaecf5`):** Tactile sunken timeline bed featuring a `12px × 12px` radial dot-matrix grid (`#cbd5e1`) and inner shadow (`inset 0 2px 5px rgba(15, 23, 42, 0.05)`) for the `64px`-tall source and prediction tracks.
-- **Floating Video Stage (`#090b10`):** Deep obsidian cinema frame housing the `<canvas>` video viewport and the frosted top-left `#player-status` pill badge.
-- **Structural Hairlines (`#e2e5f0` & `#c7cce0`):** Crisp `1px` slate borders separating cards, headers, segmented HUD transport zones, and queue rows.
-- **Primary Slate Ink (`#0f172a`):** High-contrast deep slate for headings, timecodes, active navigation, and primary figures.
-- **Secondary Muted Slate (`#475569`) & Faint Meta (`#64748b`):** Used for timestamps, axis ticks, and technical notes (maintaining `>= 4.5:1` contrast on light surfaces).
-- **Electric Indigo & Violet (`#6366f1`, `#4f46e5`, `#8b5cf6`):** Primary brand and selection accent used for primary pill buttons (`+ 导入录像`, `提交选片导出`, `选择输出目录`), active navigation indicators, 3D jelly timeline clips, and tactile trim handles.
-- **Semantic Emerald (`#10b981`), Warning Amber (`#d97706`), & Alert Rose (`#e11d48`):** Used for completed analysis/export states, provisional/warning notices, and exclude/error states.
+- **Alabaster Ground (`#f7f8fa`) & Pure-White Workbench (`#ffffff`):** Clean neutral canvas lifting `16px`-rounded pure-white cards via subtle `1px` hairlines (`#e5e7eb`) and minimal ambient shadow (`rgba(0, 0, 0, 0.04)`), without background gradients or heavy chromatic fills.
+- **Neutral Gray Wells (`#f3f4f6`, `#f5f6f8`) & Hairlines (`#e5e7eb`, `#d1d5db`):** Recessed timeline bed (`68px` tall) and secondary pill containers keeping the graphite waveform (`--wave-bar: #6b7280`) razor-sharp.
+- **Ink Charcoal (`#18181b`, `#2c2c31`):** Reserved for primary action pills (`+ 导入录像`, `提交选片导出`, `选择输出目录`, `播放/暂停`), brand badge, and crisp playhead needles (`#source-head`, `#prediction-playhead`).
+- **Airy Sky Blue (`rgba(59, 130, 246, 0.12)`, `#60a5fa`, `#2563eb`):** Reserved deliberately for the active clip selection window, trim handles, and active selection readout—keeping the overall UI monochrome and quiet while making the trimmed range effortless to spot.
+- **Muted Status Semantics (`#16a34a` / `#ecfdf5`, `#dc2626` / `#fef2f2`, `#b45309`):** Kept-for-export and completed states use gentle green; exclude hover and failures use restrained red.
 
 ## 3. Typography Rules
-- **Font Stack:** Clean neo-grotesk and Chinese system UI sans-serif (`"Inter"`, `-apple-system`, `"PingFang SC"`, `"Microsoft YaHei"`), paired with strict tabular numerals (`font-variant-numeric: tabular-nums`) on all timecodes, durations, and byte counts.
-- **Hierarchy:** Queue & Export Title `28px` bold (`letter-spacing: -0.03em`); Review Studio Subheader Title `18px` bold; Section Heading `13px–16px` semibold; Body & Controls `13px–14px`; Axis Ticks & Technical Meta `12px`.
+- **Font Stack:** Clean geometric/neo-grotesk UI sans-serif (`"Inter"`, `-apple-system`, `"PingFang SC"`, `"Microsoft YaHei"`), paired with cross-platform tabular monospace (`"Menlo"`, `"Monaco"`, `"Consolas"`, `"Courier New"`, `monospace`, `font-variant-numeric: tabular-nums`) on timecodes and axis ticks.
+- **Hierarchy:** Queue & Export Title `26px` semibold (`letter-spacing: -0.025em`); Review Subheader Title `17px` semibold; Body & Primary Controls `13px–14px`; Toolbar Chips & Axis Ticks `11.5px–12.5px`.
 
-## 4. Component Stylings
-- **Primary Pill Buttons (`#import-files`, `#export`, `#choose-directory`):** `36px–38px` height, full pill radius (`999px`), indigo-to-violet gradient fill (`linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)`), white text, and subtle top inner specular highlight.
-- **3-Zone Segmented Transport HUD (`.transport`):** Unified `12px`-radius light control bar divided into playback actions, tabular timecode pill, and volume/preview controls.
-- **3D Jelly Timeline Clips & Tactile Handles:** Active selection windows and candidate markers use translucent indigo-violet gradients with top specular highlights (`inset 0 1px 0 rgba(255, 255, 255, 0.85)`), paired with `22px`-wide indigo pill grab handles (`8px` radius) and a `2px` white center grip line. The playhead uses an `#e11d48` vertical needle and a `12px` teardrop cap.
+## 4. Direct Manipulation & Shortcuts
+- **Zero-Drawer Core Loop:** All review decisions (`I` set start, `O` set end, `K` toggle keep for export, `N` add 5s manual clip, `Del` exclude, `Ctrl/Cmd+Z` undo, `Space` play/pause, `Shift+Space` audition clip, `[`/`]` step candidates, wheel zoom/pan, `Esc`/Fit All) execute directly via toolbar controls, track handles, and global shortcuts without opening secondary drawers.
+- **Candidate Auto-Zoom:** Clicking any candidate block in `#overview-markers` or stepping with `[`/`]` smoothly zooms the single main track to ~3x clip neighborhood while highlighting that window on the player scrub bar.
 
 ## 5. Layout Principles
-- Single-column aligned edges (`1120px` max width in Review Studio, `1280px` shell container).
-- Strict dual-timeline geometry: `.source-axis` and `.prediction-shared-axis` maintain identical horizontal margins (`16px` panel padding + `12px` axis margin) and exact `64px` track heights beneath the `16:9` floating video stage.
+- Single-column unified workbench (`1280px` shell container) with strict vertical viewport budgeting on `#review-page` (`scrollHeight <= innerHeight` at `1440×900` and `1280×800`).
+- Zero overlay of bottom game HUD in normal player view (`.player-dock` stays cleanly below `.player-stage` on pure white, transitioning to a centered auto-hiding dark frosted-glass capsule in fullscreen).

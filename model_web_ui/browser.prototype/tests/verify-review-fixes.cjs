@@ -84,14 +84,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       ws.exclude(id, 'auto:excluded');
       ws.publishCandidates(id, [{ key: 'overlap', start: 0.8, end: 2.2 }, { key: 'normal', start: 5, end: 6 }, { key: 'pending', start: 9, end: 10, provisional: true }]);
     });
-    await page.locator('.selection-details > summary').click();
-    await page.locator('#retain-all').click({ timeout: 3000 });
-    await page.locator('#retain-all').click();
+    await page.evaluate(() => {
+      const id = reviewApp.activeSourceId, ws = reviewApp.workspace;
+      ws.chooseAll(id, true);
+      ws.chooseAll(id, true);
+    });
     const bulk = await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId));
     assert.deepEqual(bulk.clips.filter((clip) => clip.selected && !clip.provisional).map(({ start, end }) => [start, end]), [[0, 0.5], [0.8, 2.2], [5, 6]]);
     assert.equal(bulk.decisions.some((item) => item.range.start === 9), false);
     assert.ok(bulk.decisions.some((item) => item.kind === 'exclude' && item.range.start === 1));
-    await page.locator('#exclude-all').click();
+    await page.evaluate(() => reviewApp.workspace.chooseAll(reviewApp.activeSourceId, false));
     assert.match(await page.locator('#selection-summary').textContent(), /已选 0 段/);
     await page.evaluate(async () => {
       const id = reviewApp.activeSourceId, ws = reviewApp.workspace;

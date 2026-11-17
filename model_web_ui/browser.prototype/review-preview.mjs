@@ -23,14 +23,14 @@ export function renderReviewPreview(source, bound) {
   const { zoomStart, zoomEnd } = source.review;
   const frames = Array.from({ length: 10 }, (_, i) => at(zoomStart + (zoomEnd - zoomStart) * i / 10));
   const key = frames.map(frame => frame.time).join(',');
-  if (strip.dataset.previewFrames !== key || !strip.children.length) {
-    strip.replaceChildren(...frames.map(frame => {
+  if (strip && (strip.dataset.previewFrames !== key || !strip.children.length)) {
+    strip.replaceChildren(...sampleFrames.map(frame => {
       const image = document.createElement('img'); image.src = frame.image;
+      image.dataset.time = String(frame.time);
       image.alt = `样本参考帧 ${frame.time} 秒`; image.title = image.alt; return image;
     }));
     strip.dataset.previewFrames = key;
   }
-  document.getElementById('evidence-status').textContent = '预载真实参考帧 · 每 5 秒一张';
 }
 
 export async function mountReviewPreview(app) {

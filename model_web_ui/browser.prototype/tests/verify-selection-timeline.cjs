@@ -17,18 +17,20 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     await page.evaluate(() => reviewApp.workspace.publishCandidates(reviewApp.activeSourceId, [{ id: 'one', start: 2, end: 5 }, { id: 'two', start: 8, end: 10 }]));
     await page.locator('#overview-markers button').first().click();
-    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent === '原片参考画面');
+    await page.waitForFunction(() => document.querySelector('#selection-player-axis')?.dataset.evidenceStatus === '原片参考画面');
     const state = () => page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId));
     const before = await state();
     assert.equal(await page.locator('.legacy-position, #seek-time').count(), 0);
-    assert.equal(await page.locator('#selection-player-axis #overview').isVisible(), true);
+    assert.equal(await page.locator('#player-overview-bar').isVisible(), true);
     assert.ok(Math.abs(Number(await page.locator('#overview').getAttribute('max')) - before.duration) < 0.01);
     assert.equal(before.review.zoomEnd - before.review.zoomStart, 9);
     const selectedBox = await page.locator('#selection-overlay').boundingBox();
     const axisBox = await page.locator('#source-axis').boundingBox();
-    const predAxisBox = await page.locator('.prediction-shared-axis').boundingBox();
+    const waveBox = await page.locator('#prediction-wave').boundingBox();
+    const markersBox = await page.locator('#overview-markers').boundingBox();
     assert.ok(Math.abs(selectedBox.width / axisBox.width - 1 / 3) < 0.01);
-    assert.ok(Math.abs(axisBox.x - predAxisBox.x) < 1 && Math.abs(axisBox.width - predAxisBox.width) < 1);
+    assert.ok(Math.abs(axisBox.x + 1 - waveBox.x) <= 2 && Math.abs(axisBox.width - 2 - waveBox.width) <= 2);
+    assert.ok(Math.abs(waveBox.x - markersBox.x) < 1 && Math.abs(waveBox.width - markersBox.width) < 1);
     assert.equal(await page.locator('#prediction-source-window').isVisible(), true);
     assert.equal(await page.locator('#prediction-playhead').isVisible(), true);
     for (const width of [1440, 768, 390]) {
@@ -44,6 +46,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const evidence = () => page.evaluate(() => ({ frames: document.querySelector('#source-filmstrip').innerHTML, wave: document.querySelector('#prediction-wave').toDataURL() }));
     const beforeEvidence = await evidence();
     const left = await page.locator('#selection-left').boundingBox();
+    assert.ok(Math.abs(left.width - 18) <= 1, `Trim handle hit target should match 18px spec, got ${left.width}`);
     await page.mouse.move(left.x + left.width / 2, left.y + 20); await page.mouse.down();
     await page.mouse.move(left.x + 65, left.y + 20, { steps: 8 }); await page.mouse.up();
     const trimmed = await state();
@@ -57,7 +60,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const deleted = await state();
     assert.equal(deleted.review.selectedClipId, null);
     assert.equal(deleted.review.position, current.review.position);
-    assert.equal(await page.evaluate(() => document.activeElement.id), 'prediction-workspace');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'selection-player-axis');
     await page.keyboard.press('Delete');
     assert.deepEqual((await state()).decisions, deleted.decisions);
     await page.keyboard.press('Control+z');
@@ -67,26 +70,29 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.locator('#overview-markers .excluded').click();
     assert.ok((await state()).decisions.every(d => d.kind !== 'exclude'));
     await page.locator('#overview-markers button').first().click();
-    await page.waitForFunction(() => document.querySelector('#evidence-status').textContent === '原片参考画面');
+    await page.waitForFunction(() => document.querySelector('#selection-player-axis')?.dataset.evidenceStatus === '原片参考画面');
     const cancelBefore = (await state()).decisions;
     const handle = await page.locator('#selection-right').boundingBox();
     await page.mouse.move(handle.x + 10, handle.y + 20); await page.mouse.down(); await page.mouse.move(handle.x - 45, handle.y + 20);
     await page.keyboard.press('Escape'); await page.mouse.up();
     assert.deepEqual((await state()).decisions, cancelBefore);
     const position = (await state()).review.position;
-    await page.locator('#source-filmstrip').hover(); assert.equal(await page.locator('#source-hover').isVisible(), true);
-    assert.equal(await page.locator('#source-hover span').textContent(), '原片参考画面');
+    await page.locator('#source-axis').hover({ position: { x: 100, y: 30 } });
+    assert.equal(await page.locator('#source-hover').isVisible(), true);
+    assert.match(await page.locator('#source-hover span').textContent(), /原片参考画面/);
     assert.equal(await page.locator('#source-filmstrip img').first().getAttribute('alt'), '原片参考画面');
     assert.equal((await state()).review.position, position);
-    const zoom = (await state()).review.zoomStart;
+    await page.locator('#source-fit').click();
     assert.equal(await page.locator('#prediction-zoom-out').isDisabled(), true);
-    assert.equal(await page.locator('#prediction-fit').isDisabled(), true);
-    await page.locator('#prediction-zoom').click(); assert.equal((await state()).review.zoomStart, zoom);
+    assert.equal(await page.locator('#source-fit').isDisabled(), true);
+    await page.locator('#prediction-zoom').click();
     assert.equal(await page.locator('#prediction-zoom-out').isDisabled(), false);
-    assert.equal(await page.locator('#prediction-fit').isDisabled(), false);
+    assert.equal(await page.locator('#source-fit').isDisabled(), false);
     await page.locator('#prediction-zoom-out').click();
     assert.equal(await page.locator('#prediction-zoom-out').isDisabled(), true);
     assert.equal((await state()).review.position, position);
+    await page.locator('#overview-markers button').first().click();
+    await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     assert.equal(await page.locator('#prev-candidate').isDisabled(), true);
     assert.equal(await page.locator('#next-candidate').isDisabled(), false);
     await page.locator('#selection-player-axis').focus();
@@ -125,13 +131,41 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.keyboard.press('Home');
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     assert.equal((await state()).review.position, 0);
-    const globalAxis = await page.locator('#overview').boundingBox();
+    const globalAxis = await page.locator('#player-overview-bar').boundingBox();
     await page.mouse.move(globalAxis.x + 8, globalAxis.y + globalAxis.height / 2);
     await page.mouse.down();
     await page.mouse.move(globalAxis.x + globalAxis.width * 0.55, globalAxis.y + globalAxis.height / 2, { steps: 5 });
     await page.mouse.up();
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     assert.ok(Math.abs((await state()).review.position / (await state()).duration - 0.55) < 0.03);
+    assert.notEqual(await page.evaluate(() => document.activeElement?.id), 'overview', 'Scrubbing overview bar must not trap focus in <input id="overview">');
+    // Global shortcuts remain active immediately after scrubbing the overview bar, and Esc resets zoom globally.
+    const selectedBeforeK = (await state()).clips.find((c) => c.id === local.selectedClipId).selected;
+    await page.keyboard.press('k');
+    assert.equal((await state()).clips.find((c) => c.id === local.selectedClipId).selected, !selectedBeforeK);
+    await page.keyboard.press('k');
+    assert.equal((await state()).clips.find((c) => c.id === local.selectedClipId).selected, selectedBeforeK);
+    await page.locator('.review-heading').click();
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => {
+      const s = reviewApp.workspace.getSource(reviewApp.activeSourceId);
+      return s.review.zoomStart === 0 && s.review.zoomEnd === s.duration;
+    });
+    // Fullscreen overlay styling keeps #player-overview-bar active and auto-hides idle .player-dock while playing.
+    await page.evaluate(() => {
+      const frame = document.querySelector('#player-frame');
+      frame.dataset.fullscreen = 'true';
+      frame.dataset.playing = 'true';
+      frame.dataset.idle = 'true';
+    });
+    assert.equal(await page.locator('#player-overview-bar').isVisible(), true);
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#player-frame .player-dock')).opacity === '0');
+    await page.evaluate(() => {
+      const frame = document.querySelector('#player-frame');
+      delete frame.dataset.fullscreen;
+      delete frame.dataset.playing;
+      delete frame.dataset.idle;
+    });
     const playbackStart = (await state()).review.position;
     await page.locator('#play-pause').click();
     await page.waitForFunction(start => reviewApp.player.state.position > start + 1.5, playbackStart);
@@ -150,6 +184,18 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.locator('#undo-selection').isEnabled(), true);
     assert.ok(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform.peaks.some(v => v > 0)));
     await page.locator('#undo-selection').click();
+    for (const [width, height] of [[1440, 900], [1280, 800]]) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const budget = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+        scrollHeight: document.documentElement.scrollHeight,
+        innerHeight: window.innerHeight,
+      }));
+      assert.ok(budget.scrollWidth <= budget.innerWidth, `${width}x${height} must have zero horizontal scroll`);
+      assert.ok(budget.scrollHeight <= budget.innerHeight, `${width}x${height} must have zero vertical scroll (${budget.scrollHeight} <= ${budget.innerHeight})`);
+    }
     for (const width of [1440, 768, 390]) {
       await page.setViewportSize({ width, height: 1000 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

@@ -153,8 +153,9 @@ async function sleep(ms) {
   await subtitle('Apex Local Cut · 100% 浏览器本地运行', 2400);
 
   console.log('执行分镜 2: 载入交战样本...');
-  await subtitle('支持拖入长录像 · 点击体验 1 分钟真实交战', 1000);
-  await clickTarget('#demo');
+  await subtitle('支持拖入长录像 · 导入本地交战录像', 1000);
+  if (!process.env.DEMO_VIDEO_PATH) throw new Error('Set DEMO_VIDEO_PATH to a local gameplay recording');
+  await page.locator('#files').setInputFiles(process.env.DEMO_VIDEO_PATH);
   await subtitle('AI 声音模型后台分析 · 枪声候选随进度逐步浮现…', 1000);
 
   // 等待分析完成
