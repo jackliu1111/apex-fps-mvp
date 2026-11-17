@@ -1025,3 +1025,178 @@ test('selection timeline hover shows xTime timestamp and all 5 raw scores with a
     globalThis.getComputedStyle = prevGetComputedStyle;
   }
 });
+
+test('selection timeline bridges <= 80ms interior dips and shows min gunshot thickness without altering raw hover scores, candidates, or decisions', () => {
+  const nodes = new Map();
+  class FakeElement {
+    constructor(id = '') {
+      this.id = id;
+      this.tagName = id.toUpperCase();
+      this.dataset = {};
+      this.style = {};
+      this.attributes = {};
+      this.children = [];
+      this._text = '';
+      this.hidden = false;
+      this.disabled = false;
+      this.checked = false;
+      this.src = '';
+      this.value = '';
+      this.clientWidth = 50;
+      this.clientHeight = id === 'player-overview-distribution' ? 16 : 68;
+      this.width = 50;
+      this.height = id === 'player-overview-distribution' ? 16 : 68;
+      this.offsetWidth = 204;
+      this.drawOps = [];
+    }
+    get textContent() { return this.children.length ? this.children.map((c) => c.textContent || '').join('') : this._text; }
+    set textContent(v) { this._text = String(v ?? ''); this.children = []; }
+    get firstElementChild() { return this.children[0] || null; }
+    setAttribute(k, v) { this.attributes[k] = String(v); }
+    getAttribute(k) { return this.attributes[k]; }
+    removeAttribute(k) { delete this.attributes[k]; if (k === 'src') this.src = ''; }
+    closest() { return null; }
+    getBoundingClientRect() { return { left: 0, x: 0, width: 50, height: 68 }; }
+    replaceChildren(...items) { this.children = items; }
+    insertBefore(nodeToInsert, ref) {
+      const existing = this.children.indexOf(nodeToInsert);
+      if (existing >= 0) this.children.splice(existing, 1);
+      const index = ref ? this.children.indexOf(ref) : -1;
+      if (index >= 0) this.children.splice(index, 0, nodeToInsert);
+      else this.children.push(nodeToInsert);
+      nodeToInsert.nextElementSibling = this.children[this.children.indexOf(nodeToInsert) + 1] || null;
+    }
+    getContext() {
+      if (!this._ctx) {
+        const self = this;
+        this._ctx = {
+          fillStyle: '',
+          globalAlpha: 1,
+          clearRect() { self.drawOps.length = 0; },
+          fillRect(x, y, w, h) {
+            self.drawOps.push({ x, y, w, h, fillStyle: self._ctx.fillStyle, globalAlpha: self._ctx.globalAlpha });
+          },
+        };
+      }
+      return this._ctx;
+    }
+    addEventListener(type, fn) { this[`on${type}`] = fn; }
+    querySelector(sel) {
+      if (sel === 'img') return nodes.get('source-hover-img') || null;
+      if (sel === 'span') return nodes.get('source-hover-label') || null;
+      return new FakeElement();
+    }
+    focus() {}
+  }
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, new FakeElement(id));
+    return nodes.get(id);
+  };
+  const prevDoc = globalThis.document;
+  const prevWin = globalThis.window;
+  const prevElem = globalThis.Element;
+  const prevGetComputedStyle = globalThis.getComputedStyle;
+  const prevLang = getLang();
+  globalThis.Element = FakeElement;
+  globalThis.document = {
+    documentElement: { lang: 'en' },
+    title: '',
+    getElementById: getNode,
+    createElement: (tag) => new FakeElement(tag),
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    activeElement: null,
+  };
+  globalThis.window = { devicePixelRatio: 1, addEventListener() {} };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#7b8391' });
+
+  let timeline;
+  try {
+    setLang('en');
+    getNode('source-hover');
+    getNode('source-hover-img').hidden = true;
+    getNode('source-hover-label');
+    getNode('source-hover-scores');
+
+    // 2.0s recording across 50px -> 1 col = 1 frame (40ms)
+    const duration = 2.0;
+    const step = 0.04;
+    const peaks = new Array(50).fill(0.0002); // low amplitude (1px waveHeight)
+    const groupScores = new Float32Array(50 * 5);
+    // Low-amplitude gunshot with 2-frame (80ms) dip at frames 11..12 between frame 10 (0.80) and 13 (0.75)
+    groupScores[10 * 5 + 0] = 0.80;
+    groupScores[11 * 5 + 0] = 0.04;
+    groupScores[12 * 5 + 0] = 0.06;
+    groupScores[13 * 5 + 0] = 0.75;
+    // Isolated 1-frame burst at frame 30
+    groupScores[30 * 5 + 0] = 0.90;
+    const rawSnapshot = groupScores.slice();
+    const candidates = [{ id: 'cand-1', start: 0.2, end: 1.4, selected: true, excluded: false }];
+    const decisions = [{ id: 'cand-1', kind: 'keep', range: { start: 0.2, end: 1.4 }, originRange: { start: 0.2, end: 1.4 } }];
+    const source = {
+      id: 'src-bridge',
+      duration,
+      canUndo: false,
+      canRedo: false,
+      analysis: { status: 'completed' },
+      waveform: { step, trackIndex: 0, decodedUntil: duration, peaks },
+      clips: candidates,
+      decisions,
+      review: { selectedClipId: 'cand-1', position: 0, zoomStart: 0, zoomEnd: duration },
+    };
+    const record = {
+      id: 'src-bridge',
+      duration,
+      audioDuration: duration,
+      audioOffset: 0,
+      frameSeconds: 0.04,
+      groupCount: 5,
+      groupScores,
+      groupScoreFrames: 50,
+      candidates,
+      analysisStarted: 1,
+    };
+
+    timeline = createSelectionTimeline({
+      MB: null,
+      workspace: { setReview() {}, trim() {} },
+      getSource: () => source,
+      getRecord: () => record,
+      selectRange: () => {},
+      seek: () => {},
+      pause: () => {},
+      isPlayerBusy: () => false,
+      report: (err) => { throw err; },
+    });
+    timeline.render(source);
+
+    const waveCanvas = getNode('prediction-wave');
+    const gunshotOpsAt = (col) => waveCanvas.drawOps.filter((op) => op.x === col && op.fillStyle !== '#7b8391');
+
+    // Bridged frames 11 & 12 render minimum 4px gunshot top-edge indicator even on 1px low-amplitude wave
+    for (const col of [10, 11, 12, 13]) {
+      const ops = gunshotOpsAt(col);
+      assert.equal(ops.length, 1, `Expected bridged gunshot layer at col ${col}`);
+      assert.equal(ops[0].h, 4);
+      assert.equal(ops[0].y, 64);
+    }
+    // Isolated 1-frame burst at col 30 never widens to col 29 or col 31
+    assert.equal(gunshotOpsAt(29).length, 0);
+    assert.equal(gunshotOpsAt(30).length, 1);
+    assert.equal(gunshotOpsAt(31).length, 0);
+
+    // Hovering directly over bridged dip frame 11 (x = 11.5 -> 0.46s) MUST display raw unbridged score 0.04
+    getNode('source-axis').onpointermove({ clientX: 11.5, pointerId: 1 });
+    assert.match(getNode('source-hover-scores').textContent, /0\.04/);
+    assert.deepEqual([...record.groupScores], [...rawSnapshot]);
+    assert.equal(record.candidates, candidates);
+    assert.equal(source.decisions, decisions);
+  } finally {
+    timeline?.suspend();
+    setLang(prevLang);
+    globalThis.Element = prevElem;
+    globalThis.document = prevDoc;
+    globalThis.window = prevWin;
+    globalThis.getComputedStyle = prevGetComputedStyle;
+  }
+});
