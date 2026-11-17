@@ -2,7 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DISPLAY_GROUPS, createDisplayGrouping } from '../lab-display-groups.mjs';
 import { createAudioPeaks, appendAudioPeaks } from '../audio-peaks.mjs';
-import { DEFAULT_DISPLAY_THRESHOLD, groupScoreColumns, layeredWaveColumns } from '../waveform-layers.mjs';
+import {
+  DEFAULT_DISPLAY_THRESHOLD,
+  createGroupScorePyramid,
+  updateGroupScorePyramid,
+  selectScoreLevel,
+  groupScoreColumns,
+  layeredWaveColumns,
+  overviewDistributionColumns,
+} from '../waveform-layers.mjs';
 
 function hexToRgb(hex) {
   const clean = hex.replace('#', '');
@@ -166,4 +174,132 @@ test('layeredWaveColumns computes sqrt(peak) contour, 3 visual states, top-down 
   assert.equal(previewCols[2].state, 'neutral');
   assert.equal(previewCols[2].waveHeight, 30);
   assert.deepEqual(previewCols[2].layers, []);
+});
+
+test('group score pyramid updates incrementally over 45-min audio, preserves 0.16s gunshot without dilution/overwrite, switches zoom levels, and stays O(width log N)', () => {
+  const duration = 2700; // 45 minutes
+  const frameSeconds = 0.04;
+  const totalFrames = Math.ceil(duration / frameSeconds); // 67,500
+  const groupCount = 5;
+  const groupScores = new Float32Array(totalFrames * groupCount);
+  const pyramid = createGroupScorePyramid(groupScores, totalFrames, groupCount, frameSeconds);
+
+  // Brief 0.16s gunshot burst (4 frames at 1200.00..1200.16s) followed by zeros in same column
+  const burstStart = 1200 / frameSeconds; // 30,000
+  for (let f = burstStart; f < burstStart + 4; f++) {
+    groupScores[f * groupCount + 0] = 0.88;
+  }
+  // Brief speech burst at 600.00..600.08s
+  const speechStart = 600 / frameSeconds; // 15,000
+  groupScores[speechStart * groupCount + 1] = 0.76;
+
+  // Incremental updates in 5s (125-frame) batches up to 1500s (37,500 frames), leaving [1500, 2700) unanalyzed
+  const analyzedFrames = 1500 / frameSeconds;
+  for (let start = 0; start < analyzedFrames; start += 125) {
+    updateGroupScorePyramid(pyramid, start, 125);
+  }
+  assert.equal(pyramid.analyzedFrames, analyzedFrames);
+
+  // Level switching between 40ms frame zoom and full-recording overview
+  const detailLevel = selectScoreLevel(pyramid, 0.04);
+  const fullLevel = selectScoreLevel(pyramid, 2700 / 1200);
+  const overviewLevel = selectScoreLevel(pyramid, 2700 / 200);
+  assert.equal(detailLevel.stride, 1);
+  assert.equal(detailLevel.step, 0.04);
+  assert.ok(fullLevel.stride > 1 && fullLevel.step <= 2.25);
+  assert.ok(overviewLevel.stride > fullLevel.stride);
+
+  const scoreData = {
+    groupScores,
+    groupScoreFrames: analyzedFrames,
+    groupScorePyramid: pyramid,
+    groupCount,
+    frameSeconds,
+    audioOffset: 0,
+    audioDuration: duration,
+  };
+
+  // Full 45-min view (1080 cols -> 2.5s/col): col 480 [1200, 1202.5) preserves 0.88 gunshot; col 240 preserves 0.76 speech
+  const fullCols = groupScoreColumns(scoreData, 0, duration, 1080);
+  assert.ok(Math.abs(fullCols[480][0] - 0.88) < 1e-6);
+  assert.equal(fullCols[479][0], 0);
+  assert.equal(fullCols[481][0], 0);
+  assert.ok(Math.abs(fullCols[240][1] - 0.76) < 1e-6);
+  assert.equal(fullCols[600], null); // unanalyzed tail starts at 1500s
+
+  // Zoomed 40ms frame detail [1199.88, 1200.28) across 10 columns (0.04s/col) matches exact frame layout
+  const frameCols = groupScoreColumns(scoreData, 1199.88, 1200.28, 10);
+  assert.equal(frameCols[2][0], 0);
+  for (let i = 3; i <= 6; i++) assert.ok(Math.abs(frameCols[i][0] - 0.88) < 1e-6);
+  assert.equal(frameCols[7][0], 0);
+
+  // Bounded zoom/pan latency across 60 full-recording 1200-column frames
+  const t0 = performance.now();
+  for (let i = 0; i < 60; i++) {
+    groupScoreColumns(scoreData, i * 0.5, duration - (59 - i) * 0.5, 1200);
+  }
+  const elapsedMs = performance.now() - t0;
+  assert.ok(elapsedMs < 250, `Expected 60 45-min pyramid renders < 250ms, took ${elapsedMs.toFixed(1)}ms`);
+});
+
+test('overviewDistributionColumns shares video-time coordinates, aligns positive/negative audioOffset, and marks unanalyzed tails', () => {
+  const duration = 2700;
+  const frameSeconds = 0.04;
+  const totalFrames = 10000; // 400s analyzed audio
+  const scores = new Float32Array(totalFrames * 5);
+  // Gunshot at audio 100.00..100.16s
+  const burst = 100 / frameSeconds;
+  for (let f = burst; f < burst + 4; f++) scores[f * 5 + 0] = 0.91;
+  // Early gunshot at audio 2.00..2.16s (will be clipped when audioOffset = -5s)
+  for (let f = 50; f < 54; f++) scores[f * 5 + 0] = 0.95;
+
+  const pyramid = createGroupScorePyramid(scores, totalFrames, 5, frameSeconds);
+  updateGroupScorePyramid(pyramid, 0, totalFrames);
+
+  // Positive offset +500s: [0, 500) unanalyzed/before audio, audio 100s -> video 600s, [900, 2700) unanalyzed tail
+  const wavePos = createAudioPeaks(duration, 0);
+  appendAudioPeaks(wavePos, {
+    timestamp: 500,
+    buffer: { numberOfChannels: 1, sampleRate: 10, duration: 400, getChannelData: () => new Float32Array(4000).fill(0.04) },
+  }, 0, duration);
+  const posOverview = overviewDistributionColumns({
+    wave: wavePos,
+    scoreData: {
+      groupScores: scores,
+      groupScoreFrames: totalFrames,
+      groupScorePyramid: pyramid,
+      frameSeconds,
+      audioOffset: 500,
+      audioDuration: 400,
+    },
+    duration,
+    width: 270, // 10s per col
+    canvasHeight: 16,
+  });
+  assert.equal(posOverview[0].state, 'unanalyzed');
+  assert.equal(posOverview[49].state, 'unanalyzed');
+  assert.equal(posOverview[50].state, 'active'); // 2s + 500s = 502s in [500, 510)
+  assert.equal(posOverview[51].state, 'neutral');
+  assert.equal(posOverview[60].state, 'active'); // 100s + 500s = 600s in [600, 610)
+  assert.ok(posOverview[60].gunshotHeight >= 10);
+  assert.equal(posOverview[90].state, 'unanalyzed'); // tail after 900s
+
+  // Negative offset -5s: audio [0, 5) clipped before video t=0; audio 100s -> video 95s (col 9)
+  const negOverview = overviewDistributionColumns({
+    wave: null,
+    scoreData: {
+      groupScores: scores,
+      groupScoreFrames: totalFrames,
+      groupScorePyramid: pyramid,
+      frameSeconds,
+      audioOffset: -5,
+      audioDuration: 400,
+    },
+    duration,
+    width: 270, // 10s per col
+    canvasHeight: 16,
+  });
+  assert.equal(negOverview[0].state, 'neutral'); // [0, 10) corresponds to audio [5, 15) -> early 2s gunshot clipped!
+  assert.equal(negOverview[9].state, 'active'); // [90, 100) contains audio 100s - 5s = 95s
+  assert.equal(negOverview[40].state, 'unanalyzed'); // [400, 410) past 395s video limit
 });

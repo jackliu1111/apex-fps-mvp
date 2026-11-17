@@ -6,6 +6,7 @@ import { CANDIDATE_PADDING_SECONDS, CANDIDATE_GAP_SECONDS, mergeCandidateRanges 
 import { assetRecoveryHint, defaultModelRegistry, validateModelManifest, validateInferenceOutput } from './model-registry.mjs';
 import { FrameOverlap } from './lab-scores.mjs';
 import { DISPLAY_GROUPS, createDisplayGrouping } from './lab-display-groups.mjs';
+import { createGroupScorePyramid, updateGroupScorePyramid } from './waveform-layers.mjs';
 
 export function candidatesFromScores(record, threshold = record.threshold, frontier = record.frontier) {
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('阈值须在 0 到 1 之间');
@@ -170,7 +171,7 @@ export function createBrowserAnalysis({
       record.scores = null; record.scoreFrames = 0; record.frameSeconds = spec.frameSeconds || 0.04; record.windowScores = null;
       const small = spec.scoreType === 'window';
       const groupCount = DISPLAY_GROUPS.length;
-      record.groupScores = null; record.groupScoreFrames = 0; record.groupCount = small ? 0 : groupCount;
+      record.groupScores = null; record.groupScoreFrames = 0; record.groupScorePyramid = null; record.groupCount = small ? 0 : groupCount;
       record.waveform = createAudioPeaks(record.duration, record.selected);
       onWaveform(record, record.waveform);
       const frameSeconds = spec.frameSeconds || 0.04;
@@ -179,6 +180,7 @@ export function createBrowserAnalysis({
       const overlap = small ? null : new FrameOverlap(manifest.classes.length, frameCount, spec.framesPerWindow, spec.hopFrames);
       const preallocatedScores = small ? null : new Float32Array(frameCount * 2);
       const preallocatedGroupScores = small ? null : new Float32Array(frameCount * groupCount);
+      const preallocatedGroupPyramid = small ? null : createGroupScorePyramid(preallocatedGroupScores, frameCount, groupCount, frameSeconds);
       const groupFrame = small ? null : createDisplayGrouping(manifest.classes);
       const windowScores = [];
       const previousStable = record.candidates.filter((candidate) => !candidate.provisional);
@@ -223,8 +225,10 @@ export function createBrowserAnalysis({
               preallocatedScores[dst + 1] = block.values[src + indices[1]];
               groupFrame(block.values.subarray(src, src + classCount), preallocatedGroupScores, (block.startFrame + frame) * groupCount);
             }
+            updateGroupScorePyramid(preallocatedGroupPyramid, block.startFrame, block.frameCount);
             if (!record.scores) record.scores = preallocatedScores;
             if (!record.groupScores) record.groupScores = preallocatedGroupScores;
+            if (!record.groupScorePyramid) record.groupScorePyramid = preallocatedGroupPyramid;
             record.scoreFrames = overlap.cursor;
             record.groupScoreFrames = overlap.cursor;
           }

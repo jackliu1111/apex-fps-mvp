@@ -1,8 +1,36 @@
+import { buildLevelDescriptors, propagatePyramidRange, selectPyramidLevel, visitPyramidRange } from './pyramid-cache.mjs';
+
 // Compact source-time evidence; never retain PCM or re-read media for display.
+const maxPeak = (a, b) => (a === null ? b : b === null ? a : a > b ? a : b);
+
 export function createAudioPeaks(duration, trackIndex = 0) {
   const step = Math.max(0.05, duration / 72000);
-  const peaks = new Array(Math.ceil(duration / step)).fill(null);
-  return { version: 1, step, peaks, decodedUntil: 0, trackIndex };
+  const length = Math.ceil(duration / step);
+  const peaks = new Array(length).fill(null);
+  const descriptors = buildLevelDescriptors(length, step);
+  const levels = descriptors.map((desc) => ({ ...desc, peaks: new Array(desc.length).fill(null) }));
+  return { version: 1, step, peaks, pyramid: { factor: 2, levels }, decodedUntil: 0, trackIndex };
+}
+
+function updateAudioPeakPyramid(wave, firstBucket, lastBucket) {
+  const levels = wave.pyramid?.levels;
+  if (!levels?.length || !(lastBucket > firstBucket)) return;
+  propagatePyramidRange(levels.length, firstBucket, lastBucket, (idx, start, end) => {
+    const prev = idx === 0 ? wave.peaks : levels[idx - 1].peaks;
+    const curr = levels[idx].peaks;
+    const limit = Math.min(curr.length, end);
+    for (let i = start; i < limit; i++) {
+      const a = prev[i * 2];
+      const b = i * 2 + 1 < prev.length ? prev[i * 2 + 1] : null;
+      curr[i] = maxPeak(a, b);
+    }
+  });
+}
+
+/** Select the peak pyramid zoom level matching secondsPerColumn. */
+export function selectPeakLevel(wave, secondsPerColumn) {
+  if (!wave) return null;
+  return selectPyramidLevel(wave.pyramid?.levels, wave.step, wave.peaks?.length || 0, secondsPerColumn);
 }
 
 export function appendAudioPeaks(wave, { buffer, timestamp }, origin, duration) {
@@ -28,16 +56,30 @@ export function appendAudioPeaks(wave, { buffer, timestamp }, origin, duration) 
       wave.peaks[bucket] = Math.min(1, max);
     }
   }
+  updateAudioPeakPyramid(wave, firstBucket, lastBucket);
   wave.decodedUntil = Math.max(wave.decodedUntil, Math.min(duration, Math.max(0, bufferEnd)));
 }
 
+function queryPeakRange(wave, low, high) {
+  const levels = wave.pyramid?.levels;
+  let acc = null;
+  visitPyramidRange(levels?.length || 0, low, high, (lvlIdx, index) => {
+    const v = (lvlIdx < 0 ? wave.peaks : levels[lvlIdx].peaks)[index];
+    if (v !== null && (acc === null || v > acc)) acc = v;
+  });
+  return acc;
+}
+
 export function waveformColumns(wave, start, end, width) {
-  const columns = new Array(width).fill(null);
-  if (!wave || !(end > start)) return columns;
+  const columns = new Array(Math.max(0, width)).fill(null);
+  if (!wave || !(end > start) || !(width > 0)) return columns;
+  const span = end - start;
   for (let x = 0; x < width; x++) {
-    const low = Math.max(0, Math.floor((start + x / width * (end - start)) / wave.step));
-    const high = Math.min(wave.peaks.length, Math.ceil((start + (x + 1) / width * (end - start)) / wave.step));
-    for (let i = low; i < high; i++) if (wave.peaks[i] !== null) columns[x] = Math.max(columns[x] ?? 0, wave.peaks[i]);
+    const colStart = start + (x / width) * span;
+    const colEnd = start + ((x + 1) / width) * span;
+    const low = Math.max(0, Math.floor(colStart / wave.step + 1e-9));
+    const high = Math.min(wave.peaks.length, Math.ceil(colEnd / wave.step - 1e-9));
+    if (high > low) columns[x] = queryPeakRange(wave, low, high);
   }
   return columns;
 }

@@ -217,6 +217,16 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   background: rgba(24, 24, 27, 0.1);
   pointer-events: none;
 }
+#review-page .player-overview-distribution {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 1;
+}
 #review-page .player-overview-progress {
   position: absolute;
   left: 0;

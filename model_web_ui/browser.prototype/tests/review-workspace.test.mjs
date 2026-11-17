@@ -295,3 +295,20 @@ test('only explicit exclusion hides a range, and bulk selection cannot restore i
   workspace.redo(source.id);
   assert.equal(workspace.getSource(source.id).clips[0].selected, true);
 });
+
+test('workspace freezes waveform pyramids cleanly and never crashes if a TypedArray is present', () => {
+  const workspace = setup();
+  const wave = {
+    version: 1,
+    step: 0.05,
+    peaks: [0.1, 0.8, null, null],
+    pyramid: { factor: 2, levels: [{ level: 1, stride: 2, step: 0.1, length: 2, peaks: [0.8, null] }] },
+    decodedUntil: 0.1,
+    trackIndex: 0,
+    extraView: new Float32Array([0.2, 0.5]),
+  };
+  workspace.updateWaveform(source.id, wave);
+  const stored = workspace.getSource(source.id).waveform;
+  assert.equal(stored.pyramid.levels[0].peaks[0], 0.8);
+  assert.throws(() => { stored.pyramid.levels[0].peaks[0] = 0; }, TypeError);
+});

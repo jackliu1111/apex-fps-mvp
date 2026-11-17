@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { candidatesFromScores, chooseAudioTracks, createBrowserAnalysis, modelManifestUrl } from '../browser-analysis.mjs';
+import { groupScoreColumns } from '../waveform-layers.mjs';
 import { DEFAULT_MODEL, createModelRegistry, resolveModelAssets, validateModelManifest, validateInferenceOutput } from '../model-registry.mjs';
 
 test('nearby padded gunfire ranges become one candidate and the final tail waits for EOF', () => {
@@ -418,4 +419,83 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 5 session group
   assert.equal(waveformResets[0].groupScores, null);
   assert.equal(waveformResets[0].frames, 0);
   assert.equal(sedRecord.groupScoreFrames, 251);
+});
+
+test('createBrowserAnalysis incrementally updates session groupScorePyramid per batch and resets cleanly on retry', async () => {
+  const classes = ['Speech', 'Gunshot, gunfire', 'Machine gun', 'Music', 'Walk, footsteps', 'Breaking'];
+  const manifests = {
+    '/assets/efficientsed/model.json': { model: 'EfficientSED', modelFile: 'fmn10-tf256.onnx', classes, sampleRate: 16000, scoreType: 'frame', frameSeconds: 0.04, output: [1, 250, classes.length] },
+    '/assets/efficientat/model.json': { model: 'EfficientAT', modelFile: 'mn04.onnx', classes, sampleRate: 32000, scoreType: 'window', output: [1, classes.length] },
+  };
+  const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 25, audioDuration: 20, videoOrigin: 0, audioOrigin: 2 });
+  const snapshots = [];
+  const resetPyramids = [];
+  let windowIdx = 0;
+
+  const queue = createBrowserAnalysis({
+    MB,
+    openAudioStream,
+    fetch: async (url) => ({ ok: Boolean(manifests[url]), status: manifests[url] ? 200 : 404, json: async () => manifests[url] }),
+    infer: async (_waveform, { model }) => {
+      if (model === 'efficientat') {
+        return { values: new Float32Array(classes.length), dims: [1, classes.length], timings: {} };
+      }
+      const values = new Float32Array(250 * classes.length);
+      if (windowIdx === 0) {
+        // 0.16s burst in frames 20..23 (audio 0.80..0.96s -> video 2.80..2.96s with audioOffset +2)
+        for (let f = 20; f < 24; f++) values[f * classes.length + 1] = 0.86;
+        // First half of overlap for burst at global frames 200..203 (audio 8.00..8.16s -> video 10.00..10.16s)
+        for (let f = 200; f < 204; f++) values[f * classes.length + 1] = 0.92;
+      } else if (windowIdx === 1) {
+        // Second half of overlap for global frames 200..203
+        for (let f = 75; f < 79; f++) values[f * classes.length + 1] = 0.92;
+      }
+      windowIdx++;
+      return { values, dims: [1, 250, classes.length], timings: {} };
+    },
+    onWaveform(record) {
+      resetPyramids.push(record.groupScorePyramid);
+    },
+    onCandidates(record) {
+      if (record.groupScorePyramid) {
+        snapshots.push({
+          analyzedFrames: record.groupScorePyramid.analyzedFrames,
+          levelBuffer: record.groupScorePyramid.levels[0]?.scores.buffer,
+          cols: groupScoreColumns(record, 0, 25, 25),
+        });
+      }
+    },
+  });
+
+  await queue.importFiles([{ name: 'long-sed.mkv', size: 100, lastModified: 1 }]);
+  await queue.importFiles([{ name: 'at.mkv', size: 100, lastModified: 2 }], { model: 'efficientat' });
+  await queue.whenIdle();
+
+  const [sedRecord, atRecord] = queue.records;
+  assert.equal(sedRecord.status, 'complete', sedRecord.error);
+  assert.ok(sedRecord.groupScorePyramid);
+  assert.equal(sedRecord.groupScorePyramid.analyzedFrames, 500);
+  assert.ok(snapshots.length >= 3);
+  assert.deepEqual(snapshots.slice(0, 3).map((s) => s.analyzedFrames), [125, 250, 500]);
+  assert.ok(snapshots.every((s) => s.levelBuffer === snapshots[0].levelBuffer));
+
+  // Snapshot 0 (after 5s audio = 125 frames, video [2..7)) sees first burst at video 2s, tail at 10s still null
+  assert.ok(Math.abs(snapshots[0].cols[2][0] - 0.86) < 1e-6);
+  assert.equal(snapshots[0].cols[10], null);
+
+  // Snapshot 1 (after 10s audio = 250 frames, video [2..12)) preserves both bursts without overwriting
+  assert.ok(Math.abs(snapshots[1].cols[2][0] - 0.86) < 1e-6);
+  assert.ok(Math.abs(snapshots[1].cols[10][0] - 0.92) < 1e-6);
+  assert.equal(snapshots[1].cols[15], null);
+
+  // EfficientAT window model keeps groupScorePyramid null
+  assert.equal(atRecord.groupScorePyramid, null);
+
+  // Retry resets groupScorePyramid before re-populating
+  windowIdx = 0;
+  resetPyramids.length = 0;
+  await queue.retry(sedRecord.id);
+  await queue.whenIdle();
+  assert.equal(resetPyramids[0], null);
+  assert.equal(sedRecord.groupScorePyramid.analyzedFrames, 500);
 });
