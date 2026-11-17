@@ -5,6 +5,7 @@ import * as MB from '/assets/vendor/mediabunny.mjs';
 import { createReviewWorkspace } from './review-workspace.mjs';
 import { identifyFile } from './media-identity.mjs';
 import { createBrowserAnalysis } from './browser-analysis.mjs';
+import { DEFAULT_MODEL } from './model-registry.mjs';
 import { createSourcePlayer } from './source-player.mjs';
 import { createExportQueue } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
@@ -172,9 +173,9 @@ async function startExport(id) {
   note(t('note_export_submitted'));
 }
 
-async function importFiles(files) {
+async function importFiles(files, options = {}) {
   await ready;
-  const options = { model: 'efficientat', threshold: 0.2 };
+  const importOptions = { model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2 };
   const failures = [];
   const importMessage = t('note_prep_files', { count: files.length });
   note(importMessage);
@@ -185,7 +186,7 @@ async function importFiles(files) {
       identified.set(file, identity);
       if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(t('note_file_exists', { name: file.name })); return; }
       reservedId = identity.id; pendingImports.add(reservedId);
-      await queue.importFiles([file], options);
+      await queue.importFiles([file], importOptions);
     } catch (error) {
       failures.push(`${file.name}: ${errorText(error)}`);
     } finally {

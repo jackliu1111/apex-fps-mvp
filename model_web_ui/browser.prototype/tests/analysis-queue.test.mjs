@@ -117,3 +117,21 @@ test('retry re-associates prepared media after persistence preparation failed', 
   await queue.whenIdle();
   assert.equal(record.status, 'complete');
 });
+
+test('queue defaults new imports to efficientsed and supports explicit model overrides on import and retry', async () => {
+  const seenModels = [];
+  const queue = createAnalysisQueue({
+    prepare: async () => ({ duration: 20 }),
+    analyze: async (record) => { seenModels.push(record.model); },
+  });
+  const [defaultRec, customRec] = await queue.importFiles([{ name: 'a.mp4' }, { name: 'b.mp4' }]);
+  assert.equal(defaultRec.model, 'efficientsed');
+  const [atRec] = await queue.importFiles([{ name: 'c.mp4' }], { model: 'efficientat', threshold: 0.35 });
+  assert.equal(atRec.model, 'efficientat');
+  assert.equal(atRec.threshold, 0.35);
+  await queue.whenIdle();
+  await queue.retry(customRec.id, { model: 'beats' });
+  await queue.whenIdle();
+  assert.equal(customRec.model, 'beats');
+  assert.deepEqual(seenModels, ['efficientsed', 'efficientsed', 'efficientat', 'beats']);
+});

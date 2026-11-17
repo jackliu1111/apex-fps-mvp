@@ -35,6 +35,9 @@ class MissingAssetsTest(unittest.TestCase):
         self.assertEqual(len(missing), expected)
         names = [name for _, name in missing]
         self.assertIn('vendor/mediabunny.mjs', names)
+        self.assertIn('efficientsed/model.json', names)
+        self.assertIn('efficientsed/fmn10-tf256.onnx', names)
+        self.assertIn('efficientsed/frontend.json', names)
         self.assertIn('efficientat/model.json', names)
         self.assertIn('model.json', names)
 
@@ -49,11 +52,19 @@ class MissingAssetsTest(unittest.TestCase):
     def test_missing_manifest_is_named_with_recovery_hint(self):
         with tempfile.TemporaryDirectory() as tmp:
             complete_assets(Path(tmp))
+            (Path(tmp) / 'efficientsed/model.json').unlink()
+            (Path(tmp) / 'efficientsed/fmn10-tf256.onnx').unlink()
             (Path(tmp) / 'efficientat/model.json').unlink()
             output = io.StringIO()
             missing = serve.report_assets(Path(tmp), output)
-        self.assertEqual(missing, [('EfficientAT 默认模型', 'efficientat/model.json')])
+        self.assertEqual(missing, [
+            ('EfficientSED 默认模型', 'efficientsed/model.json'),
+            ('EfficientSED 默认模型', 'efficientsed/fmn10-tf256.onnx'),
+            ('EfficientAT 可选模型', 'efficientat/model.json'),
+        ])
         text = output.getvalue()
+        self.assertIn('efficientsed/model.json', text)
+        self.assertIn('efficientsed/fmn10-tf256.onnx', text)
         self.assertIn('efficientat/model.json', text)
         self.assertIn('--assets', text)
         self.assertIn('重建模型资产', text)

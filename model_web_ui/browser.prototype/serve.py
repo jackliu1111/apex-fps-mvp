@@ -19,13 +19,14 @@ VENDOR_ASSETS = (
     'vendor/ort-wasm-simd-threaded.wasm',
 )
 MODEL_ASSETS = {
-    'EfficientAT 默认模型': ('efficientat/model.json', 'efficientat/mn04.onnx', 'efficientat/frontend.json'),
+    'EfficientSED 默认模型': ('efficientsed/model.json', 'efficientsed/fmn10-tf256.onnx', 'efficientsed/frontend.json'),
+    'EfficientAT 可选模型': ('efficientat/model.json', 'efficientat/mn04.onnx', 'efficientat/frontend.json'),
     'BEATs 可选模型': ('model.json', 'beats.onnx'),
 }
 
 
 LAB_MODEL_ASSETS = {
-    'EfficientSED 实验模型': ('efficientsed/model.json', 'efficientsed/fmn10-tf256.onnx', 'efficientsed/frontend.json'),
+    'EfficientSED 实验模型': MODEL_ASSETS['EfficientSED 默认模型'],
 }
 
 
@@ -43,10 +44,10 @@ def report_assets(assets, stream, model_assets=MODEL_ASSETS):
     if not missing:
         print('资产检查：浏览器运行库与模型资产齐全', file=stream)
         return missing
-    print('资产检查：以下文件缺失，页面仍可打开，但对应分析会报「模型清单无法读取（HTTP 404）」：', file=stream)
+    print('资产检查：以下文件缺失，页面仍可打开，但对应分析会报「模型清单无法读取（HTTP 404）」或缺少权重/前处理文件：', file=stream)
     for group, name in missing:
         print(f'  - {assets / name}（{group}）', file=stream)
-    print('  请按 model_web_ui/browser.prototype/README.md「开发阶段重建资产」重建模型资产，'
+    print('  请按 model_web_ui/browser.prototype/README.md「开发阶段重建资产」或 MODEL-LAB.md 重建模型资产，'
           '或用 --assets 指向完整资产目录；默认 /private/tmp 路径可能被系统清理。', file=stream)
     return missing
 
