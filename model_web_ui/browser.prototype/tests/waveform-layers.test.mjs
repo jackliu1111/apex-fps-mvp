@@ -4,6 +4,8 @@ import { DISPLAY_GROUPS, createDisplayGrouping } from '../lab-display-groups.mjs
 import { createAudioPeaks, appendAudioPeaks } from '../audio-peaks.mjs';
 import {
   DEFAULT_DISPLAY_THRESHOLD,
+  DEFAULT_GAP_BRIDGE_MS,
+  DEFAULT_MIN_GUNSHOT_PX,
   createGroupScorePyramid,
   updateGroupScorePyramid,
   selectScoreLevel,
@@ -404,4 +406,195 @@ test('groupScoresAtTime applies audioOffset, returns all 5 raw scores including 
   assert.equal(negHit.status, 'ok');
   assert.equal(negHit.frameIndex, 50);
   assert.ok(Math.abs(negHit.scores[1] - 0.74) < 1e-6);
+});
+
+test('layeredWaveColumns bridges <= 80ms interior dips per group without extending isolated events or mutating raw scores', () => {
+  assert.equal(DEFAULT_GAP_BRIDGE_MS, 80);
+  const frameSeconds = 0.04;
+  const duration = 2.0; // 50 frames
+  const totalFrames = 50;
+  const wave = createAudioPeaks(2.2, 0);
+  appendAudioPeaks(wave, {
+    timestamp: 0,
+    buffer: { numberOfChannels: 1, sampleRate: 100, duration: 2.2, getChannelData: () => new Float32Array(220).fill(0.25) },
+  }, 0, 2.2);
+
+  const groupScores = new Float32Array(totalFrames * 5);
+  // 1) Isolated 1-frame gunshot at frame 3 [0.12, 0.16): must NOT widen before frame 3 or after frame 3
+  groupScores[3 * 5 + 0] = 0.85;
+  // 2) Gunshot with 2-frame (80ms) interior dip: frame 10 = 0.80, frames 11..12 = 0.05, frame 13 = 0.70 -> bridged
+  groupScores[10 * 5 + 0] = 0.80;
+  groupScores[11 * 5 + 0] = 0.05;
+  groupScores[12 * 5 + 0] = 0.05;
+  groupScores[13 * 5 + 0] = 0.70;
+  // 3) Gunshot with 3-frame (120ms) interior gap: frame 20 = 0.80, frames 21..23 = 0.05, frame 24 = 0.80 -> NOT bridged
+  groupScores[20 * 5 + 0] = 0.80;
+  groupScores[21 * 5 + 0] = 0.05;
+  groupScores[22 * 5 + 0] = 0.05;
+  groupScores[23 * 5 + 0] = 0.05;
+  groupScores[24 * 5 + 0] = 0.80;
+  // 4) Independent per-group bridging: speech 1-frame dip at frame 31 between frame 30 (0.75) & 32 (0.65), while gunshot has frame 30=0.70 & frame 32=0 (no gunshot bridge)
+  groupScores[30 * 5 + 1] = 0.75;
+  groupScores[31 * 5 + 1] = 0.10;
+  groupScores[32 * 5 + 1] = 0.65;
+  groupScores[30 * 5 + 0] = 0.70;
+  // 5) Different groups across 1-frame gap must NOT bridge across groups: frame 40 gunshot, frame 41 zero, frame 42 speech
+  groupScores[40 * 5 + 0] = 0.80;
+  groupScores[42 * 5 + 1] = 0.80;
+  // 6) Active at end boundary (frame 48=0.80, frame 49=0.0): must NOT extend at outer boundary
+  groupScores[48 * 5 + 0] = 0.80;
+
+  const rawSnapshot = groupScores.slice();
+  const pyramid = createGroupScorePyramid(groupScores, totalFrames, 5, frameSeconds);
+  updateGroupScorePyramid(pyramid, 0, totalFrames);
+  const scoreData = { groupScores, groupScoreFrames: totalFrames, groupScorePyramid: pyramid, frameSeconds, audioOffset: 0, audioDuration: duration };
+
+  // 50 columns -> 1 frame (40ms) per column
+  const cols = layeredWaveColumns({ wave, scoreData, start: 0, end: duration, width: 50, canvasHeight: 68, pad: 8, minBar: 1 });
+
+  // Isolated event stays exactly frame 3
+  assert.equal(cols[2].state, 'neutral');
+  assert.equal(cols[3].layers.map((l) => l.id).includes('gunshot'), true);
+  assert.equal(cols[4].state, 'neutral');
+
+  // 80ms (2-frame) interior dip at 11..12 is bridged smoothly without exceeding bounding scores
+  for (const f of [11, 12]) {
+    const g = cols[f].layers.find((l) => l.id === 'gunshot');
+    assert.ok(g, `Expected bridged gunshot at frame ${f}`);
+    assert.ok(g.score >= DEFAULT_DISPLAY_THRESHOLD && g.score <= 0.70 + 1e-6);
+  }
+
+  // 120ms (3-frame) gap at 21..23 stays unbridged
+  for (const f of [21, 22, 23]) {
+    assert.equal(cols[f].state, 'neutral');
+  }
+
+  // Speech bridges frame 31 independently; gunshot does not bridge past frame 30
+  assert.equal(cols[31].layers.some((l) => l.id === 'speech'), true);
+  assert.equal(cols[31].layers.some((l) => l.id === 'gunshot'), false);
+
+  // Different groups do not bridge frame 41
+  assert.equal(cols[41].state, 'neutral');
+
+  // Outer end boundary frame 49 stays neutral
+  assert.equal(cols[49].state, 'neutral');
+
+  // Zoomed even closer (0.02s/col -> 2 columns per frame, width 100) still bridges frames 11..12 (cols 22..25)
+  const zoomedCols = layeredWaveColumns({ wave, scoreData, start: 0, end: duration, width: 100, canvasHeight: 68, pad: 8, minBar: 1 });
+  for (const x of [22, 23, 24, 25]) {
+    assert.equal(zoomedCols[x].layers.some((l) => l.id === 'gunshot'), true);
+  }
+  assert.equal(zoomedCols[42].state, 'neutral');
+
+  // Raw scores & hover lookup remain completely untouched
+  assert.deepEqual([...groupScores], [...rawSnapshot]);
+  const rawDip = groupScoresAtTime(scoreData, 11 * frameSeconds + 0.01);
+  assert.ok(Math.abs(rawDip.scores[0] - 0.05) < 1e-6);
+
+  // Disabling gap bridging via gapBridgeMs: 0 leaves interior dips unbridged
+  const unbridged = layeredWaveColumns({ wave, scoreData, start: 0, end: duration, width: 50, canvasHeight: 68, pad: 8, minBar: 1, gapBridgeMs: 0 });
+  assert.equal(unbridged[11].state, 'neutral');
+  assert.equal(unbridged[12].state, 'neutral');
+});
+
+test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-amplitude regions and enforces exact >= threshold cutoff', () => {
+  assert.equal(DEFAULT_MIN_GUNSHOT_PX, 4);
+  const wave = createAudioPeaks(6, 0);
+  // [0, 2) ultra-low peak 0.0002 -> waveHeight = 1px; [2, 4) low peak 0.001 -> waveHeight = 2px; [4, 6) mid peak 0.25 -> waveHeight = 30px
+  const samples = new Float32Array(600);
+  samples.fill(0.0002, 0, 200);
+  samples.fill(0.001, 200, 400);
+  samples.fill(0.25, 400, 600);
+  appendAudioPeaks(wave, { timestamp: 0, buffer: { numberOfChannels: 1, sampleRate: 100, duration: 6, getChannelData: () => samples } }, 0, 6);
+
+  const frames = 150;
+  const groupScores = new Float32Array(frames * 5);
+  // Ultra-low amplitude col 0 [0, 1): gunshot exactly at threshold (0.20) + speech 0.85
+  groupScores[5 * 5 + 0] = DEFAULT_DISPLAY_THRESHOLD;
+  groupScores[5 * 5 + 1] = 0.85;
+  // Ultra-low amplitude col 1 [1, 2): gunshot just below threshold (0.199) -> must be omitted (neutral)
+  groupScores[30 * 5 + 0] = DEFAULT_DISPLAY_THRESHOLD - 0.001;
+  // Low amplitude col 2 [2, 3): gunshot 0.70 on 2px wave
+  groupScores[55 * 5 + 0] = 0.70;
+  // Mid amplitude col 4 [4, 5): gunshot 0.60 on 30px wave -> 18px > 4px, stays anchored at waveTop
+  groupScores[105 * 5 + 0] = 0.60;
+
+  const cols = layeredWaveColumns({
+    wave,
+    scoreData: { groupScores, groupScoreFrames: frames, frameSeconds: 0.04, audioOffset: 0, audioDuration: 6 },
+    start: 0,
+    end: 6,
+    width: 6,
+    canvasHeight: 68,
+    pad: 8,
+    minBar: 1,
+  });
+
+  // Col 0: threshold inclusive (>= 0.20) and low-amp waveHeight=1 gets 4px top-edge gunshot indicator
+  assert.equal(cols[0].waveHeight, 1);
+  const col0Gunshot = cols[0].layers.find((l) => l.id === 'gunshot');
+  const col0Speech = cols[0].layers.find((l) => l.id === 'speech');
+  assert.ok(col0Gunshot);
+  assert.equal(col0Gunshot.height, 4);
+  assert.equal(col0Gunshot.y, 68 - 4);
+  assert.equal(col0Speech.height, 1);
+
+  // Col 1: strictly < threshold stays neutral
+  assert.equal(cols[1].state, 'neutral');
+  assert.deepEqual(cols[1].layers, []);
+
+  // Col 2: waveHeight=2 gets 4px top-edge gunshot indicator
+  assert.equal(cols[2].waveHeight, 2);
+  const col2Gunshot = cols[2].layers.find((l) => l.id === 'gunshot');
+  assert.equal(col2Gunshot.height, 4);
+  assert.equal(col2Gunshot.y, 64);
+
+  // Col 4: normal amplitude (30px) preserves proportional height 18px anchored at waveTop (38)
+  const col4Gunshot = cols[4].layers.find((l) => l.id === 'gunshot');
+  assert.equal(col4Gunshot.height, 18);
+  assert.equal(col4Gunshot.y, cols[4].waveTop);
+
+  // DPR scaling: minBar = 2 scales min gunshot indicator proportionally (8px)
+  const retinaCols = layeredWaveColumns({
+    wave,
+    scoreData: { groupScores, groupScoreFrames: frames, frameSeconds: 0.04, audioOffset: 0, audioDuration: 6 },
+    start: 0,
+    end: 6,
+    width: 6,
+    canvasHeight: 136,
+    pad: 16,
+    minBar: 2,
+  });
+  assert.equal(retinaCols[0].layers.find((l) => l.id === 'gunshot').height, 8);
+
+  // Bounded O(width) zoom/pan latency with Q7 gap bridging over 45-min audio
+  const longFrames = Math.ceil(2700 / 0.04);
+  const longScores = new Float32Array(longFrames * 5);
+  for (let f = 1000; f < longFrames - 10; f += 20) {
+    longScores[f * 5 + 0] = 0.75;
+    longScores[(f + 3) * 5 + 0] = 0.75;
+  }
+  const longWave = createAudioPeaks(2700, 0);
+  const longScoreData = {
+    groupScores: longScores,
+    groupScoreFrames: longFrames,
+    groupScorePyramid: createGroupScorePyramid(longScores, longFrames, 5, 0.04),
+    frameSeconds: 0.04,
+    audioOffset: 0,
+    audioDuration: 2700,
+  };
+  updateGroupScorePyramid(longScoreData.groupScorePyramid, 0, longFrames);
+  const t0 = performance.now();
+  for (let i = 0; i < 60; i++) {
+    layeredWaveColumns({
+      wave: longWave,
+      scoreData: longScoreData,
+      start: 40 + i * 0.2,
+      end: 50 + i * 0.2,
+      width: 1200,
+      canvasHeight: 68,
+    });
+  }
+  const elapsedMs = performance.now() - t0;
+  assert.ok(elapsedMs < 250, `Expected 60 zoomed gap-bridged renders < 250ms, took ${elapsedMs.toFixed(1)}ms`);
 });

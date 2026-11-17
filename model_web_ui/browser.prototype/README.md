@@ -6,13 +6,13 @@
 
 ## 启动
 
-EfficientSED 全类别录像实验使用独立页面，启动、外置盘结果格式及验收边界见 [MODEL-LAB.md](MODEL-LAB.md)。该实验不修改正式工作区的默认模型。
+正式选片工作区默认通过 `model-registry.mjs` 使用浏览器端逐帧模型 EfficientSED（`DEFAULT_MODEL = 'efficientsed'`，40 ms 步距、16 kHz），同时保留 EfficientAT 与 BEATs 路由支持。EfficientSED 全类别录像外置盘导出实验仍保留在独立入口 [MODEL-LAB.md](MODEL-LAB.md)。
 
 ```sh
 python3 model_web_ui/browser.prototype/serve.py
 ```
 
-打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。需要独立后台预览时使用 `--background`。可通过 `--assets /绝对路径` 指定运行库与模型目录；开发机此前沿用的默认目录是 `/private/tmp/apex-browser-prototype-20261026/assets`，它位于系统临时空间，可能被清理，使用前请确认文件仍在。这批已有资产来自此前获准的本机存储例外，不代表重建大型资产可以继续写本机。
+打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。需要独立后台预览时使用 `--background`。可通过 `--assets /绝对路径` 指定运行库与模型目录（需包含 `vendor/`、`efficientat/` 与 `efficientsed/` 资产）；开发机此前沿用的默认目录是 `/private/tmp/apex-browser-prototype-20261026/assets`，它位于系统临时空间，可能被清理，使用前请确认文件仍在。这批已有资产来自此前获准的本机存储例外，不代表重建大型资产可以继续写本机。
 
 
 ## 故障排查：模型清单无法读取（HTTP 404）
@@ -21,7 +21,8 @@ python3 model_web_ui/browser.prototype/serve.py
 
 ```sh
 ASSETS=/absolute/path/to/assets   # 与启动命令的 --assets 相同
-ls "$ASSETS/efficientat/model.json" "$ASSETS/efficientat/mn04.onnx" "$ASSETS/efficientat/frontend.json"
+ls "$ASSETS/efficientsed/model.json" "$ASSETS/efficientsed/fmn10-tf256.onnx" "$ASSETS/efficientsed/frontend.json" \
+   "$ASSETS/efficientat/model.json" "$ASSETS/efficientat/mn04.onnx" "$ASSETS/efficientat/frontend.json"
 ```
 
 文件缺失时按「开发阶段重建资产」重建，或把 `--assets` 指向完整目录。`serve.py` 启动时也会打印缺失清单；默认的 `/private/tmp` 路径被系统清理后就会出现这种状态，页面本身仍可打开。
@@ -103,8 +104,8 @@ env PYTHONDONTWRITEBYTECODE=1 TMPDIR="$APEX_BUILD_ROOT/tmp" \
 
 - 当前通过 WASM CPU 运行，未接 WebGPU；并发等待与吞吐以验收记录中的真实测量及其覆盖范围为准。
 - 不读取整份视频进内存，不保留完整导出 Blob 等待下载。目录写入队列有独立容量边界；任意浏览器、配额和长时间后台生命周期仍不在验收保证内。
-- 音频重采样和多声道混音由浏览器完成，尚未证明与 FFmpeg 全链路数值一致。模型合成基准对照不能替代真实录像验证。
-- 分析内存中只保留两个枪声类的时间分数，不实现已归档 Python 服务的完整 447 类预测存档或分析断点续算。人工复核记录可独立恢复。
+- 音频重采样和多声道混音由浏览器完成，尚未证明与 FFmpeg 全链路数值一致。模型合成基准对照不能替代真实录像验证；在未建立人工标注真值集前，不宣称 Apex 识别准确率或召回率。
+- 分析内存中只保留枪声两类原始分数（用于候选派生与会话内调参重算）以及当前会话的五组展示分数与多级金字塔缓存，均不跨刷新持久化；不实现已归档 Python 服务的完整 447 类预测存档或分析断点续算。视觉展示层对 `<= 80 ms` 同组内部断点做纯展示连接（`>= 0.2` 截断、低振幅枪声 `4 CSS px` 最小顶边指示），不改写原始分数、悬停原值、候选判定或人工复核决定。人工复核记录可独立在当前会话中编辑与撤销。
 - 格式支持取决于浏览器与 Mediabunny；不支持的解码／编码会显示失败。MP4 和 WebM 重编码均不保证原视频质量；声音沿用原片默认音轨，声画边界仍需人工复核。
 - 候选不代表本人开枪、命中或击杀；分析自动音轨策略与默认声音保留规则见上文。
 

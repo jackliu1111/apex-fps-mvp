@@ -269,7 +269,7 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 #review-page .player-overview-markers > span[data-active="true"] {
   top: 2px;
   bottom: 2px;
-  background: rgba(96, 165, 250, 0.75);
+  background: rgba(59, 130, 246, 0.24);
   border-color: #3b82f6;
 }
 #review-page .player-overview-playhead {
@@ -894,7 +894,8 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   position: absolute;
   top: 0;
   bottom: 0;
-  border-block: 2px solid var(--selection-handle);
+  border-top: 2px solid var(--selection-handle);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.55);
   border-radius: 6px;
   background: var(--selection-tint);
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.22);
@@ -903,7 +904,8 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
 }
 #selection-overlay[data-compact="true"] {
   min-width: 4px;
-  border-block-width: 1.5px;
+  border-top-width: 1.5px;
+  border-bottom-width: 1px;
   background: rgba(59, 130, 246, 0.14);
 }
 .selection-handle {
