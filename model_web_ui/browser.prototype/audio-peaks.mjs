@@ -1,4 +1,4 @@
-import { buildLevelDescriptors, propagatePyramidRange, selectPyramidLevel, visitPyramidRange } from './pyramid-cache.mjs';
+import { buildLevelDescriptors, propagatePyramidRange, visitPyramidRange } from './pyramid-cache.mjs';
 
 // Compact source-time evidence; never retain PCM or re-read media for display.
 const maxPeak = (a, b) => (a === null ? b : b === null ? a : a > b ? a : b);
@@ -25,12 +25,6 @@ function updateAudioPeakPyramid(wave, firstBucket, lastBucket) {
       curr[i] = maxPeak(a, b);
     }
   });
-}
-
-/** Select the peak pyramid zoom level matching secondsPerColumn. */
-export function selectPeakLevel(wave, secondsPerColumn) {
-  if (!wave) return null;
-  return selectPyramidLevel(wave.pyramid?.levels, wave.step, wave.peaks?.length || 0, secondsPerColumn);
 }
 
 export function appendAudioPeaks(wave, { buffer, timestamp }, origin, duration) {

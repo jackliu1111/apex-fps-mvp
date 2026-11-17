@@ -17,22 +17,6 @@ export function buildLevelDescriptors(baseLength, baseStep, minTopBuckets = PYRA
   return levels;
 }
 
-/** Select the coarsest pyramid level whose bucket duration does not exceed secondsPerColumn. */
-export function selectPyramidLevel(levels, baseStep, baseLength, secondsPerColumn) {
-  let chosen = { level: 0, stride: 1, step: baseStep, length: baseLength };
-  if (!(secondsPerColumn > baseStep) || !Array.isArray(levels) || !levels.length) {
-    return chosen;
-  }
-  for (const item of levels) {
-    if (item.step <= secondsPerColumn) {
-      chosen = { level: item.level, stride: item.stride, step: item.step, length: item.length };
-    } else {
-      break;
-    }
-  }
-  return chosen;
-}
-
 /** Propagate incremental updates from [startIndex, endIndex) upward through pyramid levels. */
 export function propagatePyramidRange(levelCount, startIndex, endIndex, updateLevel) {
   let start = startIndex;

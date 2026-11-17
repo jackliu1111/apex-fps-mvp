@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAudioPeaks, appendAudioPeaks, waveformColumns, selectPeakLevel } from '../audio-peaks.mjs';
+import { createAudioPeaks, appendAudioPeaks, waveformColumns } from '../audio-peaks.mjs';
 const block = (timestamp, channels, sampleRate = 20) => ({ timestamp, buffer: { numberOfChannels: channels.length, sampleRate, duration: channels[0].length / sampleRate, getChannelData: i => channels[i] } });
 test('source-time peaks preserve channels, offsets, silence, gaps and progressive coverage beyond one minute', () => {
   const wave = createAudioPeaks(135, 1);
@@ -23,7 +23,7 @@ test('negative audio offset clips at video origin and memory stays bounded for l
   assert.ok(createAudioPeaks(86400).peaks.length <= 72000);
 });
 
-test('multi-resolution peak pyramid updates incrementally, preserves brief spikes in 45-min view, keeps unanalyzed tail null, and selects matching zoom levels', () => {
+test('multi-resolution peak pyramid updates incrementally, preserves brief spikes in 45-min view, keeps unanalyzed tail null, and preserves detail on zoom', () => {
   const duration = 2700; // 45 minutes
   const wave = createAudioPeaks(duration, 0);
   const sampleRate = 25;
@@ -38,13 +38,7 @@ test('multi-resolution peak pyramid updates incrementally, preserves brief spike
   spikeAndTail[3] = 0.2;
   appendAudioPeaks(wave, block(1200, [spikeAndTail], sampleRate), 0, duration);
 
-  // Level selection switches from base resolution at fine zoom to coarser levels at full-match overview
-  const fine = selectPeakLevel(wave, 0.04);
-  const full = selectPeakLevel(wave, 2700 / 1200);
-  const overview = selectPeakLevel(wave, 2700 / 200);
-  assert.equal(fine.stride, 1);
-  assert.ok(full.stride > 1 && full.step <= 2.25);
-  assert.ok(overview.stride >= full.stride);
+  assert.ok(wave.pyramid.levels.length > 0);
 
   // Full 45-min view preserves the 0.16s spike without dilution and keeps unanalyzed [1500, 2700) strictly null
   const fullCols = waveformColumns(wave, 0, duration, 1080); // 2.5s per col -> col 480 is [1200, 1202.5), col 600 is [1500, 1502.5)

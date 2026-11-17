@@ -63,9 +63,32 @@ export function modelManifestUrl(model, registry = defaultModelRegistry) {
   return registry.get(model).manifestUrl;
 }
 
+function serializeModelSpec(spec) {
+  return {
+    id: spec.id,
+    manifestUrl: spec.manifestUrl,
+    onnxUrl: spec.onnxUrl,
+    frontendUrl: spec.frontendUrl ?? null,
+    frontendType: spec.frontendType || 'waveform',
+    sampleRate: spec.sampleRate,
+    windowSeconds: spec.windowSeconds,
+    strideSeconds: spec.strideSeconds,
+    frameSeconds: spec.frameSeconds,
+    framesPerWindow: spec.framesPerWindow,
+    hopFrames: spec.hopFrames,
+    scoreType: spec.scoreType,
+    inputName: spec.inputName,
+    inputShape: Array.isArray(spec.inputShape) ? [...spec.inputShape] : [],
+    ...(spec.outputName ? { outputName: spec.outputName } : {}),
+    ...(Array.isArray(spec.outputShape) ? { outputShape: [...spec.outputShape] } : {}),
+    ...(spec.gunshotClasses ? { gunshotClasses: [...spec.gunshotClasses] } : {}),
+  };
+}
+
 export function createBrowserAnalysis({
   MB,
   models = defaultModelRegistry,
+  Worker: WorkerImpl,
   fetch: fetchImpl = (...args) => globalThis.fetch(...args),
   infer: inferImpl,
   openAudioStream = sequentialAudio,
@@ -94,12 +117,13 @@ export function createBrowserAnalysis({
     signal.throwIfAborted();
     return metadata.get(model);
   }
-  function inferWithWorker(waveform, model, signal, progress, manifest) {
+  function inferWithWorker(waveform, spec, signal, progress, manifest) {
     signal.throwIfAborted();
-    if (worker && workerModel !== model) releaseWorker();
+    if (worker && workerModel !== spec.id) releaseWorker();
     if (!worker) {
-      worker = new Worker(new URL('./inference-worker.js', import.meta.url), { type: 'module' });
-      workerModel = model;
+      const WorkerCtor = WorkerImpl || globalThis.Worker;
+      worker = new WorkerCtor(new URL('./inference-worker.js', import.meta.url), { type: 'module' });
+      workerModel = spec.id;
       worker.onmessage = ({ data }) => {
         if (data.type === 'status') { activeRequest?.progress({ message: data.message, modelLoadProgress: data.progress }); return; }
         if (data.id !== activeRequest?.id) return;
@@ -122,7 +146,8 @@ export function createBrowserAnalysis({
         worker.postMessage({
           id,
           waveform,
-          model,
+          model: spec.id,
+          spec: serializeModelSpec(spec),
           manifest: { sha256: manifest.sha256, bytes: manifest.bytes, modelFile: manifest.modelFile },
         }, [waveform.buffer]);
       } catch (error) { releaseWorker(); finish(reject, error); }
@@ -130,7 +155,7 @@ export function createBrowserAnalysis({
   }
   function infer(waveform, spec, manifest, signal, progress) {
     if (inferImpl) return inferImpl(waveform, { model: spec.id, spec, manifest, signal, progress });
-    return inferWithWorker(waveform, spec.id, signal, progress, manifest);
+    return inferWithWorker(waveform, spec, signal, progress, manifest);
   }
   const queue = createAnalysisQueue({
     onChange, onCandidates, onPrepared, release: releaseWorker,
@@ -171,7 +196,7 @@ export function createBrowserAnalysis({
       record.scores = null; record.scoreFrames = 0; record.frameSeconds = spec.frameSeconds || 0.04; record.windowScores = null;
       const small = spec.scoreType === 'window';
       const groupCount = DISPLAY_GROUPS.length;
-      record.groupScores = null; record.groupScoreFrames = 0; record.groupScorePyramid = null; record.groupCount = small ? 0 : groupCount;
+      record.scoreTimeline = null;
       record.waveform = createAudioPeaks(record.duration, record.selected);
       onWaveform(record, record.waveform);
       const frameSeconds = spec.frameSeconds || 0.04;
@@ -227,10 +252,20 @@ export function createBrowserAnalysis({
             }
             updateGroupScorePyramid(preallocatedGroupPyramid, block.startFrame, block.frameCount);
             if (!record.scores) record.scores = preallocatedScores;
-            if (!record.groupScores) record.groupScores = preallocatedGroupScores;
-            if (!record.groupScorePyramid) record.groupScorePyramid = preallocatedGroupPyramid;
             record.scoreFrames = overlap.cursor;
-            record.groupScoreFrames = overlap.cursor;
+            if (!record.scoreTimeline) {
+              record.scoreTimeline = {
+                groupScores: preallocatedGroupScores,
+                groupScoreFrames: overlap.cursor,
+                groupScorePyramid: preallocatedGroupPyramid,
+                groupCount,
+                frameSeconds,
+                audioOffset: record.audioOffset,
+                audioDuration: duration,
+              };
+            } else {
+              record.scoreTimeline.groupScoreFrames = overlap.cursor;
+            }
           }
           record.windows = index + 1;
           const frontier = (small ? (index + 1) * spec.strideSeconds : (record.scoreFrames - 1) * frameSeconds) + record.audioOffset;

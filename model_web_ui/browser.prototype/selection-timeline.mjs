@@ -118,41 +118,52 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
     return { dpr, pixelWidth, pixelHeight };
   }
-  function scoreDataFor(record) {
-    if (!record?.groupScores || !(record.groupScoreFrames > 0)) return null;
+  function prepareCanvasRender(source, { canvasId, fallbackWidth, fallbackHeight, colorCanvas = null, extraKey }) {
+    const canvas = $(canvasId);
+    const context = canvas?.getContext?.('2d');
+    if (!canvas || !context) return null;
+    const { dpr, pixelWidth, pixelHeight } = ensureCanvasSize(canvas, fallbackWidth, fallbackHeight);
+    const waveColor = resolveWaveColor(colorCanvas || canvas);
+    const wave = source.waveform;
+    const record = getRecord(source.id);
+    const scoreTimeline = record?.scoreTimeline || null;
+    const groupFrames = scoreTimeline?.groupScoreFrames ?? 0;
+    const audioOffset = scoreTimeline?.audioOffset ?? 0;
+    const analysisStarted = record?.analysisStarted ?? 0;
+    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${extraKey}:${pixelWidth}:${pixelHeight}:${waveColor}`;
     return {
-      groupScores: record.groupScores,
-      groupScoreFrames: record.groupScoreFrames,
-      groupScorePyramid: record.groupScorePyramid || null,
-      groupCount: record.groupCount || DISPLAY_GROUPS.length,
-      frameSeconds: record.frameSeconds || 0.04,
-      audioOffset: record.audioOffset ?? 0,
-      audioDuration: record.audioDuration ?? record.duration,
+      canvas,
+      context,
+      dpr,
+      waveColor,
+      wave,
+      scoreTimeline,
+      renderKey,
+      syncDataset() {
+        canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
+        canvas.dataset.groupScoreFrames = String(groupFrames);
+      },
     };
   }
   function paintOverviewDistribution(source) {
     if (!source || !(source.duration > 0)) return;
-    const canvas = $('player-overview-distribution');
-    if (!canvas) return;
-    const context = canvas.getContext?.('2d');
-    if (!context) return;
-    const { dpr, pixelWidth, pixelHeight } = ensureCanvasSize(canvas, 1200, 16);
-    const waveColor = resolveWaveColor($('prediction-wave') || canvas);
-    const wave = source.waveform;
-    const record = getRecord(source.id);
-    const scoreData = scoreDataFor(record);
-    const groupFrames = scoreData?.groupScoreFrames ?? 0;
-    const audioOffset = scoreData?.audioOffset ?? 0;
-    const analysisStarted = record?.analysisStarted ?? 0;
     const gunshotEnabled = enabledGroups.has(DISPLAY_GROUPS[0].id);
-    const renderKey = `${source.id}:${source.duration}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${gunshotEnabled}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    const state = prepareCanvasRender(source, {
+      canvasId: 'player-overview-distribution',
+      fallbackWidth: 1200,
+      fallbackHeight: 16,
+      colorCanvas: $('prediction-wave'),
+      extraKey: `${source.duration}:${gunshotEnabled}`,
+    });
+    if (!state) return;
+    const { canvas, context, dpr, waveColor, wave, scoreTimeline, renderKey, syncDataset } = state;
     if (overviewWaveKey !== renderKey) {
       overviewWaveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
       const pad = Math.round(2 * dpr), minBar = Math.max(1, Math.round(dpr));
       const columns = overviewDistributionColumns({
         wave,
-        scoreData,
+        scoreTimeline,
         duration: source.duration,
         width: canvas.width,
         canvasHeight: canvas.height,
@@ -176,30 +187,25 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       context.globalAlpha = 1;
       canvas.dataset.paintCount = String(++overviewPaintCount);
     }
-    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
-    canvas.dataset.groupScoreFrames = String(groupFrames);
+    syncDataset();
   }
   function paintWaveform(source, low, high) {
     if (!source) return;
-    const wave = source.waveform;
-    const canvas = $('prediction-wave');
-    if (!canvas) return;
-    const context = canvas.getContext('2d');
-    const { dpr, pixelWidth, pixelHeight } = ensureCanvasSize(canvas, 1200, 68);
-    const waveColor = resolveWaveColor(canvas);
-    const record = getRecord(source.id);
-    const scoreData = scoreDataFor(record);
-    const groupFrames = scoreData?.groupScoreFrames ?? 0;
-    const audioOffset = scoreData?.audioOffset ?? 0;
-    const analysisStarted = record?.analysisStarted ?? 0;
-    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${enabledGroupsKey()}:${low}:${high}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    const state = prepareCanvasRender(source, {
+      canvasId: 'prediction-wave',
+      fallbackWidth: 1200,
+      fallbackHeight: 68,
+      extraKey: `${enabledGroupsKey()}:${low}:${high}`,
+    });
+    if (!state) return;
+    const { canvas, context, dpr, waveColor, wave, scoreTimeline, renderKey, syncDataset } = state;
     if (waveKey !== renderKey) {
       waveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
       const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
       const columns = layeredWaveColumns({
         wave,
-        scoreData,
+        scoreTimeline,
         start: low,
         end: high,
         width: canvas.width,
@@ -234,8 +240,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       context.globalAlpha = 1;
       canvas.dataset.paintCount = String(++wavePaintCount);
     }
-    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
-    canvas.dataset.groupScoreFrames = String(groupFrames);
+    syncDataset();
   }
   function paintMarkers(source, low, high) {
     if (!predictions || !source) return;
@@ -705,7 +710,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       hoverLabel.textContent = `${stamp(target, decimals)} · ${frame ? t('hover_sample_text') : t('hover_no_frame')}`;
     }
     const lookupTime = target >= source.duration ? Math.max(0, source.duration - 1e-6) : target;
-    const scoreInfo = groupScoresAtTime(scoreDataFor(getRecord(source.id)), lookupTime);
+    const scoreInfo = groupScoresAtTime(getRecord(source.id)?.scoreTimeline || null, lookupTime);
     hover.dataset.scoreStatus = scoreInfo.status;
     updateHoverScores(scoreInfo);
   };

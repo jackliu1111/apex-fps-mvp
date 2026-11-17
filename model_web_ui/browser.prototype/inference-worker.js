@@ -75,7 +75,7 @@ async function readModel(url) {
 
 self.onmessage = async ({ data }) => {
   try {
-    const spec = getModelSpec(data.model);
+    const spec = data.spec || getModelSpec(data.model);
     const assets = resolveModelAssets(spec, data.manifest, self.location.href);
     const createFrontend = FRONTEND_LOADERS[spec.frontendType];
     if (!createFrontend) throw new Error(`未知前处理类型：${spec.frontendType}`);
@@ -120,10 +120,12 @@ self.onmessage = async ({ data }) => {
     try { output = await session.run({ [spec.inputName]: input }); }
     finally { input.dispose(); }
     timings.inferenceMs = performance.now() - started;
-    if (!output?.probabilities) throw new Error('模型输出缺少 probabilities 张量');
-    const dims = Array.from(output.probabilities.dims || []);
-    const values = new Float32Array(output.probabilities.data);
-    output.probabilities.dispose();
+    const outputName = spec.outputName || 'probabilities';
+    const tensor = output?.[outputName];
+    if (!tensor) throw new Error(`模型输出缺少 ${outputName} 张量`);
+    const dims = Array.from(tensor.dims || []);
+    const values = new Float32Array(tensor.data);
+    tensor.dispose();
     self.postMessage({ id: data.id, type: 'result', values, dims, timings }, [values.buffer]);
   } catch (error) {
     self.postMessage({ id: data.id, type: 'error', message: error?.message || String(error) });
