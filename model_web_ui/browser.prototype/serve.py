@@ -24,17 +24,22 @@ MODEL_ASSETS = {
 }
 
 
-def missing_assets(assets):
+LAB_MODEL_ASSETS = {
+    'EfficientSED 实验模型': ('efficientsed/model.json', 'efficientsed/fmn10-tf256.onnx', 'efficientsed/frontend.json'),
+}
+
+
+def missing_assets(assets, model_assets=MODEL_ASSETS):
     """Return (group, relative path) pairs the static host needs but cannot serve."""
     missing = [('浏览器运行库', name) for name in VENDOR_ASSETS if not (assets / name).is_file()]
-    for model, names in MODEL_ASSETS.items():
+    for model, names in model_assets.items():
         missing.extend((model, name) for name in names if not (assets / name).is_file())
     return missing
 
 
-def report_assets(assets, stream):
+def report_assets(assets, stream, model_assets=MODEL_ASSETS):
     """Explain missing assets at startup instead of leaving only an HTTP 404 in the page."""
-    missing = missing_assets(assets)
+    missing = missing_assets(assets, model_assets)
     if not missing:
         print('资产检查：浏览器运行库与模型资产齐全', file=stream)
         return missing
@@ -90,6 +95,7 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=8792)
     parser.add_argument('--sample', type=Path, help='Local one-minute combat MP4, served read-only as the demo (under 100 MiB)')
     parser.add_argument('--background', action='store_true', help='Detach the static preview server from this terminal session')
+    parser.add_argument('--model-lab', action='store_true', help='Check EfficientSED experimental assets instead of the production models')
     args = parser.parse_args()
     if args.sample:
         args.sample = args.sample.resolve()
@@ -102,6 +108,7 @@ if __name__ == '__main__':
         with log.open('ab', buffering=0) as stream:
             child = subprocess.Popen([sys.executable, '-u', str(Path(__file__).resolve()),
                 '--assets', str(args.assets.resolve()), '--port', str(args.port),
+                *(['--model-lab'] if args.model_lab else []),
                 *(['--sample', str(args.sample)] if args.sample else [])],
                 stdin=subprocess.DEVNULL, stdout=stream, stderr=stream, start_new_session=True)
         time.sleep(0.5)
@@ -112,7 +119,7 @@ if __name__ == '__main__':
     server = ThreadingHTTPServer(('127.0.0.1', args.port), StaticHandler)
     server.assets = args.assets.resolve()
     server.sample = args.sample
-    print(f'Apex Local Cut: http://127.0.0.1:{args.port}', flush=True)
+    print(f'Apex Local Cut: http://127.0.0.1:{args.port}' + ('/model-lab.html' if args.model_lab else ''), flush=True)
     print(f'Static assets: {server.assets}', flush=True)
-    report_assets(server.assets, sys.stderr)
+    report_assets(server.assets, sys.stderr, LAB_MODEL_ASSETS if args.model_lab else MODEL_ASSETS)
     server.serve_forever()

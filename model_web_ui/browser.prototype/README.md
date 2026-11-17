@@ -6,6 +6,8 @@
 
 ## 启动
 
+EfficientSED 全类别录像实验使用独立页面，启动、外置盘结果格式及验收边界见 [MODEL-LAB.md](MODEL-LAB.md)。该实验不修改正式工作区的默认模型。
+
 ```sh
 python3 model_web_ui/browser.prototype/serve.py
 ```
