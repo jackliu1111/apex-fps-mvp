@@ -5,6 +5,7 @@ import { createMediaReadSource } from './media-read-source.mjs';
 import { CANDIDATE_PADDING_SECONDS, CANDIDATE_GAP_SECONDS, mergeCandidateRanges } from './candidate-ranges.mjs';
 import { assetRecoveryHint, defaultModelRegistry, validateModelManifest, validateInferenceOutput } from './model-registry.mjs';
 import { FrameOverlap } from './lab-scores.mjs';
+import { DISPLAY_GROUPS, createDisplayGrouping } from './lab-display-groups.mjs';
 
 export function candidatesFromScores(record, threshold = record.threshold, frontier = record.frontier) {
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('阈值须在 0 到 1 之间');
@@ -167,14 +168,18 @@ export function createBrowserAnalysis({
       const metrics = record.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, audioSetupMs: performance.now() - started, audioWaitMs: 0, inferenceRoundTripMs: 0, postprocessAndRenderMs: 0, timingVersion: 3 };
       record.analysisStarted = started; record.windows = 0; record.processedUntil = 0; record.frontier = -Infinity;
       record.scores = null; record.scoreFrames = 0; record.frameSeconds = spec.frameSeconds || 0.04; record.windowScores = null;
+      const small = spec.scoreType === 'window';
+      const groupCount = DISPLAY_GROUPS.length;
+      record.groupScores = null; record.groupScoreFrames = 0; record.groupCount = small ? 0 : groupCount;
       record.waveform = createAudioPeaks(record.duration, record.selected);
       onWaveform(record, record.waveform);
-      const small = spec.scoreType === 'window';
       const frameSeconds = spec.frameSeconds || 0.04;
       const frameCount = small ? 0 : Math.max(1, Math.ceil((duration - 1e-9) / frameSeconds));
       const windows = Math.ceil(Math.max(0, duration - spec.windowSeconds) / spec.strideSeconds) + 1;
       const overlap = small ? null : new FrameOverlap(manifest.classes.length, frameCount, spec.framesPerWindow, spec.hopFrames);
       const preallocatedScores = small ? null : new Float32Array(frameCount * 2);
+      const preallocatedGroupScores = small ? null : new Float32Array(frameCount * groupCount);
+      const groupFrame = small ? null : createDisplayGrouping(manifest.classes);
       const windowScores = [];
       const previousStable = record.candidates.filter((candidate) => !candidate.provisional);
       let stream, ahead;
@@ -216,9 +221,12 @@ export function createBrowserAnalysis({
               const src = frame * classCount;
               preallocatedScores[dst] = block.values[src + indices[0]];
               preallocatedScores[dst + 1] = block.values[src + indices[1]];
+              groupFrame(block.values.subarray(src, src + classCount), preallocatedGroupScores, (block.startFrame + frame) * groupCount);
             }
             if (!record.scores) record.scores = preallocatedScores;
+            if (!record.groupScores) record.groupScores = preallocatedGroupScores;
             record.scoreFrames = overlap.cursor;
+            record.groupScoreFrames = overlap.cursor;
           }
           record.windows = index + 1;
           const frontier = (small ? (index + 1) * spec.strideSeconds : (record.scoreFrames - 1) * frameSeconds) + record.audioOffset;

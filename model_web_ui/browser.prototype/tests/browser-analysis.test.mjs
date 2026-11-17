@@ -326,3 +326,96 @@ test('createBrowserAnalysis rejects 0.28s exact multiple without spurious 8th fr
   const exact = candidatesFromScores({ duration: 10, audioDuration: 0.28, audioOffset: 0, scores: exactScores }, 0.5, Infinity);
   assert.deepEqual(exact.map(({ start, end }) => [+start.toFixed(4), +end.toFixed(4)]), [[0, 5.28]]);
 });
+
+test('createBrowserAnalysis reduces overlap-averaged frames into 5 session group scores without O(N^2) churn and isolates recompute/EfficientAT', async () => {
+  const classes = ['Speech', 'Whispering', 'Gunshot, gunfire', 'Machine gun', 'Music', 'Walk, footsteps', 'Breaking'];
+  const manifests = {
+    '/assets/efficientsed/model.json': { model: 'EfficientSED', modelFile: 'fmn10-tf256.onnx', classes, sampleRate: 16000, scoreType: 'frame', frameSeconds: 0.04, output: [1, 250, classes.length] },
+    '/assets/efficientat/model.json': { model: 'EfficientAT', modelFile: 'mn04.onnx', classes, sampleRate: 32000, scoreType: 'window', output: [1, classes.length] },
+  };
+  const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 20, audioDuration: 10.04, videoOrigin: 10, audioOrigin: 8.5 });
+  const groupBuffers = [];
+  const progressFrames = [];
+  const waveformResets = [];
+  let sedWindow = 0;
+  const queue = createBrowserAnalysis({
+    MB,
+    openAudioStream,
+    fetch: async (url) => ({ ok: Boolean(manifests[url]), status: manifests[url] ? 200 : 404, json: async () => manifests[url] }),
+    infer: async (_waveform, { model }) => {
+      if (model === 'efficientat') {
+        return { values: new Float32Array([0.9, 0.2, 0.8, 0.1, 0.7, 0.6, 0.5]), dims: [1, classes.length], timings: {} };
+      }
+      const values = new Float32Array(250 * classes.length);
+      if (sedWindow === 0) {
+        // Overlap frame 130: Speech=0.8, Whispering=0.2 in window 0; window 1 swaps them -> avg per class is 0.5 each -> group max = 0.5 (not 0.8).
+        values[130 * classes.length + 0] = 0.8;
+        values[130 * classes.length + 1] = 0.2;
+        values[140 * classes.length + 4] = 0.75; // Music
+        values[140 * classes.length + 5] = 0.65; // Walk, footsteps
+        values[140 * classes.length + 6] = 0.55; // Breaking
+      } else {
+        values[(130 - 125) * classes.length + 0] = 0.2;
+        values[(130 - 125) * classes.length + 1] = 0.8;
+        values[(140 - 125) * classes.length + 4] = 0.25; // avg 0.50
+        values[(140 - 125) * classes.length + 5] = 0.35; // avg 0.50
+        values[(140 - 125) * classes.length + 6] = 0.25; // avg 0.40
+        for (let f = 5; f <= 8; f++) values[f * classes.length + 2] = 0.9; // Gunshot frames [130..133] in window 1 only
+      }
+      sedWindow++;
+      return { values, dims: [1, 250, classes.length], timings: {} };
+    },
+    onWaveform(record) {
+      waveformResets.push({ name: record.file.name, groupScores: record.groupScores, frames: record.groupScoreFrames });
+    },
+    onCandidates(record) {
+      if (record.groupScores) {
+        groupBuffers.push(record.groupScores.buffer);
+        progressFrames.push(record.groupScoreFrames);
+      }
+    },
+  });
+
+  await queue.importFiles([{ name: 'sed.mkv', size: 100, lastModified: 1 }]);
+  await queue.importFiles([{ name: 'at.mkv', size: 100, lastModified: 2 }], { model: 'efficientat' });
+  await queue.whenIdle();
+
+  const [sedRecord, atRecord] = queue.records;
+  assert.equal(sedRecord.status, 'complete', sedRecord.error);
+  assert.equal(sedRecord.audioOffset, -1.5);
+  assert.equal(sedRecord.groupCount, 5);
+  assert.equal(sedRecord.groupScoreFrames, 251);
+  assert.ok(sedRecord.groupScores instanceof Float32Array);
+  assert.equal(sedRecord.groupScores.length, 251 * 5);
+  assert.ok(groupBuffers.length >= 2);
+  assert.ok(groupBuffers.every((buf) => buf === groupBuffers[0]));
+  assert.deepEqual(progressFrames.slice(0, 2), [125, 251]);
+
+  // Frame 130: Speech group max after overlap average is 0.5 (not avg(max)=0.8), Gunshot is 0.45.
+  assert.ok(Math.abs(sedRecord.groupScores[130 * 5 + 0] - 0.45) < 1e-6);
+  assert.ok(Math.abs(sedRecord.groupScores[130 * 5 + 1] - 0.50) < 1e-6);
+  // Frame 140: Music=0.50, Footsteps=0.50, Impact=0.40
+  assert.ok(Math.abs(sedRecord.groupScores[140 * 5 + 2] - 0.50) < 1e-6);
+  assert.ok(Math.abs(sedRecord.groupScores[140 * 5 + 3] - 0.50) < 1e-6);
+  assert.ok(Math.abs(sedRecord.groupScores[140 * 5 + 4] - 0.40) < 1e-6);
+
+  // Recomputing gunshot candidates does not mutate groupScores and ignores non-gunshot groups.
+  const groupSnapshot = sedRecord.groupScores.slice();
+  const recomputed = queue.recompute(sedRecord.id, 0.8);
+  assert.equal(recomputed.length, 0);
+  assert.deepEqual(sedRecord.groupScores, groupSnapshot);
+
+  // EfficientAT window model keeps groupScores null cleanly.
+  assert.equal(atRecord.status, 'complete', atRecord.error);
+  assert.equal(atRecord.groupScores, null);
+  assert.equal(atRecord.groupScoreFrames, 0);
+
+  // Retry resets groupScores before re-populating.
+  sedWindow = 0;
+  waveformResets.length = 0;
+  await queue.retry(sedRecord.id);
+  await queue.whenIdle();
+  assert.equal(waveformResets[0].groupScores, null);
+  assert.equal(waveformResets[0].frames, 0);
+  assert.equal(sedRecord.groupScoreFrames, 251);
+});
