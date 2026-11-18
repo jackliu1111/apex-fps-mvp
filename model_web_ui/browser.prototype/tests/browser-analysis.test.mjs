@@ -328,7 +328,7 @@ test('createBrowserAnalysis rejects 0.28s exact multiple without spurious 8th fr
   assert.deepEqual(exact.map(({ start, end }) => [+start.toFixed(4), +end.toFixed(4)]), [[0, 5.28]]);
 });
 
-test('createBrowserAnalysis reduces overlap-averaged frames into 5 session group scores without O(N^2) churn and isolates recompute/EfficientAT', async () => {
+test('createBrowserAnalysis reduces overlap-averaged frames into 4 session group scores without O(N^2) churn and isolates recompute/EfficientAT', async () => {
   const classes = ['Speech', 'Whispering', 'Gunshot, gunfire', 'Machine gun', 'Music', 'Walk, footsteps', 'Breaking'];
   const manifests = {
     '/assets/efficientsed/model.json': { model: 'EfficientSED', modelFile: 'fmn10-tf256.onnx', classes, sampleRate: 16000, scoreType: 'frame', frameSeconds: 0.04, output: [1, 250, classes.length] },
@@ -353,7 +353,7 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 5 session group
         values[130 * classes.length + 0] = 0.8;
         values[130 * classes.length + 1] = 0.2;
         values[140 * classes.length + 4] = 0.75; // Music
-        values[140 * classes.length + 5] = 0.65; // Walk, footsteps
+        values[140 * classes.length + 5] = 0.65; // Walk, footsteps (now background)
         values[140 * classes.length + 6] = 0.55; // Breaking
       } else {
         values[(130 - 125) * classes.length + 0] = 0.2;
@@ -389,24 +389,23 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 5 session group
   assert.equal('groupScorePyramid' in sedRecord, false);
   assert.equal('groupCount' in sedRecord, false);
   assert.ok(sedRecord.scoreTimeline);
-  assert.equal(sedRecord.scoreTimeline.groupCount, 5);
+  assert.equal(sedRecord.scoreTimeline.groupCount, 4);
   assert.equal(sedRecord.scoreTimeline.groupScoreFrames, 251);
   assert.equal(sedRecord.scoreTimeline.frameSeconds, 0.04);
   assert.equal(sedRecord.scoreTimeline.audioOffset, -1.5);
   assert.equal(sedRecord.scoreTimeline.audioDuration, 10.04);
   assert.ok(sedRecord.scoreTimeline.groupScores instanceof Float32Array);
-  assert.equal(sedRecord.scoreTimeline.groupScores.length, 251 * 5);
+  assert.equal(sedRecord.scoreTimeline.groupScores.length, 251 * 4);
   assert.ok(groupBuffers.length >= 2);
   assert.ok(groupBuffers.every((buf) => buf === groupBuffers[0]));
   assert.deepEqual(progressFrames.slice(0, 2), [125, 251]);
 
   // Frame 130: Speech group max after overlap average is 0.5 (not avg(max)=0.8), Gunshot is 0.45.
-  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[130 * 5 + 0] - 0.45) < 1e-6);
-  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[130 * 5 + 1] - 0.50) < 1e-6);
-  // Frame 140: Music=0.50, Footsteps=0.50, Impact=0.40
-  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 5 + 2] - 0.50) < 1e-6);
-  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 5 + 3] - 0.50) < 1e-6);
-  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 5 + 4] - 0.40) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[130 * 4 + 0] - 0.45) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[130 * 4 + 1] - 0.50) < 1e-6);
+  // Frame 140: Music=0.50, Impact=0.40 (Footsteps excluded from display groups as background)
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 4 + 2] - 0.50) < 1e-6);
+  assert.ok(Math.abs(sedRecord.scoreTimeline.groupScores[140 * 4 + 3] - 0.40) < 1e-6);
 
   // Recomputing gunshot candidates does not mutate scoreTimeline.groupScores and ignores non-gunshot groups.
   const groupSnapshot = sedRecord.scoreTimeline.groupScores.slice();

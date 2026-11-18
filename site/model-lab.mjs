@@ -136,7 +136,7 @@ async function inspect(seconds, seek = false) {
     const score = document.createElement('strong'); score.textContent = item.score.toFixed(4);
     row.append(dot, name, score); return row;
   }));
-  if (!$('frame-scores').children.length) $('frame-scores').textContent = `五类声音均未超过阈值；最高 ${DISPLAY_GROUPS[all[0].id].name} ${all[0].score.toFixed(4)}`;
+  if (!$('frame-scores').children.length) $('frame-scores').textContent = `${DISPLAY_GROUPS.length}类声音均未超过阈值；最高 ${DISPLAY_GROUPS[all[0].id].name} ${all[0].score.toFixed(4)}`;
 }
 async function setFile(selected) {
   file = selected;

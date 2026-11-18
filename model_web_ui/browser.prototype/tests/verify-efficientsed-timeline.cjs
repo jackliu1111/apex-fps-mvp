@@ -339,7 +339,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     assert.ok(canvasBaseline.wave.groupScoreFrames === analysisSummary.groupScoreFrames);
     assert.deepEqual(
       canvasBaseline.toggleIds,
-      ['gunshot', 'speech', 'music', 'footsteps', 'impact'].map((id) => ({ id, pressed: 'true' })),
+      ['gunshot', 'speech', 'music', 'impact'].map((id) => ({ id, pressed: 'true' })),
     );
     if (samplePath) {
       assert.ok(canvasBaseline.wave.colorCount > 1, 'Expected multi-color layered rendering on combat sample');
@@ -489,7 +489,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     assert.equal(afterGunshotToggle.pressed, 'false');
     assert.ok(afterGunshotToggle.overviewPaint > beforeToggleSnapshot.overviewPaint);
 
-    for (const id of ['music', 'footsteps', 'impact']) {
+    for (const id of ['music', 'impact']) {
       await driver.clickSelector(`#waveform-group-toggles [data-group-id="${id}"]`);
     }
     const allDisabledCheck = await driver.evaluate(() => {
@@ -512,17 +512,17 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
         decisions: src.decisions,
       };
     });
-    assert.deepEqual(allDisabledCheck.nonNeutral, [], 'With all 5 groups off, waveform canvas must render only #7b8391 neutral contour');
+    assert.deepEqual(allDisabledCheck.nonNeutral, [], 'With all 4 groups off, waveform canvas must render only #7b8391 neutral contour');
     assert.deepEqual(allDisabledCheck.groupScores, beforeToggleSnapshot.groupScores);
     assert.equal(allDisabledCheck.candidateCount, beforeToggleSnapshot.candidateCount);
     assert.deepEqual(allDisabledCheck.decisions, beforeToggleSnapshot.decisions);
 
-    // Re-enable 4 groups (leaving speech off briefly so Step 7 also checks hover shows raw scores regardless of toggle!)
-    for (const id of ['gunshot', 'music', 'footsteps', 'impact']) {
+    // Re-enable 3 groups (leaving speech off briefly so Step 7 also checks hover shows raw scores regardless of toggle!)
+    for (const id of ['gunshot', 'music', 'impact']) {
       await driver.clickSelector(`#waveform-group-toggles [data-group-id="${id}"]`);
     }
 
-    // 7. #source-hover timestamp & 5-group raw scores (even while speech toggle is off)
+    // 7. #source-hover timestamp & 4-group raw scores (even while speech toggle is off)
     const hoverTarget = await driver.evaluate(() => {
       const rec = reviewApp.queue.records[0];
       const tl = rec.scoreTimeline;
@@ -541,7 +541,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
       return {
         x: box.left + ratio * box.width,
         y: box.top + box.height * 0.5,
-        expectedScores: Array.from(tl.groupScores.slice(bestFrame * 5, bestFrame * 5 + 5)).map((v) => v.toFixed(2)),
+        expectedScores: Array.from(tl.groupScores.slice(bestFrame * 4, bestFrame * 4 + 4)).map((v) => v.toFixed(2)),
       };
     });
     await driver.mouseMove(hoverTarget.x, hoverTarget.y);
@@ -563,7 +563,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     assert.equal(hoverCheck.hidden, false);
     assert.equal(hoverCheck.scoreStatus, 'ok');
     assert.match(hoverCheck.label, /^\d{2}:\d{2}\.\d/);
-    assert.equal(hoverCheck.rows.length, 5);
+    assert.equal(hoverCheck.rows.length, 4);
     assert.equal(hoverCheck.rows.find((r) => r.groupId === 'speech')?.enabled, 'false');
     assert.deepEqual(hoverCheck.rows.map((r) => r.value), hoverTarget.expectedScores);
 

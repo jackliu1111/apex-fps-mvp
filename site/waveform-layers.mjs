@@ -6,7 +6,9 @@ export const DEFAULT_DISPLAY_THRESHOLD = 0.2;
 export const DEFAULT_GAP_BRIDGE_MS = 80;
 export const DEFAULT_MIN_GUNSHOT_PX = 4;
 
-const NON_GUNSHOT_ORDER = Object.freeze([1, 2, 3, 4]);
+const NON_GUNSHOT_ORDER = Object.freeze(
+  Array.from({ length: Math.max(0, DISPLAY_GROUPS.length - 1) }, (_, idx) => idx + 1),
+);
 
 /** Preallocate a session-only multi-resolution max pyramid over preallocated groupScores. */
 export function createGroupScorePyramid(groupScores, totalFrames, groupCount = DISPLAY_GROUPS.length, frameSeconds = 0.04) {
