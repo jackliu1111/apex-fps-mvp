@@ -192,7 +192,10 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
       if (!(duration > 0) || !Number.isFinite(duration)) throw new Error('原录像没有有效时长');
       if (ownLoad !== loadRevision) return player.state;
       input = opened; audioTrack = audio; origin = sourceOrigin;
-      canvas.width = Math.min(1280, video.displayWidth);
+      const dpr = Math.max(1, Math.min(globalThis.devicePixelRatio || 1, 2));
+      const stageWidth = Math.round((canvas.clientWidth || canvas.parentElement?.clientWidth || 0) * dpr);
+      const maxDecodeWidth = Math.max(1280, Math.min(2560, stageWidth));
+      canvas.width = Math.min(maxDecodeWidth, video.displayWidth);
       canvas.height = Math.max(1, Math.round(canvas.width * video.displayHeight / video.displayWidth));
       videoSink = new MB.CanvasSink(video, { width: canvas.width, height: canvas.height, fit: 'contain', poolSize: 2 });
       audioSink = audio ? new MB.AudioBufferSink(audio) : null;

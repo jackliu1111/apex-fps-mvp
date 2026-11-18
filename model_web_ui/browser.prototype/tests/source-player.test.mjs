@@ -52,7 +52,7 @@ function fixture({ duration = 120, origin = 2, waitForFrame, waitForOpen, waitFo
     cancel: (id) => frames.delete(id),
   };
   const player = createSourcePlayer({ MB, canvas, createAudioContext: () => context, clock });
-  return { player, drawn, closed, scheduled, context, connections, gains, gainWrites,
+  return { player, canvas, track, drawn, closed, scheduled, context, connections, gains, gainWrites,
     async advance(seconds) { now += seconds; if (context.state === 'running') context.currentTime += seconds;
       const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach((fn) => fn(now * 1000));
       for (let i = 0; i < 12; i++) await Promise.resolve();
@@ -308,5 +308,16 @@ test('ordinary play replaces an audition and invalid ranges preserve the current
   assert.equal(player.state.playRange, null);
   assert.equal(player.state.playing, true);
   assert.ok(player.state.position > 12);
+  await player.dispose();
+});
+
+test('high-resolution player stage scales decode canvas up to source resolution without downscaling to 720p', async () => {
+  const { player, canvas, track } = fixture();
+  track.displayWidth = 3840;
+  track.displayHeight = 2160;
+  canvas.clientWidth = 2200;
+  await player.load({ file: new Blob(['4k-source']), position: 0 });
+  assert.equal(canvas.width, 2200);
+  assert.equal(canvas.height, 1238);
   await player.dispose();
 });

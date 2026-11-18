@@ -70,7 +70,7 @@ button {
 }
 
 .container {
-  width: min(1220px, calc(100% - 40px));
+  width: min(clamp(1220px, 88vw, 2400px), calc(100% - 40px));
   margin: 0 auto;
 }
 
