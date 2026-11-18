@@ -1,6 +1,6 @@
 import { createSelectionEvidence } from './selection-evidence.mjs';
 import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
-import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime, layeredWaveColumns, overviewDistributionColumns } from './waveform-layers.mjs';
+import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime, layeredWaveColumns, overviewDistributionColumns, resolveWaveBarLayout } from './waveform-layers.mjs';
 import { getLang, t } from './i18n.js';
 
 export function selectionWindow(duration, { start, end }) {
@@ -110,9 +110,10 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   }
   function ensureCanvasSize(canvas, fallbackWidth, fallbackHeight) {
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || fallbackWidth));
+    const rawCssWidth = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
+    const cssWidth = Math.max(1, Math.round(rawCssWidth || fallbackWidth));
     const cssHeight = Math.max(1, Math.round(canvas.clientHeight || fallbackHeight));
-    const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
+    const pixelWidth = rawCssWidth > 0 ? Math.max(1, Math.round(cssWidth * dpr)) : Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
     const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
@@ -161,28 +162,34 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       overviewWaveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
       const pad = Math.round(2 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const layout = resolveWaveBarLayout(canvas.width, dpr, { cssStride: 2, cssBarWidth: 1, minBars: 60 });
       const columns = overviewDistributionColumns({
         wave,
         scoreTimeline,
         duration: source.duration,
-        width: canvas.width,
+        width: layout.barCount,
         canvasHeight: canvas.height,
         pad,
         minBar,
         enabledGroups,
+        smooth: layout.barStride > 1,
       });
       context.fillStyle = waveColor;
       context.globalAlpha = 0.35;
-      for (let x = 0; x < columns.length; x++) {
-        const col = columns[x];
-        if (col.waveHeight > 0) context.fillRect(x, col.waveTop, 1, col.waveHeight);
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const x = i * layout.barStride;
+        const w = Math.min(layout.barWidth, canvas.width - x);
+        if (col.waveHeight > 0 && w > 0) context.fillRect(x, col.waveTop, w, col.waveHeight);
       }
       const gunshot = DISPLAY_GROUPS[0];
       context.fillStyle = gunshot.color;
       context.globalAlpha = 0.92;
-      for (let x = 0; x < columns.length; x++) {
-        const col = columns[x];
-        if (col.gunshotHeight > 0) context.fillRect(x, col.gunshotY, 1, col.gunshotHeight);
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const x = i * layout.barStride;
+        const w = Math.min(layout.barWidth, canvas.width - x);
+        if (col.gunshotHeight > 0 && w > 0) context.fillRect(x, col.gunshotY, w, col.gunshotHeight);
       }
       context.globalAlpha = 1;
       canvas.dataset.paintCount = String(++overviewPaintCount);
@@ -202,39 +209,46 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (waveKey !== renderKey) {
       waveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
-      const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const pad = Math.round(10 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const layout = resolveWaveBarLayout(canvas.width, dpr, { cssStride: 4, cssBarWidth: 2, minBars: 60 });
       const columns = layeredWaveColumns({
         wave,
         scoreTimeline,
         start: low,
         end: high,
-        width: canvas.width,
+        width: layout.barCount,
         canvasHeight: canvas.height,
         pad,
         minBar,
         enabledGroups,
+        smooth: layout.barStride > 1,
       });
       // Base opaque neutral waveform contour first so unanalyzed gaps stay blank and amplitude silhouette stays intact.
       context.globalAlpha = 1;
       context.fillStyle = waveColor;
-      for (let x = 0; x < columns.length; x++) {
-        const col = columns[x];
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
         if (col.state === 'unanalyzed') continue;
-        context.fillRect(x, col.waveTop, 1, col.waveHeight);
+        const x = i * layout.barStride;
+        const w = Math.min(layout.barWidth, canvas.width - x);
+        if (w > 0) context.fillRect(x, col.waveTop, w, col.waveHeight);
       }
       // Draw non-gunshot bottom-up translucent layers first, then gunshot top-down high-contrast foreground last.
       for (let pass = 1; pass <= DISPLAY_GROUPS.length; pass++) {
         const group = DISPLAY_GROUPS[pass === DISPLAY_GROUPS.length ? 0 : pass];
         let styleSet = false;
-        for (let x = 0; x < columns.length; x++) {
-          const layer = columns[x].layers.find((item) => item.id === group.id);
+        for (let i = 0; i < columns.length; i++) {
+          const layer = columns[i].layers.find((item) => item.id === group.id);
           if (!layer) continue;
+          const x = i * layout.barStride;
+          const w = Math.min(layout.barWidth, canvas.width - x);
+          if (!(w > 0)) continue;
           if (!styleSet) {
             context.globalAlpha = layer.alpha;
             context.fillStyle = layer.color;
             styleSet = true;
           }
-          context.fillRect(x, layer.y, 1, layer.height);
+          context.fillRect(x, layer.y, w, layer.height);
         }
       }
       context.globalAlpha = 1;

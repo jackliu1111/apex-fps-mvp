@@ -12,6 +12,8 @@ import {
   layeredWaveColumns,
   overviewDistributionColumns,
   groupScoresAtTime,
+  resolveWaveBarLayout,
+  smoothWavePeaks,
 } from '../../../site/waveform-layers.mjs';
 
 function hexToRgb(hex) {
@@ -590,4 +592,24 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
   }
   const elapsedMs = performance.now() - t0;
   assert.ok(elapsedMs < 250, `Expected 60 zoomed gap-bridged renders < 250ms, took ${elapsedMs.toFixed(1)}ms`);
+});
+
+test('resolveWaveBarLayout and smoothWavePeaks produce discrete bar+gap geometry and smooth envelope contours without bleeding into unanalyzed gaps', () => {
+  // Desktop 1200px @ 1x and 2x DPR -> 300 discrete bars with 2px CSS bar width and 2px CSS gap
+  const layout1x = resolveWaveBarLayout(1200, 1);
+  assert.deepEqual(layout1x, { barCount: 300, barStride: 4, barWidth: 2 });
+  const layout2x = resolveWaveBarLayout(2400, 2);
+  assert.deepEqual(layout2x, { barCount: 300, barStride: 8, barWidth: 4 });
+
+  // Uniform peaks remain invariant; unanalyzed nulls stay null; isolated spikes smooth into gradual slopes
+  const uniform = smoothWavePeaks([0.25, 0.25, 0.25, null, null]);
+  assert.ok(Math.abs(uniform[0] - 0.25) < 1e-6);
+  assert.ok(Math.abs(uniform[2] - 0.25) < 1e-6);
+  assert.equal(uniform[3], null);
+  assert.equal(uniform[4], null);
+
+  const spike = smoothWavePeaks([0.1, 0.1, 0.9, 0.1, 0.1]);
+  assert.ok(spike[2] < 0.9 && spike[2] > spike[1]);
+  assert.ok(spike[1] > 0.1 && spike[1] > spike[0]);
+  assert.ok(Math.abs(spike[1] - spike[3]) < 1e-6);
 });

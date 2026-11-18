@@ -5,6 +5,67 @@ import { buildLevelDescriptors, propagatePyramidRange, visitPyramidRange } from 
 export const DEFAULT_DISPLAY_THRESHOLD = 0.2;
 export const DEFAULT_GAP_BRIDGE_MS = 80;
 export const DEFAULT_MIN_GUNSHOT_PX = 4;
+export const DEFAULT_WAVE_CSS_STRIDE = 4;
+export const DEFAULT_WAVE_CSS_BAR_WIDTH = 2;
+
+const SMOOTH_KERNEL_5 = Object.freeze([
+  { offset: -2, weight: 0.14 },
+  { offset: -1, weight: 0.22 },
+  { offset: 0, weight: 0.28 },
+  { offset: 1, weight: 0.22 },
+  { offset: 2, weight: 0.14 },
+]);
+
+/**
+ * Smooth adjacent analyzed peak columns with a 5-tap symmetric envelope kernel
+ * while keeping unanalyzed (null) regions strictly isolated and uniform regions invariant.
+ */
+export function smoothWavePeaks(peaks) {
+  if (!Array.isArray(peaks) || peaks.length === 0) return [];
+  const len = peaks.length;
+  const out = new Array(len).fill(null);
+  for (let i = 0; i < len; i++) {
+    const center = peaks[i];
+    if (center === null || center === undefined) continue;
+    let weightedSum = 0;
+    let weightTotal = 0;
+    for (let k = 0; k < SMOOTH_KERNEL_5.length; k++) {
+      const { offset, weight } = SMOOTH_KERNEL_5[k];
+      const idx = i + offset;
+      if (idx < 0 || idx >= len) continue;
+      const neighbor = peaks[idx];
+      if (neighbor === null || neighbor === undefined) continue;
+      weightedSum += neighbor * weight;
+      weightTotal += weight;
+    }
+    out[i] = weightTotal > 0 ? weightedSum / weightTotal : center;
+  }
+  return out;
+}
+
+/**
+ * Resolve discrete bar + gap layout (Jianying / CapCut style) so the waveform renders
+ * at a comfortable spatial frequency instead of a dense 1px wall.
+ */
+export function resolveWaveBarLayout(
+  pixelWidth,
+  dpr = 1,
+  {
+    cssStride = DEFAULT_WAVE_CSS_STRIDE,
+    cssBarWidth = DEFAULT_WAVE_CSS_BAR_WIDTH,
+    minBars = 60,
+  } = {},
+) {
+  const safeWidth = Math.max(1, Math.round(pixelWidth || 1));
+  const safeDpr = Math.max(1, dpr || 1);
+  const stride = Math.max(1, Math.round(cssStride * safeDpr));
+  if (stride <= 1 || safeWidth < minBars * stride) {
+    return { barCount: safeWidth, barStride: 1, barWidth: 1 };
+  }
+  const barWidth = Math.max(1, Math.min(stride - 1, Math.round(cssBarWidth * safeDpr)));
+  const barCount = Math.max(1, Math.ceil(safeWidth / stride));
+  return { barCount, barStride: stride, barWidth };
+}
 
 const NON_GUNSHOT_ORDER = Object.freeze(
   Array.from({ length: Math.max(0, DISPLAY_GROUPS.length - 1) }, (_, idx) => idx + 1),
@@ -196,8 +257,10 @@ export function layeredWaveColumns({
   threshold = DEFAULT_DISPLAY_THRESHOLD,
   gapBridgeMs = DEFAULT_GAP_BRIDGE_MS,
   enabledGroups = null,
+  smooth = false,
 }) {
-  const peaks = waveformColumns(wave, start, end, width);
+  const rawPeaks = waveformColumns(wave, start, end, width);
+  const peaks = smooth ? smoothWavePeaks(rawPeaks) : rawPeaks;
   const scoreCols = groupScoreColumns(scoreTimeline, start, end, width, { threshold, gapBridgeMs });
   const usableHeight = Math.max(0, canvasHeight - pad);
   const minOverlayPx = Math.max(1, Math.round(minBar));
@@ -206,7 +269,8 @@ export function layeredWaveColumns({
     if (peak === null) {
       return { state: 'unanalyzed', waveTop: null, waveHeight: 0, layers: [] };
     }
-    const waveHeight = Math.max(minBar, Math.round(Math.sqrt(peak) * usableHeight));
+    const amplitude = smooth ? Math.pow(peak, 0.56) * 0.92 : Math.sqrt(peak);
+    const waveHeight = Math.max(minBar, Math.round(amplitude * usableHeight));
     const waveTop = canvasHeight - waveHeight;
     const scores = scoreCols[x];
     const layers = [];
@@ -276,10 +340,12 @@ export function overviewDistributionColumns({
   threshold = DEFAULT_DISPLAY_THRESHOLD,
   gapBridgeMs = DEFAULT_GAP_BRIDGE_MS,
   enabledGroups = null,
+  smooth = false,
 }) {
   const count = Math.max(0, width);
   if (!(duration > 0) || !(count > 0)) return [];
-  const peaks = waveformColumns(wave, 0, duration, count);
+  const rawPeaks = waveformColumns(wave, 0, duration, count);
+  const peaks = smooth ? smoothWavePeaks(rawPeaks) : rawPeaks;
   const scoreCols = groupScoreColumns(scoreTimeline, 0, duration, count, { threshold, gapBridgeMs });
   const usableHeight = Math.max(0, canvasHeight - pad);
   const minGunshotPx = Math.max(2, Math.round(minBar) * 2);
@@ -291,7 +357,8 @@ export function overviewDistributionColumns({
     if (peak === null && !scores) {
       return { state: 'unanalyzed', waveTop: null, waveHeight: 0, gunshotScore: 0, gunshotHeight: 0, gunshotY: null };
     }
-    const waveHeight = peak === null ? 0 : Math.max(minBar, Math.round(Math.sqrt(peak) * usableHeight));
+    const amplitude = peak === null ? 0 : (smooth ? Math.pow(peak, 0.56) * 0.92 : Math.sqrt(peak));
+    const waveHeight = peak === null ? 0 : Math.max(minBar, Math.round(amplitude * usableHeight));
     const waveTop = peak === null ? null : canvasHeight - waveHeight;
     const gunshotScore = scores ? scores[0] : 0;
     const gunshotActive = gunshotEnabled && gunshotScore >= threshold;
