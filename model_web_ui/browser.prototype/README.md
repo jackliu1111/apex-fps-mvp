@@ -83,7 +83,7 @@ ASSETS_DIR=/path/to/assets SAMPLE_PATH=/path/to/sample-combat.mp4 \
 ASSETS_DIR=/path/to/assets node --test model_web_ui/browser.prototype/tests/efficientsed-frontend.test.mjs
 ```
 
-`verify-efficientsed-timeline.cjs` 覆盖：参考波形与 PyTorch 概率对照（`maxError < 1e-4`）、自定义注册模型经真实 `inference-worker.js` 边界推理、默认 EfficientSED 单次解码（`decoderPasses === 1`）、`#player-overview-distribution` 与 5 组无 `softmax` 分层画布渲染、40 ms 金字塔缩放平移及播放/寻道 `toDataURL()` 不变性、`#waveform-group-toggles` 开关隔离、`#source-hover` 时间与 5 组原始分数、裁边/排除与 OPFS 目录导出、1440×900 / 1280×800 零滚动与刷新清空。未传 `SAMPLE_PATH` 或设 `SYNTHETIC=1` 时自动使用合成媒体。
+`verify-efficientsed-timeline.cjs` 覆盖：参考波形与 PyTorch 概率对照（`maxError < 1e-4`）、自定义注册模型经真实 `inference-worker.js` 边界推理、默认 EfficientSED 单次解码（`decoderPasses === 1`）、`#player-overview-distribution` 与 4 组无 `softmax` 分层画布渲染、40 ms 金字塔缩放平移及播放/寻道 `toDataURL()` 不变性、`#waveform-group-toggles` 开关隔离、`#source-hover` 时间与 4 组原始分数、裁边/排除与 OPFS 目录导出、1440×900 / 1280×800 零滚动与刷新清空。未传 `SAMPLE_PATH` 或设 `SYNTHETIC=1` 时自动使用合成媒体。
 
 ## 开发阶段重建资产
 
@@ -116,7 +116,7 @@ env PYTHONDONTWRITEBYTECODE=1 TMPDIR="$APEX_BUILD_ROOT/tmp" \
 - 当前通过 WASM CPU 运行，未接 WebGPU；并发等待与吞吐以验收记录中的真实测量及其覆盖范围为准。
 - 不读取整份视频进内存，不保留完整导出 Blob 等待下载。目录写入队列有独立容量边界；任意浏览器、配额和长时间后台生命周期仍不在验收保证内。
 - 音频重采样和多声道混音由浏览器完成，尚未证明与 FFmpeg 全链路数值一致。模型合成基准对照不能替代真实录像验证；在未建立人工标注真值集前，不宣称 Apex 识别准确率或召回率。
-- 分析内存中只保留枪声两类原始分数（用于候选派生与会话内调参重算）以及当前会话的五组展示分数与多级金字塔缓存，均不跨刷新持久化；不实现已归档 Python 服务的完整 447 类预测存档或分析断点续算。视觉展示层对 `<= 80 ms` 同组内部断点做纯展示连接（`>= 0.2` 截断、低振幅枪声 `4 CSS px` 最小顶边指示），不改写原始分数、悬停原值、候选判定或人工复核决定。人工复核记录可独立在当前会话中编辑与撤销。
+- 分析内存中只保留枪声两类原始分数（用于候选派生与会话内调参重算）以及当前会话的四组（枪声、语音、音乐、冲击／碎裂；脚步预测过多，已从展示层移除）展示分数与多级金字塔缓存，均不跨刷新持久化；不实现已归档 Python 服务的完整 447 类预测存档或分析断点续算。视觉展示层对 `<= 80 ms` 同组内部断点做纯展示连接（`>= 0.2` 截断、低振幅枪声 `4 CSS px` 最小顶边指示），不改写原始分数、悬停原值、候选判定或人工复核决定。人工复核记录可独立在当前会话中编辑与撤销。
 - 格式支持取决于浏览器与 Mediabunny；不支持的解码／编码会显示失败。MP4 和 WebM 重编码均不保证原视频质量；声音沿用原片默认音轨，声画边界仍需人工复核。
 - 候选不代表本人开枪、命中或击杀；分析自动音轨策略与默认声音保留规则见上文。
 

@@ -1,6 +1,6 @@
 import { createSelectionEvidence } from './selection-evidence.mjs';
 import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
-import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime, layeredWaveColumns, overviewDistributionColumns } from './waveform-layers.mjs';
+import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime, layeredWaveColumns, overviewDistributionColumns, resolveWaveBarLayout } from './waveform-layers.mjs';
 import { getLang, t } from './i18n.js';
 
 export function selectionWindow(duration, { start, end }) {
@@ -110,9 +110,10 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   }
   function ensureCanvasSize(canvas, fallbackWidth, fallbackHeight) {
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || fallbackWidth));
+    const rawCssWidth = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
+    const cssWidth = Math.max(1, Math.round(rawCssWidth || fallbackWidth));
     const cssHeight = Math.max(1, Math.round(canvas.clientHeight || fallbackHeight));
-    const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
+    const pixelWidth = rawCssWidth > 0 ? Math.max(1, Math.round(cssWidth * dpr)) : Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
     const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
@@ -161,28 +162,34 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       overviewWaveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
       const pad = Math.round(2 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const layout = resolveWaveBarLayout(canvas.width, dpr, { cssStride: 2, cssBarWidth: 1, minBars: 60 });
       const columns = overviewDistributionColumns({
         wave,
         scoreTimeline,
         duration: source.duration,
-        width: canvas.width,
+        width: layout.barCount,
         canvasHeight: canvas.height,
         pad,
         minBar,
         enabledGroups,
+        smooth: layout.barStride > 1,
       });
       context.fillStyle = waveColor;
       context.globalAlpha = 0.35;
-      for (let x = 0; x < columns.length; x++) {
-        const col = columns[x];
-        if (col.waveHeight > 0) context.fillRect(x, col.waveTop, 1, col.waveHeight);
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const x = i * layout.barStride;
+        const w = Math.min(layout.barWidth, canvas.width - x);
+        if (col.waveHeight > 0 && w > 0) context.fillRect(x, col.waveTop, w, col.waveHeight);
       }
       const gunshot = DISPLAY_GROUPS[0];
       context.fillStyle = gunshot.color;
       context.globalAlpha = 0.92;
-      for (let x = 0; x < columns.length; x++) {
-        const col = columns[x];
-        if (col.gunshotHeight > 0) context.fillRect(x, col.gunshotY, 1, col.gunshotHeight);
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
+        const x = i * layout.barStride;
+        const w = Math.min(layout.barWidth, canvas.width - x);
+        if (col.gunshotHeight > 0 && w > 0) context.fillRect(x, col.gunshotY, w, col.gunshotHeight);
       }
       context.globalAlpha = 1;
       canvas.dataset.paintCount = String(++overviewPaintCount);
@@ -202,39 +209,46 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (waveKey !== renderKey) {
       waveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
-      const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const pad = Math.round(10 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const layout = resolveWaveBarLayout(canvas.width, dpr, { cssStride: 4, cssBarWidth: 2, minBars: 60 });
       const columns = layeredWaveColumns({
         wave,
         scoreTimeline,
         start: low,
         end: high,
-        width: canvas.width,
+        width: layout.barCount,
         canvasHeight: canvas.height,
         pad,
         minBar,
         enabledGroups,
+        smooth: layout.barStride > 1,
       });
       // Base opaque neutral waveform contour first so unanalyzed gaps stay blank and amplitude silhouette stays intact.
       context.globalAlpha = 1;
       context.fillStyle = waveColor;
-      for (let x = 0; x < columns.length; x++) {
-        const col = columns[x];
+      for (let i = 0; i < columns.length; i++) {
+        const col = columns[i];
         if (col.state === 'unanalyzed') continue;
-        context.fillRect(x, col.waveTop, 1, col.waveHeight);
+        const x = i * layout.barStride;
+        const w = Math.min(layout.barWidth, canvas.width - x);
+        if (w > 0) context.fillRect(x, col.waveTop, w, col.waveHeight);
       }
       // Draw non-gunshot bottom-up translucent layers first, then gunshot top-down high-contrast foreground last.
       for (let pass = 1; pass <= DISPLAY_GROUPS.length; pass++) {
         const group = DISPLAY_GROUPS[pass === DISPLAY_GROUPS.length ? 0 : pass];
         let styleSet = false;
-        for (let x = 0; x < columns.length; x++) {
-          const layer = columns[x].layers.find((item) => item.id === group.id);
+        for (let i = 0; i < columns.length; i++) {
+          const layer = columns[i].layers.find((item) => item.id === group.id);
           if (!layer) continue;
+          const x = i * layout.barStride;
+          const w = Math.min(layout.barWidth, canvas.width - x);
+          if (!(w > 0)) continue;
           if (!styleSet) {
             context.globalAlpha = layer.alpha;
             context.fillStyle = layer.color;
             styleSet = true;
           }
-          context.fillRect(x, layer.y, 1, layer.height);
+          context.fillRect(x, layer.y, w, layer.height);
         }
       }
       context.globalAlpha = 1;
@@ -251,36 +265,97 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       .map((clip) => ({ ...clip, label: clip.excluded ? (isZh ? '恢复' : 'Restore') : String(++number) }))
       .filter((clip) => !clip.excluded || showExcluded);
     const visible = items.filter((item) => item.start < high && item.end > low);
-    const nextMarkerKey = `${source.id}:${low}:${high}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
+    const axisWidth = predictions.clientWidth || 0;
+    const effectiveAxisWidth = axisWidth > 0 ? axisWidth : 960;
+    const nextMarkerKey = `${source.id}:${low}:${high}:${Math.round(axisWidth)}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
     if (markerRenderKey === nextMarkerKey) return;
     markerRenderKey = nextMarkerKey;
-    const ids = new Set(visible.map((item) => item.id));
+    const span = Math.max(1e-6, high - low);
+    const groups = [];
+    for (const item of visible) {
+      const start = Math.max(item.start, low), end = Math.min(item.end, high);
+      const leftPx = (start - low) / span * effectiveAxisWidth;
+      const endPx = (end - low) / span * effectiveAxisWidth;
+      const prev = groups.at(-1);
+      if (prev && !prev.excluded && !item.excluded && (leftPx - prev.endPx < 11)) {
+        prev.members.push(item);
+        prev.end = Math.max(prev.end, end);
+        prev.endPx = Math.max(prev.endPx, endPx);
+        prev.rawEnd = Math.max(prev.rawEnd, item.end);
+        prev.provisional = prev.provisional && !!item.provisional;
+        prev.selected = prev.selected || !!item.selected;
+        prev.supplemental = prev.supplemental && !!item.supplemental;
+      } else {
+        groups.push({
+          id: item.id,
+          members: [item],
+          start,
+          end,
+          rawStart: item.start,
+          rawEnd: item.end,
+          leftPx,
+          endPx,
+          excluded: !!item.excluded,
+          provisional: !!item.provisional,
+          selected: !!item.selected,
+          supplemental: !!item.supplemental,
+        });
+      }
+    }
+    const ids = new Set(groups.map((g) => g.id));
     for (const node of [...predictions.children]) {
       if (!ids.has(node.dataset.clipId)) {
         if (node === document.activeElement) $('selection-player-axis').focus({ preventScroll: true });
         node.remove();
       }
     }
-    const span = Math.max(1e-6, high - low);
     let previous = null;
-    visible.forEach((item) => {
-      let node = [...predictions.children].find((candidate) => candidate.dataset.clipId === item.id);
-      if (!node) { node = document.createElement('button'); node.dataset.clipId = item.id; }
+    groups.forEach((group) => {
+      let node = [...predictions.children].find((candidate) => candidate.dataset.clipId === group.id);
+      if (!node) { node = document.createElement('button'); node.dataset.clipId = group.id; }
       const nextSibling = previous ? previous.nextElementSibling : predictions.firstElementChild;
       if (nextSibling !== node) predictions.insertBefore(node, nextSibling);
       previous = node;
-      const start = Math.max(item.start, low), end = Math.min(item.end, high);
-      node.style.left = `${(start - low) / span * 100}%`;
-      node.style.width = `${(end - start) / span * 100}%`;
-      node.className = [item.excluded ? 'excluded' : item.provisional ? 'provisional' : item.supplemental ? 'supplemental' : '', !item.selected && !item.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
-      node.textContent = item.label;
-      const decision = source.decisions.find((d) => d.id === item.id);
-      const adjusted = decision && (decision.originRange.start !== item.start || decision.originRange.end !== item.end);
-      node.title = `${item.excluded ? (isZh ? '已排除 · 点击恢复 · ' : 'Excluded · Click to restore · ') : item.selected ? '' : (isZh ? '未勾选导出 · ' : 'Unchecked for export · ')}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? (isZh ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ` · Adjusted from ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}`) : ''}`;
+      const leftPct = (group.start - low) / span * 100;
+      const widthPct = (group.end - group.start) / span * 100;
+      const widthPx = group.endPx - group.leftPx;
+      const isMerged = group.members.length > 1;
+      const first = group.members[0], last = group.members.at(-1);
+      const displayLabel = isMerged ? `${first.label}–${last.label}` : first.label;
+      node.style.left = `${leftPct}%`;
+      node.style.width = `${widthPct}%`;
+      node.className = [group.excluded ? 'excluded' : group.provisional ? 'provisional' : group.supplemental ? 'supplemental' : '', !group.selected && !group.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
+      if (widthPx < 14) node.dataset.compact = 'true';
+      else delete node.dataset.compact;
+      if (isMerged) node.dataset.merged = 'true';
+      else delete node.dataset.merged;
+      delete node.dataset.labelHidden;
+      let labelEl = node.firstElementChild;
+      if (!labelEl) {
+        labelEl = document.createElement('span');
+        labelEl.className = 'marker-label';
+        node.replaceChildren(labelEl);
+      }
+      labelEl.style.left = '';
+      if (labelEl.textContent !== displayLabel) labelEl.textContent = displayLabel;
+      if (isMerged) {
+        node.title = isZh
+          ? `合并显示 ${group.members.length} 段候选（#${first.label}–#${last.label}）· ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · 点击定位展开`
+          : `Merged ${group.members.length} candidates (#${first.label}–#${last.label}) · ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · Click to zoom`;
+      } else {
+        const decision = source.decisions.find((d) => d.id === first.id);
+        const adjusted = decision && (decision.originRange.start !== first.start || decision.originRange.end !== first.end);
+        node.title = `${first.excluded ? (isZh ? '已排除 · 点击恢复 · ' : 'Excluded · Click to restore · ') : first.selected ? '' : (isZh ? '未勾选导出 · ' : 'Unchecked for export · ')}${stamp(first.start)} — ${stamp(first.end)}${adjusted ? (isZh ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ` · Adjusted from ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}`) : ''}`;
+      }
       node.setAttribute('aria-label', node.title);
-      node.setAttribute('aria-pressed', item.id === source.review.selectedClipId);
-      node.disabled = !!item.provisional;
-      node.onclick = () => run(() => item.excluded ? workspace.restoreExcluded(source.id, item.id) : selectRange(getSource().clips.find((clip) => clip.id === item.id)));
+      node.setAttribute('aria-pressed', group.members.some((m) => m.id === source.review.selectedClipId));
+      node.disabled = !!group.provisional;
+      node.onclick = () => run(() => {
+        if (group.excluded) return workspace.restoreExcluded(source.id, first.id);
+        const currentIdx = group.members.findIndex((m) => m.id === getSource().review.selectedClipId);
+        const targetMember = currentIdx >= 0 && currentIdx + 1 < group.members.length ? group.members[currentIdx + 1] : first;
+        return selectRange(getSource().clips.find((clip) => clip.id === targetMember.id));
+      });
     });
     if ($('prediction-empty')) {
       $('prediction-empty').textContent = !items.length
@@ -831,6 +906,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   };
   syncGroupToggles();
   window.addEventListener('keydown', keydown);
-  window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintOverviewDistribution(current); paintWaveform(current, low, high); } });
+  window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) render(current); });
   return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; overviewWaveKey = null; cachedWaveColor = null; $('source-hover').hidden = true; } };
 }

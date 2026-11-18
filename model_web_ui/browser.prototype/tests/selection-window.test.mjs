@@ -702,11 +702,11 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
     const waveCanvas = getNode('prediction-wave');
     const overviewCanvas = getNode('player-overview-distribution');
     const peaks = new Array(200).fill(0.25);
-    const groupScores = new Float32Array(250 * 5);
-    // At t = 1.0s (frame 25, col x = 10): gunshot 0.65, speech 0.85, footsteps 0.50
-    groupScores[25 * 5 + 0] = 0.65;
-    groupScores[25 * 5 + 1] = 0.85;
-    groupScores[25 * 5 + 3] = 0.50;
+    const groupScores = new Float32Array(250 * 4);
+    // At t = 1.0s (frame 25, col x = 10): gunshot 0.65, speech 0.85, impact 0.50
+    groupScores[25 * 4 + 0] = 0.65;
+    groupScores[25 * 4 + 1] = 0.85;
+    groupScores[25 * 4 + 3] = 0.50;
     const rawSnapshot = groupScores.slice();
 
     const workspaceCalls = [];
@@ -731,7 +731,7 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
         audioDuration: 10,
         audioOffset: 0,
         frameSeconds: 0.04,
-        groupCount: 5,
+        groupCount: 4,
         groupScores,
         groupScoreFrames: 250,
       },
@@ -763,27 +763,27 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
     const toggleGroup = getNode('waveform-group-toggles');
     assert.equal(toggleGroup.getAttribute('role'), 'group');
     assert.ok(toggleGroup.getAttribute('aria-label'));
-    assert.equal(toggleGroup.children.length, 5);
-    assert.deepEqual(toggleGroup.children.map((b) => b.dataset.groupId), ['gunshot', 'speech', 'music', 'footsteps', 'impact']);
+    assert.equal(toggleGroup.children.length, 4);
+    assert.deepEqual(toggleGroup.children.map((b) => b.dataset.groupId), ['gunshot', 'speech', 'music', 'impact']);
     assert.ok(toggleGroup.children.every((b) => b.getAttribute('aria-pressed') === 'true'));
-    assert.deepEqual(toggleGroup.children.map((b) => b.textContent), ['Gunshot', 'Speech', 'Music', 'Footsteps', 'Impact']);
+    assert.deepEqual(toggleGroup.children.map((b) => b.textContent), ['Gunshot', 'Speech', 'Music', 'Impact']);
 
-    // Baseline layers at col 10: neutral + speech + footsteps + gunshot
+    // Baseline layers at col 10: neutral + speech + impact + gunshot
     const baseCol10 = waveCanvas.drawOps.filter((op) => op.x === 10);
     assert.equal(baseCol10.length, 4);
-    const baseFootsteps = baseCol10[2];
+    const baseImpact = baseCol10[2];
     const baseGunshot = baseCol10[3];
     const overviewClearBefore = overviewCanvas.clearCount;
 
-    // 1. Toggle speech off: only speech disappears; footsteps & gunshot keep identical y and height; overview unaffected
+    // 1. Toggle speech off: only speech disappears; impact & gunshot keep identical y and height; overview unaffected
     const speechBtn = toggleGroup.children[1];
     speechBtn.onclick();
     assert.equal(speechBtn.getAttribute('aria-pressed'), 'false');
     assert.equal(overviewCanvas.clearCount, overviewClearBefore);
     const noSpeechCol10 = waveCanvas.drawOps.filter((op) => op.x === 10);
     assert.equal(noSpeechCol10.length, 3);
-    assert.equal(noSpeechCol10[1].h, baseFootsteps.h);
-    assert.equal(noSpeechCol10[1].y, baseFootsteps.y);
+    assert.equal(noSpeechCol10[1].h, baseImpact.h);
+    assert.equal(noSpeechCol10[1].y, baseImpact.y);
     assert.equal(noSpeechCol10[2].h, baseGunshot.h);
     assert.equal(noSpeechCol10[2].y, baseGunshot.y);
 
@@ -794,10 +794,10 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
     assert.equal(overviewCanvas.clearCount, overviewClearBefore + 1);
     assert.equal(overviewCanvas.drawOps.some((op) => op.fillStyle !== '#7b8391'), false);
     const noGunshotCol10 = waveCanvas.drawOps.filter((op) => op.x === 10);
-    assert.equal(noGunshotCol10.length, 2); // neutral + footsteps only
-    assert.equal(noGunshotCol10[1].h, baseFootsteps.h);
+    assert.equal(noGunshotCol10.length, 2); // neutral + impact only
+    assert.equal(noGunshotCol10[1].h, baseImpact.h);
 
-    // 3. Toggle all 5 off: only opaque neutral waveform remains
+    // 3. Toggle all 4 off: only opaque neutral waveform remains
     for (const btn of toggleGroup.children.slice(2)) btn.onclick();
     assert.ok(toggleGroup.children.every((b) => b.getAttribute('aria-pressed') === 'false'));
     assert.ok(waveCanvas.drawOps.length === 100 && waveCanvas.drawOps.every((op) => op.fillStyle === '#7b8391' && op.globalAlpha === 1));
@@ -823,7 +823,7 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
     // 5. Language switching updates toggle labels & aria-label
     setLang('zh');
     timeline.render(source);
-    assert.deepEqual(toggleGroup.children.map((b) => b.textContent), ['枪声', '语音', '音乐', '脚步', '冲击／碎裂']);
+    assert.deepEqual(toggleGroup.children.map((b) => b.textContent), ['枪声', '语音', '音乐', '冲击／碎裂']);
   } finally {
     timeline?.suspend();
     setLang(prevLang);
@@ -834,7 +834,7 @@ test('selection timeline group toggles isolate rendered waveform & overview laye
   }
 });
 
-test('selection timeline hover shows xTime timestamp and all 5 raw scores with audioOffset without keyframes, hides during drag, and keeps keyframe preview intact', () => {
+test('selection timeline hover shows xTime timestamp and all 4 raw scores with audioOffset without keyframes, hides during drag, and keeps keyframe preview intact', () => {
   const nodes = new Map();
   class FakeElement {
     constructor(id = '') {
@@ -921,13 +921,12 @@ test('selection timeline hover shows xTime timestamp and all 5 raw scores with a
     getNode('source-hover-label');
     getNode('source-hover-scores');
 
-    const groupScores = new Float32Array(100 * 5); // 4.0s analyzed
+    const groupScores = new Float32Array(100 * 4); // 4.0s analyzed
     // Frame 25 = audio 1.00..1.04s -> video 3.00..3.04s with audioOffset = +2.0
-    groupScores[25 * 5 + 0] = 0.08; // below display threshold 0.2
-    groupScores[25 * 5 + 1] = 0.81;
-    groupScores[25 * 5 + 2] = 0.14; // below threshold
-    groupScores[25 * 5 + 3] = 0.44;
-    groupScores[25 * 5 + 4] = 0.03;
+    groupScores[25 * 4 + 0] = 0.08; // below display threshold 0.2
+    groupScores[25 * 4 + 1] = 0.81;
+    groupScores[25 * 4 + 2] = 0.14; // below threshold
+    groupScores[25 * 4 + 3] = 0.44;
 
     const clips = [{ id: 'clip-1', start: 2, end: 5, selected: true, excluded: false }];
     const source = {
@@ -949,7 +948,7 @@ test('selection timeline hover shows xTime timestamp and all 5 raw scores with a
         audioDuration: 6,
         audioOffset: 2.0,
         frameSeconds: 0.04,
-        groupCount: 5,
+        groupCount: 4,
         groupScores,
         groupScoreFrames: 100,
       },
@@ -984,7 +983,7 @@ test('selection timeline hover shows xTime timestamp and all 5 raw scores with a
     axis.onpointerup();
     assert.ok(Math.abs(seeks[0] - 3.02) < 1e-6);
 
-    // Toggle speech off -> hover MUST still show all 5 raw scores including speech 0.81 and sub-threshold scores
+    // Toggle speech off -> hover MUST still show all 4 raw scores including speech 0.81 and sub-threshold scores
     getNode('waveform-group-toggles').children[1].onclick();
     axis.onpointermove({ clientX: 302, pointerId: 1 });
     const scoreText = hoverScores.textContent;
@@ -992,7 +991,6 @@ test('selection timeline hover shows xTime timestamp and all 5 raw scores with a
     assert.match(scoreText, /0\.81/);
     assert.match(scoreText, /0\.14/);
     assert.match(scoreText, /0\.44/);
-    assert.match(scoreText, /0\.03/);
 
     // 2. Out-of-audio-range (video 1.0s < audioOffset +2.0s) and unanalyzed tail (video 7.0s -> audio 5.0s >= 4.0s analyzed)
     axis.onpointermove({ clientX: 100, pointerId: 1 });
@@ -1133,14 +1131,14 @@ test('selection timeline bridges <= 80ms interior dips and shows min gunshot thi
     const duration = 2.0;
     const step = 0.04;
     const peaks = new Array(50).fill(0.0002); // low amplitude (1px waveHeight)
-    const groupScores = new Float32Array(50 * 5);
+    const groupScores = new Float32Array(50 * 4);
     // Low-amplitude gunshot with 2-frame (80ms) dip at frames 11..12 between frame 10 (0.80) and 13 (0.75)
-    groupScores[10 * 5 + 0] = 0.80;
-    groupScores[11 * 5 + 0] = 0.04;
-    groupScores[12 * 5 + 0] = 0.06;
-    groupScores[13 * 5 + 0] = 0.75;
+    groupScores[10 * 4 + 0] = 0.80;
+    groupScores[11 * 4 + 0] = 0.04;
+    groupScores[12 * 4 + 0] = 0.06;
+    groupScores[13 * 4 + 0] = 0.75;
     // Isolated 1-frame burst at frame 30
-    groupScores[30 * 5 + 0] = 0.90;
+    groupScores[30 * 4 + 0] = 0.90;
     const rawSnapshot = groupScores.slice();
     const candidates = [{ id: 'cand-1', start: 0.2, end: 1.4, selected: true, excluded: false }];
     const decisions = [{ id: 'cand-1', kind: 'keep', range: { start: 0.2, end: 1.4 }, originRange: { start: 0.2, end: 1.4 } }];
@@ -1164,7 +1162,7 @@ test('selection timeline bridges <= 80ms interior dips and shows min gunshot thi
         audioDuration: duration,
         audioOffset: 0,
         frameSeconds: 0.04,
-        groupCount: 5,
+        groupCount: 4,
         groupScores,
         groupScoreFrames: 50,
       },
@@ -1204,6 +1202,153 @@ test('selection timeline bridges <= 80ms interior dips and shows min gunshot thi
     assert.deepEqual([...record.scoreTimeline.groupScores], [...rawSnapshot]);
     assert.equal(record.candidates, candidates);
     assert.equal(source.decisions, decisions);
+  } finally {
+    timeline?.suspend();
+    setLang(prevLang);
+    globalThis.Element = prevElem;
+    globalThis.document = prevDoc;
+    globalThis.window = prevWin;
+    globalThis.getComputedStyle = prevGetComputedStyle;
+  }
+});
+
+test('selection timeline marks narrow markers compact and avoids dense label collisions on long recordings', async () => {
+  const prevDoc = globalThis.document;
+  const prevWin = globalThis.window;
+  const prevElem = globalThis.Element;
+  const prevGetComputedStyle = globalThis.getComputedStyle;
+  const prevLang = getLang();
+
+  const nodes = new Map();
+  class FakeElement {
+    get firstElementChild() { return this.children[0] || null; }
+    get nextElementSibling() { return null; }
+    get textContent() {
+      return this.children.length ? this.children.map((c) => c.textContent || '').join('') : this._text;
+    }
+    set textContent(v) {
+      this._text = String(v);
+      if (this.children.length) this.children = [];
+    }
+  }
+  function makeNode(id) {
+    const node = Object.assign(new FakeElement(), {
+      id,
+      hidden: false,
+      disabled: false,
+      checked: false,
+      clientWidth: 1000,
+      clientHeight: 68,
+      dataset: {},
+      style: {},
+      className: '',
+      title: '',
+      _text: '',
+      children: [],
+      attributes: new Map(),
+      replaceChildren(...items) { this.children = items; },
+      insertBefore(item) { if (!this.children.includes(item)) this.children.push(item); },
+      remove() {},
+      focus() {},
+      setAttribute(k, v) { this.attributes.set(k, String(v)); },
+      getAttribute(k) { return this.attributes.get(k) ?? null; },
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+      getBoundingClientRect() { return { left: 0, width: 1000, top: 0, height: 68 }; },
+      addEventListener() {},
+      removeEventListener() {},
+      getContext() { return { clearRect() {}, fillRect() {} }; },
+    });
+    return node;
+  }
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, makeNode(id));
+    return nodes.get(id);
+  };
+
+  globalThis.Element = FakeElement;
+  globalThis.document = {
+    getElementById: getNode,
+    activeElement: null,
+    createElement: () => makeNode(''),
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    documentElement: { setAttribute() {} },
+  };
+  globalThis.window = {
+    devicePixelRatio: 1,
+    addEventListener() {},
+    removeEventListener() {},
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame() {},
+    setTimeout,
+    clearTimeout,
+  };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#7b8391' });
+
+  const { createSelectionTimeline } = await import('../../../site/selection-timeline.mjs');
+  let timeline;
+  try {
+    setLang('zh');
+    const duration = 2400;
+    const clips = [
+      // Clips 1..9 spaced out, clip 10..12 packed within 10s each (~4.17px apart on 1000px axis), clip 13 wide
+      ...Array.from({ length: 9 }, (_, i) => ({
+        id: `c-${i + 1}`,
+        start: 100 + i * 120,
+        end: 105 + i * 120,
+        selected: true,
+        excluded: false,
+      })),
+      { id: 'c-10', start: 1500, end: 1505, selected: true, excluded: false },
+      { id: 'c-11', start: 1510, end: 1515, selected: true, excluded: false },
+      { id: 'c-12', start: 1520, end: 1525, selected: true, excluded: false },
+      { id: 'c-13', start: 1800, end: 1920, selected: true, excluded: false },
+    ];
+    const source = {
+      id: 'src-long',
+      duration,
+      canUndo: false,
+      canRedo: false,
+      analysis: { status: 'completed' },
+      waveform: { step: 1, trackIndex: 0, decodedUntil: duration, peaks: new Float32Array(2400) },
+      clips,
+      decisions: clips.map((c) => ({ id: c.id, kind: 'keep', range: { start: c.start, end: c.end }, originRange: { start: c.start, end: c.end } })),
+      review: { selectedClipId: 'c-10', position: 0, zoomStart: 0, zoomEnd: duration },
+    };
+    const record = { id: 'src-long', duration, candidates: clips, analysisStarted: 1 };
+
+    timeline = createSelectionTimeline({
+      MB: null,
+      workspace: { setReview() {}, trim() {} },
+      getSource: () => source,
+      getRecord: () => record,
+      selectRange: () => {},
+      seek: () => {},
+      pause: () => {},
+      isPlayerBusy: () => false,
+      report: (err) => { throw err; },
+    });
+    timeline.render(source);
+
+    const markers = getNode('overview-markers').children;
+    // 13 clips total, with c10, c11, c12 (< 11px apart) merged into 1 combined box => 11 rendered boxes
+    assert.equal(markers.length, 11);
+
+    const c1 = markers[0];
+    const c10to12 = markers[9];
+    const c13 = markers[10];
+    assert.equal(c1.dataset.compact, 'true');
+    assert.equal(c13.dataset.compact, undefined);
+
+    // Merged box spans [1500, 1525] (width = 25 / 2400 * 100%) and shows "10–12" at top-left
+    assert.ok(Math.abs(parseFloat(c10to12.style.left) - (1500 / 2400 * 100)) < 0.001);
+    assert.ok(Math.abs(parseFloat(c10to12.style.width) - (25 / 2400 * 100)) < 0.001);
+    assert.equal(c10to12.dataset.merged, 'true');
+    assert.equal(c10to12.firstElementChild.className, 'marker-label');
+    assert.equal(c10to12.firstElementChild.textContent, '10–12');
+    assert.equal(c10to12.getAttribute('aria-pressed'), 'true');
+    assert.equal(c13.firstElementChild.textContent, '13');
   } finally {
     timeline?.suspend();
     setLang(prevLang);

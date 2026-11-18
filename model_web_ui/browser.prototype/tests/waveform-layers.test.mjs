@@ -12,6 +12,8 @@ import {
   layeredWaveColumns,
   overviewDistributionColumns,
   groupScoresAtTime,
+  resolveWaveBarLayout,
+  smoothWavePeaks,
 } from '../../../site/waveform-layers.mjs';
 
 function hexToRgb(hex) {
@@ -29,8 +31,8 @@ function hueDegrees([r, g, b]) {
   return h < 0 ? h + 360 : h;
 }
 
-test('display groups define the five fixed groups with speech separated from selection sky-blue and max-per-group reduction', () => {
-  assert.deepEqual(DISPLAY_GROUPS.map((g) => g.id), ['gunshot', 'speech', 'music', 'footsteps', 'impact']);
+test('display groups define the four fixed groups (excluding footsteps as background) with speech separated from selection sky-blue and max-per-group reduction', () => {
+  assert.deepEqual(DISPLAY_GROUPS.map((g) => g.id), ['gunshot', 'speech', 'music', 'impact']);
   assert.equal(DISPLAY_GROUPS[0].anchor, 'top');
   for (let i = 1; i < DISPLAY_GROUPS.length; i++) assert.equal(DISPLAY_GROUPS[i].anchor, 'bottom');
 
@@ -42,37 +44,36 @@ test('display groups define the five fixed groups with speech separated from sel
   const hueGap = Math.min(Math.abs(speechHue - selectionHue), 360 - Math.abs(speechHue - selectionHue));
   assert.ok(hueGap >= 60, `Expected speech hue (${speechHue}deg) >= 60deg away from selection sky-blue (${selectionHue}deg)`);
 
-  // Distinct colors across all 5 groups
-  assert.equal(new Set(DISPLAY_GROUPS.map((g) => g.color.toLowerCase())).size, 5);
+  // Distinct colors across all 4 groups
+  assert.equal(new Set(DISPLAY_GROUPS.map((g) => g.color.toLowerCase())).size, 4);
 
   const classes = ['Other', 'Speech', 'Whispering', 'Gunshot, gunfire', 'Machine gun', 'Music', 'Run', 'Breaking'];
   const group = createDisplayGrouping(classes);
   const frame = new Float32Array([0.99, 0.15, 0.72, 0.4, 0.85, 0.3, 0.61, 0.25]);
   const out = group(frame);
   assert.ok(out instanceof Float32Array);
-  assert.equal(out.length, 5);
+  assert.equal(out.length, 4);
   assert.ok(Math.abs(out[0] - 0.85) < 1e-6);
   assert.ok(Math.abs(out[1] - 0.72) < 1e-6);
   assert.ok(Math.abs(out[2] - 0.30) < 1e-6);
-  assert.ok(Math.abs(out[3] - 0.61) < 1e-6);
-  assert.ok(Math.abs(out[4] - 0.25) < 1e-6);
+  assert.ok(Math.abs(out[3] - 0.25) < 1e-6);
 
   // Supports zero-allocation writing into a preallocated session buffer at frame offset.
-  const target = new Float32Array(10);
-  const returned = group(frame, target, 5);
+  const target = new Float32Array(8);
+  const returned = group(frame, target, 4);
   assert.equal(returned, target);
-  assert.deepEqual([...target.subarray(0, 5)], [0, 0, 0, 0, 0]);
-  assert.deepEqual([...target.subarray(5, 10)], [...out]);
+  assert.deepEqual([...target.subarray(0, 4)], [0, 0, 0, 0]);
+  assert.deepEqual([...target.subarray(4, 8)], [...out]);
 });
 
 test('groupScoreColumns aligns negative and positive audioOffset and preserves per-column peak scores', () => {
   const frameSeconds = 0.04;
   const frames = 250; // 10s audio
-  const scores = new Float32Array(frames * 5);
+  const scores = new Float32Array(frames * 4);
   // Frame 10 (audio [0.40, 0.44)): gunshot spike 0.92; Frame 11..49 remain 0 -> must not dilute or overwrite.
-  scores[10 * 5 + 0] = 0.92;
+  scores[10 * 4 + 0] = 0.92;
   // Frame 60 (audio [2.40, 2.44)): speech 0.70
-  scores[60 * 5 + 1] = 0.70;
+  scores[60 * 4 + 1] = 0.70;
 
   // Negative audioOffset = -1.5s: audio [0..1.48) is before video t=0 and must clip; audio 2.40s -> video 0.90s.
   const negCols = groupScoreColumns({
@@ -107,14 +108,14 @@ test('layeredWaveColumns computes sqrt(peak) contour, 3 visual states, top-down 
     buffer: { numberOfChannels: 1, sampleRate: 10, duration: 5, getChannelData: () => new Float32Array(50).fill(0.25) },
   }, 0, 10);
 
-  const scores = new Float32Array(125 * 5); // 5s analyzed frames
+  const scores = new Float32Array(125 * 4); // 5s analyzed frames
   // [0, 1) -> below threshold (neutral)
-  scores[0 * 5 + 0] = DEFAULT_DISPLAY_THRESHOLD - 0.05;
-  scores[0 * 5 + 1] = 0.08;
-  // [2, 3) (frames 50..74) -> gunshot 0.60 + speech 0.80 + footsteps 0.50
-  scores[55 * 5 + 0] = 0.60;
-  scores[55 * 5 + 1] = 0.80;
-  scores[55 * 5 + 3] = 0.50;
+  scores[0 * 4 + 0] = DEFAULT_DISPLAY_THRESHOLD - 0.05;
+  scores[0 * 4 + 1] = 0.08;
+  // [2, 3) (frames 50..74) -> gunshot 0.60 + speech 0.80 + impact 0.50
+  scores[55 * 4 + 0] = 0.60;
+  scores[55 * 4 + 1] = 0.80;
+  scores[55 * 4 + 3] = 0.50;
 
   const base = { wave, start: 0, end: 10, width: 10, canvasHeight: 68, pad: 8, minBar: 1 };
   const cols = layeredWaveColumns({
@@ -138,38 +139,38 @@ test('layeredWaveColumns computes sqrt(peak) contour, 3 visual states, top-down 
   assert.equal(active.state, 'active');
   assert.equal(active.waveHeight, 30);
   assert.equal(active.waveTop, 38);
-  assert.deepEqual(active.layers.map((l) => l.id), ['speech', 'footsteps', 'gunshot']);
-  const [speech, footsteps, gunshot] = active.layers;
+  assert.deepEqual(active.layers.map((l) => l.id), ['speech', 'impact', 'gunshot']);
+  const [speech, impact, gunshot] = active.layers;
   assert.equal(speech.anchor, 'bottom');
   assert.equal(speech.height, 24); // round(0.80 * 30)
   assert.equal(speech.y, 68 - 24);
-  assert.equal(footsteps.anchor, 'bottom');
-  assert.equal(footsteps.height, 15); // round(0.50 * 30)
-  assert.equal(footsteps.y, 68 - 15);
+  assert.equal(impact.anchor, 'bottom');
+  assert.equal(impact.height, 15); // round(0.50 * 30)
+  assert.equal(impact.y, 68 - 15);
   assert.equal(gunshot.anchor, 'top');
   assert.equal(gunshot.height, 18); // round(0.60 * 30)
   assert.equal(gunshot.y, active.waveTop);
 
-  // Non-softmax independence: changing speech & footsteps or disabling speech never alters gunshot or footsteps height
+  // Non-softmax independence: changing speech & music or disabling speech never alters gunshot or impact height
   const mutedScores = scores.slice();
-  mutedScores[55 * 5 + 1] = 0; // drop speech to 0
-  mutedScores[55 * 5 + 2] = 0.95; // add loud music
+  mutedScores[55 * 4 + 1] = 0; // drop speech to 0
+  mutedScores[55 * 4 + 2] = 0.95; // add loud music
   const mutedCols = layeredWaveColumns({
     ...base,
     scoreTimeline: { groupScores: mutedScores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
   });
   const gunshotAfter = mutedCols[2].layers.find((l) => l.id === 'gunshot');
-  const footstepsAfter = mutedCols[2].layers.find((l) => l.id === 'footsteps');
+  const impactAfter = mutedCols[2].layers.find((l) => l.id === 'impact');
   assert.equal(gunshotAfter.height, gunshot.height);
-  assert.equal(footstepsAfter.height, footsteps.height);
+  assert.equal(impactAfter.height, impact.height);
 
-  // Toggling speech off leaves gunshot and footsteps heights identical
+  // Toggling speech off leaves gunshot and impact heights identical
   const filteredCols = layeredWaveColumns({
     ...base,
-    enabledGroups: new Set(['gunshot', 'footsteps']),
+    enabledGroups: new Set(['gunshot', 'impact']),
     scoreTimeline: { groupScores: scores, groupScoreFrames: 125, frameSeconds: 0.04, audioOffset: 0, audioDuration: 10 },
   });
-  assert.deepEqual(filteredCols[2].layers.map((l) => [l.id, l.height]), [['footsteps', 15], ['gunshot', 18]]);
+  assert.deepEqual(filteredCols[2].layers.map((l) => [l.id, l.height]), [['impact', 15], ['gunshot', 18]]);
 
   // Missing scoreTimeline (reviewPreview or EfficientAT) falls back gracefully to neutral contour
   const previewCols = layeredWaveColumns({ ...base, scoreTimeline: null });
@@ -182,7 +183,7 @@ test('group score pyramid updates incrementally over 45-min audio, preserves 0.1
   const duration = 2700; // 45 minutes
   const frameSeconds = 0.04;
   const totalFrames = Math.ceil(duration / frameSeconds); // 67,500
-  const groupCount = 5;
+  const groupCount = 4;
   const groupScores = new Float32Array(totalFrames * groupCount);
   const pyramid = createGroupScorePyramid(groupScores, totalFrames, groupCount, frameSeconds);
 
@@ -240,14 +241,14 @@ test('overviewDistributionColumns shares video-time coordinates, aligns positive
   const duration = 2700;
   const frameSeconds = 0.04;
   const totalFrames = 10000; // 400s analyzed audio
-  const scores = new Float32Array(totalFrames * 5);
+  const scores = new Float32Array(totalFrames * 4);
   // Gunshot at audio 100.00..100.16s
   const burst = 100 / frameSeconds;
-  for (let f = burst; f < burst + 4; f++) scores[f * 5 + 0] = 0.91;
+  for (let f = burst; f < burst + 4; f++) scores[f * 4 + 0] = 0.91;
   // Early gunshot at audio 2.00..2.16s (will be clipped when audioOffset = -5s)
-  for (let f = 50; f < 54; f++) scores[f * 5 + 0] = 0.95;
+  for (let f = 50; f < 54; f++) scores[f * 4 + 0] = 0.95;
 
-  const pyramid = createGroupScorePyramid(scores, totalFrames, 5, frameSeconds);
+  const pyramid = createGroupScorePyramid(scores, totalFrames, 4, frameSeconds);
   updateGroupScorePyramid(pyramid, 0, totalFrames);
 
   // Positive offset +500s: [0, 500) unanalyzed/before audio, audio 100s -> video 600s, [900, 2700) unanalyzed tail
@@ -302,10 +303,10 @@ test('overviewDistributionColumns respects enabledGroups when gunshot is toggled
   const duration = 20;
   const frameSeconds = 0.04;
   const totalFrames = 500;
-  const scores = new Float32Array(totalFrames * 5);
+  const scores = new Float32Array(totalFrames * 4);
   // Gunshot at 4.00..4.16s (col 2 in width 10 -> 2s/col), speech at 8.00s
-  for (let f = 100; f < 104; f++) scores[f * 5 + 0] = 0.85;
-  scores[200 * 5 + 1] = 0.75;
+  for (let f = 100; f < 104; f++) scores[f * 4 + 0] = 0.85;
+  scores[200 * 4 + 1] = 0.75;
 
   const wave = createAudioPeaks(duration, 0);
   appendAudioPeaks(wave, {
@@ -320,7 +321,7 @@ test('overviewDistributionColumns respects enabledGroups when gunshot is toggled
     duration,
     width: 10,
     canvasHeight: 16,
-    enabledGroups: new Set(['gunshot', 'music', 'footsteps', 'impact']),
+    enabledGroups: new Set(['gunshot', 'music', 'impact']),
   });
   assert.equal(speechDisabled[2].state, 'active');
   assert.ok(speechDisabled[2].gunshotHeight > 0);
@@ -331,7 +332,7 @@ test('overviewDistributionColumns respects enabledGroups when gunshot is toggled
     duration,
     width: 10,
     canvasHeight: 16,
-    enabledGroups: new Set(['speech', 'music', 'footsteps', 'impact']),
+    enabledGroups: new Set(['speech', 'music', 'impact']),
   });
   assert.equal(gunshotDisabled[2].state, 'neutral');
   assert.equal(gunshotDisabled[2].gunshotHeight, 0);
@@ -339,16 +340,15 @@ test('overviewDistributionColumns respects enabledGroups when gunshot is toggled
   assert.equal(gunshotDisabled[2].waveHeight, speechDisabled[2].waveHeight);
 });
 
-test('groupScoresAtTime applies audioOffset, returns all 5 raw scores including sub-threshold values, and marks unanalyzed/out-of-range cleanly', () => {
+test('groupScoresAtTime applies audioOffset, returns all 4 raw scores including sub-threshold values, and marks unanalyzed/out-of-range cleanly', () => {
   const frameSeconds = 0.04;
   const analyzedFrames = 125; // [0, 5.0)s of a 10s audio track analyzed
-  const scores = new Float32Array(analyzedFrames * 5);
+  const scores = new Float32Array(analyzedFrames * 4);
   // Frame 50 -> audio [2.00, 2.04)s
-  scores[50 * 5 + 0] = 0.12; // below 0.2 display threshold
-  scores[50 * 5 + 1] = 0.74;
-  scores[50 * 5 + 2] = 0.03;
-  scores[50 * 5 + 3] = 0.19;
-  scores[50 * 5 + 4] = 0.00;
+  scores[50 * 4 + 0] = 0.12; // below 0.2 display threshold
+  scores[50 * 4 + 1] = 0.74;
+  scores[50 * 4 + 2] = 0.03;
+  scores[50 * 4 + 3] = 0.19;
 
   // Missing scoreTimeline -> unanalyzed
   const missing = groupScoresAtTime(null, 2.5);
@@ -371,12 +371,11 @@ test('groupScoresAtTime applies audioOffset, returns all 5 raw scores including 
   assert.equal(hit.status, 'ok');
   assert.equal(hit.frameIndex, 50);
   assert.ok(Math.abs(hit.audioTime - 2.01) < 1e-6);
-  assert.equal(hit.scores.length, 5);
+  assert.equal(hit.scores.length, 4);
   assert.ok(Math.abs(hit.scores[0] - 0.12) < 1e-6);
   assert.ok(Math.abs(hit.scores[1] - 0.74) < 1e-6);
   assert.ok(Math.abs(hit.scores[2] - 0.03) < 1e-6);
   assert.ok(Math.abs(hit.scores[3] - 0.19) < 1e-6);
-  assert.equal(hit.scores[4], 0);
 
   const unanalyzedTail = groupScoresAtTime(posScoreData, 7.5);
   assert.equal(unanalyzedTail.status, 'unanalyzed');
@@ -410,33 +409,33 @@ test('layeredWaveColumns bridges <= 80ms interior dips per group without extendi
     buffer: { numberOfChannels: 1, sampleRate: 100, duration: 2.2, getChannelData: () => new Float32Array(220).fill(0.25) },
   }, 0, 2.2);
 
-  const groupScores = new Float32Array(totalFrames * 5);
+  const groupScores = new Float32Array(totalFrames * 4);
   // 1) Isolated 1-frame gunshot at frame 3 [0.12, 0.16): must NOT widen before frame 3 or after frame 3
-  groupScores[3 * 5 + 0] = 0.85;
+  groupScores[3 * 4 + 0] = 0.85;
   // 2) Gunshot with 2-frame (80ms) interior dip: frame 10 = 0.80, frames 11..12 = 0.05, frame 13 = 0.70 -> bridged
-  groupScores[10 * 5 + 0] = 0.80;
-  groupScores[11 * 5 + 0] = 0.05;
-  groupScores[12 * 5 + 0] = 0.05;
-  groupScores[13 * 5 + 0] = 0.70;
+  groupScores[10 * 4 + 0] = 0.80;
+  groupScores[11 * 4 + 0] = 0.05;
+  groupScores[12 * 4 + 0] = 0.05;
+  groupScores[13 * 4 + 0] = 0.70;
   // 3) Gunshot with 3-frame (120ms) interior gap: frame 20 = 0.80, frames 21..23 = 0.05, frame 24 = 0.80 -> NOT bridged
-  groupScores[20 * 5 + 0] = 0.80;
-  groupScores[21 * 5 + 0] = 0.05;
-  groupScores[22 * 5 + 0] = 0.05;
-  groupScores[23 * 5 + 0] = 0.05;
-  groupScores[24 * 5 + 0] = 0.80;
+  groupScores[20 * 4 + 0] = 0.80;
+  groupScores[21 * 4 + 0] = 0.05;
+  groupScores[22 * 4 + 0] = 0.05;
+  groupScores[23 * 4 + 0] = 0.05;
+  groupScores[24 * 4 + 0] = 0.80;
   // 4) Independent per-group bridging: speech 1-frame dip at frame 31 between frame 30 (0.75) & 32 (0.65), while gunshot has frame 30=0.70 & frame 32=0 (no gunshot bridge)
-  groupScores[30 * 5 + 1] = 0.75;
-  groupScores[31 * 5 + 1] = 0.10;
-  groupScores[32 * 5 + 1] = 0.65;
-  groupScores[30 * 5 + 0] = 0.70;
+  groupScores[30 * 4 + 1] = 0.75;
+  groupScores[31 * 4 + 1] = 0.10;
+  groupScores[32 * 4 + 1] = 0.65;
+  groupScores[30 * 4 + 0] = 0.70;
   // 5) Different groups across 1-frame gap must NOT bridge across groups: frame 40 gunshot, frame 41 zero, frame 42 speech
-  groupScores[40 * 5 + 0] = 0.80;
-  groupScores[42 * 5 + 1] = 0.80;
+  groupScores[40 * 4 + 0] = 0.80;
+  groupScores[42 * 4 + 1] = 0.80;
   // 6) Active at end boundary (frame 48=0.80, frame 49=0.0): must NOT extend at outer boundary
-  groupScores[48 * 5 + 0] = 0.80;
+  groupScores[48 * 4 + 0] = 0.80;
 
   const rawSnapshot = groupScores.slice();
-  const pyramid = createGroupScorePyramid(groupScores, totalFrames, 5, frameSeconds);
+  const pyramid = createGroupScorePyramid(groupScores, totalFrames, 4, frameSeconds);
   updateGroupScorePyramid(pyramid, 0, totalFrames);
   const scoreTimeline = { groupScores, groupScoreFrames: totalFrames, groupScorePyramid: pyramid, frameSeconds, audioOffset: 0, audioDuration: duration };
 
@@ -504,16 +503,16 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
   appendAudioPeaks(wave, { timestamp: 0, buffer: { numberOfChannels: 1, sampleRate: 100, duration: 6, getChannelData: () => samples } }, 0, 6);
 
   const frames = 150;
-  const groupScores = new Float32Array(frames * 5);
+  const groupScores = new Float32Array(frames * 4);
   // Ultra-low amplitude col 0 [0, 1): gunshot exactly at threshold (0.20) + speech 0.85
-  groupScores[5 * 5 + 0] = DEFAULT_DISPLAY_THRESHOLD;
-  groupScores[5 * 5 + 1] = 0.85;
+  groupScores[5 * 4 + 0] = DEFAULT_DISPLAY_THRESHOLD;
+  groupScores[5 * 4 + 1] = 0.85;
   // Ultra-low amplitude col 1 [1, 2): gunshot just below threshold (0.199) -> must be omitted (neutral)
-  groupScores[30 * 5 + 0] = DEFAULT_DISPLAY_THRESHOLD - 0.001;
+  groupScores[30 * 4 + 0] = DEFAULT_DISPLAY_THRESHOLD - 0.001;
   // Low amplitude col 2 [2, 3): gunshot 0.70 on 2px wave
-  groupScores[55 * 5 + 0] = 0.70;
+  groupScores[55 * 4 + 0] = 0.70;
   // Mid amplitude col 4 [4, 5): gunshot 0.60 on 30px wave -> 18px > 4px, stays anchored at waveTop
-  groupScores[105 * 5 + 0] = 0.60;
+  groupScores[105 * 4 + 0] = 0.60;
 
   const cols = layeredWaveColumns({
     wave,
@@ -565,16 +564,16 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
 
   // Bounded O(width) zoom/pan latency with Q7 gap bridging over 45-min audio
   const longFrames = Math.ceil(2700 / 0.04);
-  const longScores = new Float32Array(longFrames * 5);
+  const longScores = new Float32Array(longFrames * 4);
   for (let f = 1000; f < longFrames - 10; f += 20) {
-    longScores[f * 5 + 0] = 0.75;
-    longScores[(f + 3) * 5 + 0] = 0.75;
+    longScores[f * 4 + 0] = 0.75;
+    longScores[(f + 3) * 4 + 0] = 0.75;
   }
   const longWave = createAudioPeaks(2700, 0);
   const longScoreTimeline = {
     groupScores: longScores,
     groupScoreFrames: longFrames,
-    groupScorePyramid: createGroupScorePyramid(longScores, longFrames, 5, 0.04),
+    groupScorePyramid: createGroupScorePyramid(longScores, longFrames, 4, 0.04),
     frameSeconds: 0.04,
     audioOffset: 0,
     audioDuration: 2700,
@@ -593,4 +592,24 @@ test('layeredWaveColumns guarantees minimum top-edge gunshot visibility in low-a
   }
   const elapsedMs = performance.now() - t0;
   assert.ok(elapsedMs < 250, `Expected 60 zoomed gap-bridged renders < 250ms, took ${elapsedMs.toFixed(1)}ms`);
+});
+
+test('resolveWaveBarLayout and smoothWavePeaks produce discrete bar+gap geometry and smooth envelope contours without bleeding into unanalyzed gaps', () => {
+  // Desktop 1200px @ 1x and 2x DPR -> 300 discrete bars with 2px CSS bar width and 2px CSS gap
+  const layout1x = resolveWaveBarLayout(1200, 1);
+  assert.deepEqual(layout1x, { barCount: 300, barStride: 4, barWidth: 2 });
+  const layout2x = resolveWaveBarLayout(2400, 2);
+  assert.deepEqual(layout2x, { barCount: 300, barStride: 8, barWidth: 4 });
+
+  // Uniform peaks remain invariant; unanalyzed nulls stay null; isolated spikes smooth into gradual slopes
+  const uniform = smoothWavePeaks([0.25, 0.25, 0.25, null, null]);
+  assert.ok(Math.abs(uniform[0] - 0.25) < 1e-6);
+  assert.ok(Math.abs(uniform[2] - 0.25) < 1e-6);
+  assert.equal(uniform[3], null);
+  assert.equal(uniform[4], null);
+
+  const spike = smoothWavePeaks([0.1, 0.1, 0.9, 0.1, 0.1]);
+  assert.ok(spike[2] < 0.9 && spike[2] > spike[1]);
+  assert.ok(spike[1] > 0.1 && spike[1] > spike[0]);
+  assert.ok(Math.abs(spike[1] - spike[3]) < 1e-6);
 });

@@ -36,16 +36,6 @@ export const DISPLAY_GROUPS = Object.freeze([
     labels: Object.freeze(['Music']),
   }),
   Object.freeze({
-    id: 'footsteps',
-    name: '脚步',
-    nameEn: 'Footsteps',
-    i18nKey: 'group_footsteps',
-    color: '#2f9a88',
-    alpha: 0.6,
-    anchor: 'bottom',
-    labels: Object.freeze(['Walk, footsteps', 'Run']),
-  }),
-  Object.freeze({
     id: 'impact',
     name: '冲击／碎裂',
     nameEn: 'Impact',

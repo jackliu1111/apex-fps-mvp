@@ -102,8 +102,8 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   color: var(--muted);
 }
 #review-page #source-select {
-  flex: 0 1 240px;
-  max-width: 240px;
+  flex: 0 1 clamp(240px, 22vw, 420px);
+  max-width: clamp(240px, 22vw, 420px);
   min-width: 0;
   min-height: 32px;
   padding: 3px 12px;
@@ -139,7 +139,7 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 }
 #review-page .player-stage {
   position: relative;
-  height: clamp(220px, calc(100dvh - 452px), 460px);
+  height: clamp(360px, max(calc(44dvh + 16px), calc(28vw + 10px)), calc((100vw - 84px) * 9 / 16));
   width: 100%;
   background: #141619;
   border-radius: 12px;
@@ -489,7 +489,7 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   left: 32px;
   right: 32px;
   bottom: 28px;
-  max-width: 1100px;
+  max-width: clamp(1100px, 75vw, 2200px);
   margin-inline: auto;
   padding-top: 0;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -814,6 +814,17 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   border-color: var(--selection-handle);
   box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.18);
 }
+.source-axis::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 42%;
+  height: 1px;
+  background: rgba(123, 131, 145, 0.22);
+  pointer-events: none;
+  z-index: 1;
+}
 .source-axis #prediction-wave {
   position: absolute;
   inset: 0;
@@ -841,33 +852,79 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   top: 0;
   height: 100%;
   min-height: 0;
-  padding: 4px 7px 4px 9px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  border: 1px solid rgba(100, 116, 139, 0.22);
-  border-left: 2.5px solid #94a3b8;
+  min-width: 2px;
+  padding: 0;
+  display: block;
+  border: 1px solid rgba(59, 130, 246, 0.34);
+  border-top: 2px solid rgba(59, 130, 246, 0.68);
+  border-left: 2.5px solid #3b82f6;
   border-radius: 6px;
-  background: rgba(100, 116, 139, 0.08);
-  color: #475569;
-  font-size: 11.5px;
+  background: rgba(59, 130, 246, 0.10);
+  color: #1e40af;
+  font-size: 11px;
   font-weight: 650;
   line-height: 1;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: none;
 }
+.source-axis .prediction-axis button[data-compact="true"] {
+  border-width: 2px 1px 1px 2px;
+  border-color: rgba(59, 130, 246, 0.48);
+  border-top-color: #3b82f6;
+  border-left-color: #2563eb;
+  background: rgba(59, 130, 246, 0.18);
+  border-radius: 3px;
+}
+.source-axis .prediction-axis button[data-compact="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 -2px;
+}
+.source-axis .prediction-axis button .marker-label {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.1;
+  white-space: nowrap;
+  pointer-events: none;
+  color: inherit;
+  z-index: 3;
+}
+.source-axis .prediction-axis button[data-compact="true"] .marker-label,
+.source-axis .prediction-axis button[data-merged="true"] .marker-label,
+.source-axis .prediction-axis button:hover:not(:disabled) .marker-label,
+.source-axis .prediction-axis button:focus-visible .marker-label,
+.source-axis .prediction-axis button[aria-pressed="true"] .marker-label {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.28), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.source-axis .prediction-axis button[data-label-hidden="true"] .marker-label {
+  opacity: 0;
+}
+.source-axis .prediction-axis button[data-label-hidden="true"]:hover:not(:disabled) .marker-label,
+.source-axis .prediction-axis button[data-label-hidden="true"]:focus-visible .marker-label,
+.source-axis .prediction-axis button[data-label-hidden="true"][aria-pressed="true"] .marker-label {
+  opacity: 1;
+}
 .source-axis .prediction-axis button:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.35);
-  border-left-color: #60a5fa;
-  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.18);
+  border-color: rgba(37, 99, 235, 0.55);
+  border-top-color: #1d4ed8;
+  border-left-color: #1d4ed8;
+  color: #1e3a8a;
+  z-index: 5;
 }
 .source-axis .prediction-axis button[aria-pressed="true"] {
-  background: rgba(59, 130, 246, 0.06);
-  border-color: rgba(59, 130, 246, 0.32);
-  border-left-color: var(--selection-handle);
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(37, 99, 235, 0.52);
+  border-top-color: #2563eb;
+  border-left-color: #1d4ed8;
   color: var(--selection-ink);
-  z-index: 2;
+  z-index: 4;
 }
 .source-axis .prediction-axis button.excluded {
   background: rgba(113, 113, 122, 0.06);
@@ -1213,6 +1270,19 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   box-shadow: none;
 }
 
+@media (min-aspect-ratio: 17 / 10) and (min-width: 960px) {
+  #review-page .player-stage {
+    height: clamp(420px, max(calc(54dvh + 32px), calc(34vw + 32px)), calc((100vw - 84px) * 9 / 16));
+  }
+}
+@media (min-width: 1800px) and (min-height: 980px) {
+  #review-page .player-overview-bar {
+    height: clamp(18px, 1.8dvh, 26px);
+  }
+  .source-axis {
+    height: clamp(68px, 7dvh, 104px);
+  }
+}
 @media (max-width: 900px) {
   body:has(#review-page:not([hidden])) main {
     padding: 10px 18px 16px;

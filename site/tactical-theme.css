@@ -123,7 +123,7 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
 #analysis-page #drop-zone { border-radius: 12px; align-content: start; padding: 0 24px; }
 #analysis-page #drop-zone:has(.empty) {
   align-content: center;
-  min-height: 220px;
+  min-height: clamp(220px, 28dvh, 420px);
   margin: 20px 24px 0;
   border: 1.5px dashed #d4d4d8;
   border-radius: 14px;

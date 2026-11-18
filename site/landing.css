@@ -70,7 +70,7 @@ button {
 }
 
 .container {
-  width: min(1220px, calc(100% - 40px));
+  width: min(clamp(1220px, 88vw, 2400px), calc(100% - 40px));
   margin: 0 auto;
 }
 
@@ -242,6 +242,42 @@ button {
   justify-content: space-between;
   gap: 18px;
   min-height: 60px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.github-link {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  color: var(--pa-ink);
+  background: var(--pa-well);
+  border: 2px solid var(--pa-border);
+  box-shadow: 2px 2px 0 var(--pa-border);
+  transition: transform 90ms steps(2), box-shadow 90ms steps(2), background-color 120ms ease;
+}
+
+.github-link:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--pa-border);
+  background: var(--pa-blue-soft);
+}
+
+.github-link:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--pa-border);
+}
+
+.github-link svg {
+  width: 17px;
+  height: 17px;
 }
 
 .brand {
