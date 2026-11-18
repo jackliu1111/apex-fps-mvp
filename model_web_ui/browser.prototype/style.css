@@ -150,6 +150,26 @@ strong { font-weight: 600; }
 .brand-mark { width: 16px; height: 16px; stroke: none; }
 .brand-secondary { font-weight: 400; color: var(--muted); font-size: 13px; }
 .navigation { display: flex; align-items: center; gap: 4px; }
+.navigation .nav-portal-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  color: #2563eb;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: 4px;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.navigation .nav-portal-link:hover {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #1d4ed8;
+}
 .navigation button {
   min-height: 34px;
   border: 0;
