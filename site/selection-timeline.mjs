@@ -265,36 +265,97 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       .map((clip) => ({ ...clip, label: clip.excluded ? (isZh ? '恢复' : 'Restore') : String(++number) }))
       .filter((clip) => !clip.excluded || showExcluded);
     const visible = items.filter((item) => item.start < high && item.end > low);
-    const nextMarkerKey = `${source.id}:${low}:${high}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
+    const axisWidth = predictions.clientWidth || 0;
+    const effectiveAxisWidth = axisWidth > 0 ? axisWidth : 960;
+    const nextMarkerKey = `${source.id}:${low}:${high}:${Math.round(axisWidth)}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
     if (markerRenderKey === nextMarkerKey) return;
     markerRenderKey = nextMarkerKey;
-    const ids = new Set(visible.map((item) => item.id));
+    const span = Math.max(1e-6, high - low);
+    const groups = [];
+    for (const item of visible) {
+      const start = Math.max(item.start, low), end = Math.min(item.end, high);
+      const leftPx = (start - low) / span * effectiveAxisWidth;
+      const endPx = (end - low) / span * effectiveAxisWidth;
+      const prev = groups.at(-1);
+      if (prev && !prev.excluded && !item.excluded && (leftPx - prev.endPx < 11)) {
+        prev.members.push(item);
+        prev.end = Math.max(prev.end, end);
+        prev.endPx = Math.max(prev.endPx, endPx);
+        prev.rawEnd = Math.max(prev.rawEnd, item.end);
+        prev.provisional = prev.provisional && !!item.provisional;
+        prev.selected = prev.selected || !!item.selected;
+        prev.supplemental = prev.supplemental && !!item.supplemental;
+      } else {
+        groups.push({
+          id: item.id,
+          members: [item],
+          start,
+          end,
+          rawStart: item.start,
+          rawEnd: item.end,
+          leftPx,
+          endPx,
+          excluded: !!item.excluded,
+          provisional: !!item.provisional,
+          selected: !!item.selected,
+          supplemental: !!item.supplemental,
+        });
+      }
+    }
+    const ids = new Set(groups.map((g) => g.id));
     for (const node of [...predictions.children]) {
       if (!ids.has(node.dataset.clipId)) {
         if (node === document.activeElement) $('selection-player-axis').focus({ preventScroll: true });
         node.remove();
       }
     }
-    const span = Math.max(1e-6, high - low);
     let previous = null;
-    visible.forEach((item) => {
-      let node = [...predictions.children].find((candidate) => candidate.dataset.clipId === item.id);
-      if (!node) { node = document.createElement('button'); node.dataset.clipId = item.id; }
+    groups.forEach((group) => {
+      let node = [...predictions.children].find((candidate) => candidate.dataset.clipId === group.id);
+      if (!node) { node = document.createElement('button'); node.dataset.clipId = group.id; }
       const nextSibling = previous ? previous.nextElementSibling : predictions.firstElementChild;
       if (nextSibling !== node) predictions.insertBefore(node, nextSibling);
       previous = node;
-      const start = Math.max(item.start, low), end = Math.min(item.end, high);
-      node.style.left = `${(start - low) / span * 100}%`;
-      node.style.width = `${(end - start) / span * 100}%`;
-      node.className = [item.excluded ? 'excluded' : item.provisional ? 'provisional' : item.supplemental ? 'supplemental' : '', !item.selected && !item.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
-      node.textContent = item.label;
-      const decision = source.decisions.find((d) => d.id === item.id);
-      const adjusted = decision && (decision.originRange.start !== item.start || decision.originRange.end !== item.end);
-      node.title = `${item.excluded ? (isZh ? '已排除 · 点击恢复 · ' : 'Excluded · Click to restore · ') : item.selected ? '' : (isZh ? '未勾选导出 · ' : 'Unchecked for export · ')}${stamp(item.start)} — ${stamp(item.end)}${adjusted ? (isZh ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ` · Adjusted from ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}`) : ''}`;
+      const leftPct = (group.start - low) / span * 100;
+      const widthPct = (group.end - group.start) / span * 100;
+      const widthPx = group.endPx - group.leftPx;
+      const isMerged = group.members.length > 1;
+      const first = group.members[0], last = group.members.at(-1);
+      const displayLabel = isMerged ? `${first.label}–${last.label}` : first.label;
+      node.style.left = `${leftPct}%`;
+      node.style.width = `${widthPct}%`;
+      node.className = [group.excluded ? 'excluded' : group.provisional ? 'provisional' : group.supplemental ? 'supplemental' : '', !group.selected && !group.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
+      if (widthPx < 14) node.dataset.compact = 'true';
+      else delete node.dataset.compact;
+      if (isMerged) node.dataset.merged = 'true';
+      else delete node.dataset.merged;
+      delete node.dataset.labelHidden;
+      let labelEl = node.firstElementChild;
+      if (!labelEl) {
+        labelEl = document.createElement('span');
+        labelEl.className = 'marker-label';
+        node.replaceChildren(labelEl);
+      }
+      labelEl.style.left = '';
+      if (labelEl.textContent !== displayLabel) labelEl.textContent = displayLabel;
+      if (isMerged) {
+        node.title = isZh
+          ? `合并显示 ${group.members.length} 段候选（#${first.label}–#${last.label}）· ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · 点击定位展开`
+          : `Merged ${group.members.length} candidates (#${first.label}–#${last.label}) · ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · Click to zoom`;
+      } else {
+        const decision = source.decisions.find((d) => d.id === first.id);
+        const adjusted = decision && (decision.originRange.start !== first.start || decision.originRange.end !== first.end);
+        node.title = `${first.excluded ? (isZh ? '已排除 · 点击恢复 · ' : 'Excluded · Click to restore · ') : first.selected ? '' : (isZh ? '未勾选导出 · ' : 'Unchecked for export · ')}${stamp(first.start)} — ${stamp(first.end)}${adjusted ? (isZh ? ` · 已调整，原预测 ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}` : ` · Adjusted from ${stamp(decision.originRange.start)} — ${stamp(decision.originRange.end)}`) : ''}`;
+      }
       node.setAttribute('aria-label', node.title);
-      node.setAttribute('aria-pressed', item.id === source.review.selectedClipId);
-      node.disabled = !!item.provisional;
-      node.onclick = () => run(() => item.excluded ? workspace.restoreExcluded(source.id, item.id) : selectRange(getSource().clips.find((clip) => clip.id === item.id)));
+      node.setAttribute('aria-pressed', group.members.some((m) => m.id === source.review.selectedClipId));
+      node.disabled = !!group.provisional;
+      node.onclick = () => run(() => {
+        if (group.excluded) return workspace.restoreExcluded(source.id, first.id);
+        const currentIdx = group.members.findIndex((m) => m.id === getSource().review.selectedClipId);
+        const targetMember = currentIdx >= 0 && currentIdx + 1 < group.members.length ? group.members[currentIdx + 1] : first;
+        return selectRange(getSource().clips.find((clip) => clip.id === targetMember.id));
+      });
     });
     if ($('prediction-empty')) {
       $('prediction-empty').textContent = !items.length
@@ -845,6 +906,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   };
   syncGroupToggles();
   window.addEventListener('keydown', keydown);
-  window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintOverviewDistribution(current); paintWaveform(current, low, high); } });
+  window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) render(current); });
   return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; overviewWaveKey = null; cachedWaveColor = null; $('source-hover').hidden = true; } };
 }

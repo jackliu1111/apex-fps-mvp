@@ -1211,3 +1211,150 @@ test('selection timeline bridges <= 80ms interior dips and shows min gunshot thi
     globalThis.getComputedStyle = prevGetComputedStyle;
   }
 });
+
+test('selection timeline marks narrow markers compact and avoids dense label collisions on long recordings', async () => {
+  const prevDoc = globalThis.document;
+  const prevWin = globalThis.window;
+  const prevElem = globalThis.Element;
+  const prevGetComputedStyle = globalThis.getComputedStyle;
+  const prevLang = getLang();
+
+  const nodes = new Map();
+  class FakeElement {
+    get firstElementChild() { return this.children[0] || null; }
+    get nextElementSibling() { return null; }
+    get textContent() {
+      return this.children.length ? this.children.map((c) => c.textContent || '').join('') : this._text;
+    }
+    set textContent(v) {
+      this._text = String(v);
+      if (this.children.length) this.children = [];
+    }
+  }
+  function makeNode(id) {
+    const node = Object.assign(new FakeElement(), {
+      id,
+      hidden: false,
+      disabled: false,
+      checked: false,
+      clientWidth: 1000,
+      clientHeight: 68,
+      dataset: {},
+      style: {},
+      className: '',
+      title: '',
+      _text: '',
+      children: [],
+      attributes: new Map(),
+      replaceChildren(...items) { this.children = items; },
+      insertBefore(item) { if (!this.children.includes(item)) this.children.push(item); },
+      remove() {},
+      focus() {},
+      setAttribute(k, v) { this.attributes.set(k, String(v)); },
+      getAttribute(k) { return this.attributes.get(k) ?? null; },
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+      getBoundingClientRect() { return { left: 0, width: 1000, top: 0, height: 68 }; },
+      addEventListener() {},
+      removeEventListener() {},
+      getContext() { return { clearRect() {}, fillRect() {} }; },
+    });
+    return node;
+  }
+  const getNode = (id) => {
+    if (!nodes.has(id)) nodes.set(id, makeNode(id));
+    return nodes.get(id);
+  };
+
+  globalThis.Element = FakeElement;
+  globalThis.document = {
+    getElementById: getNode,
+    activeElement: null,
+    createElement: () => makeNode(''),
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    documentElement: { setAttribute() {} },
+  };
+  globalThis.window = {
+    devicePixelRatio: 1,
+    addEventListener() {},
+    removeEventListener() {},
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame() {},
+    setTimeout,
+    clearTimeout,
+  };
+  globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#7b8391' });
+
+  const { createSelectionTimeline } = await import('../../../site/selection-timeline.mjs');
+  let timeline;
+  try {
+    setLang('zh');
+    const duration = 2400;
+    const clips = [
+      // Clips 1..9 spaced out, clip 10..12 packed within 10s each (~4.17px apart on 1000px axis), clip 13 wide
+      ...Array.from({ length: 9 }, (_, i) => ({
+        id: `c-${i + 1}`,
+        start: 100 + i * 120,
+        end: 105 + i * 120,
+        selected: true,
+        excluded: false,
+      })),
+      { id: 'c-10', start: 1500, end: 1505, selected: true, excluded: false },
+      { id: 'c-11', start: 1510, end: 1515, selected: true, excluded: false },
+      { id: 'c-12', start: 1520, end: 1525, selected: true, excluded: false },
+      { id: 'c-13', start: 1800, end: 1920, selected: true, excluded: false },
+    ];
+    const source = {
+      id: 'src-long',
+      duration,
+      canUndo: false,
+      canRedo: false,
+      analysis: { status: 'completed' },
+      waveform: { step: 1, trackIndex: 0, decodedUntil: duration, peaks: new Float32Array(2400) },
+      clips,
+      decisions: clips.map((c) => ({ id: c.id, kind: 'keep', range: { start: c.start, end: c.end }, originRange: { start: c.start, end: c.end } })),
+      review: { selectedClipId: 'c-10', position: 0, zoomStart: 0, zoomEnd: duration },
+    };
+    const record = { id: 'src-long', duration, candidates: clips, analysisStarted: 1 };
+
+    timeline = createSelectionTimeline({
+      MB: null,
+      workspace: { setReview() {}, trim() {} },
+      getSource: () => source,
+      getRecord: () => record,
+      selectRange: () => {},
+      seek: () => {},
+      pause: () => {},
+      isPlayerBusy: () => false,
+      report: (err) => { throw err; },
+    });
+    timeline.render(source);
+
+    const markers = getNode('overview-markers').children;
+    // 13 clips total, with c10, c11, c12 (< 11px apart) merged into 1 combined box => 11 rendered boxes
+    assert.equal(markers.length, 11);
+
+    const c1 = markers[0];
+    const c10to12 = markers[9];
+    const c13 = markers[10];
+    assert.equal(c1.dataset.compact, 'true');
+    assert.equal(c13.dataset.compact, undefined);
+
+    // Merged box spans [1500, 1525] (width = 25 / 2400 * 100%) and shows "10–12" at top-left
+    assert.ok(Math.abs(parseFloat(c10to12.style.left) - (1500 / 2400 * 100)) < 0.001);
+    assert.ok(Math.abs(parseFloat(c10to12.style.width) - (25 / 2400 * 100)) < 0.001);
+    assert.equal(c10to12.dataset.merged, 'true');
+    assert.equal(c10to12.firstElementChild.className, 'marker-label');
+    assert.equal(c10to12.firstElementChild.textContent, '10–12');
+    assert.equal(c10to12.getAttribute('aria-pressed'), 'true');
+    assert.equal(c13.firstElementChild.textContent, '13');
+  } finally {
+    timeline?.suspend();
+    setLang(prevLang);
+    globalThis.Element = prevElem;
+    globalThis.document = prevDoc;
+    globalThis.window = prevWin;
+    globalThis.getComputedStyle = prevGetComputedStyle;
+  }
+});
