@@ -1,7 +1,7 @@
 import * as MB from '/assets/vendor/mediabunny.mjs';
 import { createSyntheticFile } from './synthetic-media.mjs';
-import { createBrowserConverter } from '../browser-export.mjs';
-import { createExportQueue } from '../export-queue.mjs';
+import { createBrowserConverter } from '../../../site/browser-export.mjs';
+import { createExportQueue } from '../../../site/export-queue.mjs';
 const $ = id => document.getElementById(id);
 const events = [], observations = [], rawHandles = new Map();
 let source, directory, currentId, activeGate, gateMode = 'none', sequence = 0, saveTimer;

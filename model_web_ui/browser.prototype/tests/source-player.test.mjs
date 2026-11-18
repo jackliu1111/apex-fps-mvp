@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createSourcePlayer } from '../source-player.mjs';
+import { createSourcePlayer } from '../../../site/source-player.mjs';
 
 // Media decoding, the display surface and time are external system boundaries.
 function fixture({ duration = 120, origin = 2, waitForFrame, waitForOpen, waitForResume } = {}) {

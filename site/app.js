@@ -5,11 +5,12 @@ import * as MB from '/assets/vendor/mediabunny.mjs';
 import { createReviewWorkspace } from './review-workspace.mjs';
 import { identifyFile } from './media-identity.mjs';
 import { createBrowserAnalysis } from './browser-analysis.mjs';
+import { DEFAULT_MODEL } from './model-registry.mjs';
 import { createSourcePlayer } from './source-player.mjs';
 import { createExportQueue } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
 import { DEFAULT_EXPORT_SETTINGS, sourceExportSettings, exportSettings } from './export-policy.mjs';
-import { t, getLang, setLang, onLanguageChange, applyTranslations } from './i18n.js';
+import { t, getLang, onLanguageChange } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Set();
@@ -172,9 +173,9 @@ async function startExport(id) {
   note(t('note_export_submitted'));
 }
 
-async function importFiles(files) {
+async function importFiles(files, options = {}) {
   await ready;
-  const options = { model: 'efficientat', threshold: 0.2 };
+  const importOptions = { model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2 };
   const failures = [];
   const importMessage = t('note_prep_files', { count: files.length });
   note(importMessage);
@@ -185,7 +186,7 @@ async function importFiles(files) {
       identified.set(file, identity);
       if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(t('note_file_exists', { name: file.name })); return; }
       reservedId = identity.id; pendingImports.add(reservedId);
-      await queue.importFiles([file], options);
+      await queue.importFiles([file], importOptions);
     } catch (error) {
       failures.push(`${file.name}: ${errorText(error)}`);
     } finally {
@@ -677,17 +678,7 @@ const fitSelectedClip = () => safely(() => { const clip = selectedClip(); if (cl
 if ($('quick-fit-clip')) $('quick-fit-clip').onclick = fitSelectedClip;
 $('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); };
 
-// Language switcher
-const langBtn = $('lang-toggle');
-if (langBtn) {
-  langBtn.onclick = () => {
-    setLang(getLang() === 'en' ? 'zh' : 'en');
-  };
-}
-onLanguageChange(() => {
-  applyTranslations();
-  render();
-});
+onLanguageChange(render);
 
 // Session state is intentionally not written to browser storage.
 const shouldWarnOnLeave = () => !preview && (
@@ -702,7 +693,6 @@ window.addEventListener('beforeunload', event => {
 window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
 const ready = Promise.resolve();
 $('import-files').disabled = false;
-applyTranslations();
 render();
 note(t('status_ready'), 'quiet');
 window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };

@@ -9,6 +9,8 @@ import time
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent
+SITE_ROOT = ROOT.parents[1] / 'site'
+DEFAULT_ASSETS = SITE_ROOT / 'assets'
 
 # The browser page imports these before it can render; analysis additionally
 # needs the ONNX Runtime files and the manifest/weights of the chosen model.
@@ -19,29 +21,35 @@ VENDOR_ASSETS = (
     'vendor/ort-wasm-simd-threaded.wasm',
 )
 MODEL_ASSETS = {
-    'EfficientAT 默认模型': ('efficientat/model.json', 'efficientat/mn04.onnx', 'efficientat/frontend.json'),
+    'EfficientSED 默认模型': ('efficientsed/model.json', 'efficientsed/fmn10-tf256.onnx', 'efficientsed/frontend.json'),
+    'EfficientAT 可选模型': ('efficientat/model.json', 'efficientat/mn04.onnx', 'efficientat/frontend.json'),
     'BEATs 可选模型': ('model.json', 'beats.onnx'),
 }
 
 
-def missing_assets(assets):
+LAB_MODEL_ASSETS = {
+    'EfficientSED 实验模型': MODEL_ASSETS['EfficientSED 默认模型'],
+}
+
+
+def missing_assets(assets, model_assets=MODEL_ASSETS):
     """Return (group, relative path) pairs the static host needs but cannot serve."""
     missing = [('浏览器运行库', name) for name in VENDOR_ASSETS if not (assets / name).is_file()]
-    for model, names in MODEL_ASSETS.items():
+    for model, names in model_assets.items():
         missing.extend((model, name) for name in names if not (assets / name).is_file())
     return missing
 
 
-def report_assets(assets, stream):
+def report_assets(assets, stream, model_assets=MODEL_ASSETS):
     """Explain missing assets at startup instead of leaving only an HTTP 404 in the page."""
-    missing = missing_assets(assets)
+    missing = missing_assets(assets, model_assets)
     if not missing:
         print('资产检查：浏览器运行库与模型资产齐全', file=stream)
         return missing
-    print('资产检查：以下文件缺失，页面仍可打开，但对应分析会报「模型清单无法读取（HTTP 404）」：', file=stream)
+    print('资产检查：以下文件缺失，页面仍可打开，但对应分析会报「模型清单无法读取（HTTP 404）」或缺少权重/前处理文件：', file=stream)
     for group, name in missing:
         print(f'  - {assets / name}（{group}）', file=stream)
-    print('  请按 model_web_ui/browser.prototype/README.md「开发阶段重建资产」重建模型资产，'
+    print('  请按 model_web_ui/browser.prototype/README.md「开发阶段重建资产」或 MODEL-LAB.md 重建模型资产，'
           '或用 --assets 指向完整资产目录；默认 /private/tmp 路径可能被系统清理。', file=stream)
     return missing
 
@@ -68,10 +76,17 @@ class StaticHandler(SimpleHTTPRequestHandler):
         path = unquote(urlsplit(path).path)
         if path == '/demo/recording.mp4':
             return str(self.server.sample or ROOT / '__missing__')
-        root = self.server.assets if path.startswith('/assets/') else ROOT
-        relative = path[len('/assets/'):] if path.startswith('/assets/') else path.lstrip('/')
-        candidate = (root / (relative or 'index.html')).resolve()
-        return str(candidate if candidate.is_relative_to(root) else ROOT / '__missing__')
+        if path.startswith('/assets/'):
+            root = self.server.assets
+            relative = path[len('/assets/'):]
+            candidate = (root / (relative or 'index.html')).resolve()
+            return str(candidate if candidate.is_relative_to(root) else ROOT / '__missing__')
+        relative = path.lstrip('/') or 'index.html'
+        for base in (SITE_ROOT, ROOT):
+            candidate = (base / relative).resolve()
+            if candidate.is_relative_to(base) and candidate.exists():
+                return str(candidate)
+        return str(ROOT / '__missing__')
 
     def end_headers(self):
         self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
@@ -86,10 +101,11 @@ class StaticHandler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--assets', type=Path, default=Path('/private/tmp/apex-browser-prototype-20261026/assets'))
+    parser.add_argument('--assets', type=Path, default=DEFAULT_ASSETS)
     parser.add_argument('--port', type=int, default=8792)
     parser.add_argument('--sample', type=Path, help='Local one-minute combat MP4, served read-only as the demo (under 100 MiB)')
     parser.add_argument('--background', action='store_true', help='Detach the static preview server from this terminal session')
+    parser.add_argument('--model-lab', action='store_true', help='Check EfficientSED experimental assets instead of the production models')
     args = parser.parse_args()
     if args.sample:
         args.sample = args.sample.resolve()
@@ -102,6 +118,7 @@ if __name__ == '__main__':
         with log.open('ab', buffering=0) as stream:
             child = subprocess.Popen([sys.executable, '-u', str(Path(__file__).resolve()),
                 '--assets', str(args.assets.resolve()), '--port', str(args.port),
+                *(['--model-lab'] if args.model_lab else []),
                 *(['--sample', str(args.sample)] if args.sample else [])],
                 stdin=subprocess.DEVNULL, stdout=stream, stderr=stream, start_new_session=True)
         time.sleep(0.5)
@@ -112,7 +129,7 @@ if __name__ == '__main__':
     server = ThreadingHTTPServer(('127.0.0.1', args.port), StaticHandler)
     server.assets = args.assets.resolve()
     server.sample = args.sample
-    print(f'Apex Local Cut: http://127.0.0.1:{args.port}', flush=True)
+    print(f'Apex Local Cut: http://127.0.0.1:{args.port}' + ('/model-lab.html' if args.model_lab else ''), flush=True)
     print(f'Static assets: {server.assets}', flush=True)
-    report_assets(server.assets, sys.stderr)
+    report_assets(server.assets, sys.stderr, LAB_MODEL_ASSETS if args.model_lab else MODEL_ASSETS)
     server.serve_forever()

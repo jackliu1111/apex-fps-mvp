@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f8fa">
+  <title data-i18n="page_title">Apex Local Cut · 像素动漫风本地游戏录像快剪入口</title>
+  <link rel="stylesheet" href="landing.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="landing.html" aria-label="Apex Local Cut">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32"><path d="M4 26 15 5h3l-6 12h7l-4 9H4Zm17-14 7 14h-8l4-8-3-6Z" fill="currentColor"/></svg>
+        </span>
+        <span class="brand-text">APEX LOCAL CUT</span>
+        <span class="brand-tag" data-i18n="brand_tag">LOCAL EDITION</span>
+      </a>
+
+      <nav class="nav-links" aria-label="页面导航">
+        <a href="#preview" data-i18n="nav_preview">实机与游戏轴</a>
+        <a href="#walkthrough" data-i18n="nav_walkthrough">工作台演示</a>
+        <a href="#compare" data-i18n="nav_compare">本地 vs 云端</a>
+        <a href="#features" data-i18n="nav_features">核心优势</a>
+        <a href="model-lab.html" data-i18n="nav_lab">模型实验室</a>
+      </nav>
+
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-btn" type="button">EN</button>
+        <a class="pa-btn pa-btn--primary pa-btn--sm" href="index.html" data-i18n="nav_cta">▶ 打开选片工作台</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero + Real Gameplay HUD + Scrolling Game Timeline Reel -->
+    <section class="hero">
+      <div class="container hero-center">
+        <div class="hero-badge">
+          <span class="hero-dot" aria-hidden="true"></span>
+          <span data-i18n="hero_badge">PIXEL ANIME SHOWCASE · 100% 浏览器本地推理 · 零上传</span>
+        </div>
+
+        <h1 class="hero-title" data-i18n-html="hero_title">
+          导入整局 Apex 录像，<br>
+          自动定位<span class="accent-pink">交火片段</span>并<span class="accent-blue">快速切出成片</span>
+        </h1>
+
+        <p class="hero-desc" data-i18n="hero_desc">
+          无需上传几十 GB 的原视频 · 浏览器本地识别交火音频 · 时间轴预览微调后直接导出到本地文件夹
+        </p>
+
+        <div class="hero-cta">
+          <a class="pa-btn pa-btn--primary" href="index.html" data-i18n="hero_primary_cta">▶ 立即进入选片工作台</a>
+          <button id="hero-load-video" class="pa-btn pa-btn--secondary" type="button" data-i18n="hero_try_local">📁 拖入/选择你的本地录像预览</button>
+          <a class="pa-btn pa-btn--ghost" href="#walkthrough" data-i18n="hero_secondary_cta">🎬 观看 33s 全流程实录</a>
+          <input id="local-video-input" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" hidden>
+        </div>
+
+        <div class="hero-formats">
+          <span class="format-pill">MP4 (H.264)</span>
+          <span class="format-pill">MKV</span>
+          <span class="format-pill">WEBM</span>
+          <span class="format-pill">MOV</span>
+          <span class="format-pill format-pill--green" data-i18n="format_local">✓ 录像全程留在本机</span>
+          <span class="format-pill format-pill--blue" data-i18n="format_theme">✦ 快捷键帧级微调 (I / O / Space)</span>
+        </div>
+      </div>
+
+      <!-- Interactive Pixel-Anime HUD Workbench Preview -->
+      <div id="preview" class="container showcase-wrap">
+        <div class="pa-window hud-preview" aria-label="真实游戏录像与滚动时间轴预览">
+          <div class="pa-window-bar">
+            <div class="pa-window-dots" aria-hidden="true">
+              <span class="pa-dot pa-dot--pink"></span>
+              <span class="pa-dot pa-dot--gold"></span>
+              <span class="pa-dot pa-dot--green"></span>
+            </div>
+            <div class="pa-window-title">
+              <span>QUEST HUD // REAL GAMEPLAY &amp; SCROLLING TIMELINE REEL</span>
+            </div>
+            <div class="pa-window-meta">
+              <span class="hud-source-badge" id="hud-source-badge" data-i18n="hud_source_real">REAL APEX FOOTAGE</span>
+              <span class="hud-status" id="hud-status" data-i18n="hud_status">● EfficientSED 40ms 步距</span>
+            </div>
+          </div>
+
+          <div class="hud-body">
+            <div class="hud-stage">
+              <!-- Left: Real Video Player with Pixel Anime HUD Overlays -->
+              <div class="hud-viewport-card">
+                <div class="hud-viewport" id="hud-viewport">
+                  <video
+                    id="hud-video"
+                    class="hud-video is-active"
+                    src="demo-apex-clip.mp4"
+                    muted
+                    loop
+                    autoplay
+                    playsinline
+                    preload="auto"
+                  ></video>
+                  <canvas id="hud-sim-canvas" class="hud-sim-canvas is-hidden" aria-hidden="true"></canvas>
+
+                  <div class="hud-overlay-top">
+                    <div class="hud-top-tags">
+                      <span class="hud-pill hud-pill--ink" id="hud-filename">apex_ranked_combat_clip.mp4</span>
+                      <span class="hud-pill hud-pill--pink is-hot" id="hud-candidate-pill">CANDIDATE #01</span>
+                    </div>
+                    <span class="hud-pill hud-pill--sky" id="hud-zoom-pill" data-i18n="hud_view_badge">当前视角 · 实机原片</span>
+                  </div>
+
+                  <div class="hud-reticle" aria-hidden="true"></div>
+
+                  <div class="hud-overlay-bottom">
+                    <div class="hud-controls">
+                      <button id="hud-play-btn" class="hud-ctrl-btn" type="button" aria-label="播放或暂停">❚❚</button>
+                      <button id="hud-mute-btn" class="hud-ctrl-btn" type="button" aria-label="静音或取消静音">🔇</button>
+                      <button id="hud-audition-btn" class="hud-ctrl-btn hud-ctrl-btn--wide" type="button" data-i18n="hud_audition_btn">🎧 试听当前候选</button>
+                      <span class="hud-pill hud-time-pill" id="hud-timecode">00:00.0 / 00:14.1</span>
+                    </div>
+
+                    <div class="hud-meter-wrap" aria-label="枪声预测分数实时仪表">
+                      <span class="hud-meter-label" data-i18n="hud_score_label">枪声预测分数</span>
+                      <div class="hud-meter-bar">
+                        <div class="hud-meter-fill" id="hud-meter-fill"></div>
+                      </div>
+                      <span class="hud-score-pill" id="hud-score-val">0.91</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Candidate Clips RPG Slot List -->
+              <aside class="hud-side">
+                <div class="hud-side-head">
+                  <div class="hud-side-title-group">
+                    <span class="pixel-badge">SLOT</span>
+                    <span data-i18n="hud_clips_title">枪声候选片段</span>
+                  </div>
+                  <span class="hud-clip-count" id="hud-clip-count">2/3 KEEP</span>
+                </div>
+
+                <p class="hud-side-note" data-i18n="hud_clips_note">
+                  自动围绕枪声候选事件前后保留区间，点击卡片立即跳转复核，勾选决定是否加入导出批次：
+                </p>
+
+                <div class="hud-clips" id="hud-clips-list">
+                  <!-- Populated by landing.js -->
+                </div>
+
+                <div class="hud-drop-box" id="hud-drop-hint">
+                  <div class="hud-drop-text" data-i18n="hud_drop_hint">
+                    💡 支持把你电脑里的任意 .mp4 / .mkv / .mov 拖进左侧播放器实时预览，或直接进入正式工作区完整分析
+                  </div>
+                  <a class="pa-btn pa-btn--primary pa-btn--sm hud-launch-btn" href="index.html" data-i18n="hud_open_full">
+                    ▶ 进入完整工作区开始剪辑 →
+                  </a>
+                </div>
+              </aside>
+            </div>
+
+            <!-- Scrolling Game Axis (滚动的游戏轴：真实关键帧胶片条 + 候选块 + 5层声音预测波形) -->
+            <div class="game-reel-panel">
+              <div class="game-reel-header">
+                <div class="game-reel-title-group">
+                  <span class="reel-tag">SCROLLING AXIS</span>
+                  <span class="game-reel-title" data-i18n="reel_title">滚动游戏录像轴 · 关键帧抽样 + 枪声预测声波联动</span>
+                </div>
+                <div class="game-reel-legend">
+                  <span class="legend-item"><i class="swatch swatch--gunshot"></i><span data-i18n="layer_gunshot">枪声候选</span></span>
+                  <span class="legend-item"><i class="swatch swatch--select"></i><span data-i18n="layer_select">选片范围</span></span>
+                  <span class="legend-item"><i class="swatch swatch--wave"></i><span data-i18n="layer_wave">原片声波</span></span>
+                  <span class="game-reel-hint" data-i18n="reel_hint">（点击或拖拽时间轴任意位置可寻道）</span>
+                </div>
+              </div>
+
+              <div class="game-reel-viewport" id="game-reel-viewport" role="slider" aria-label="滚动游戏录像时间轴" tabindex="0">
+                <!-- Leading & trailing buffer track so the scrolling axis stays filled edge-to-edge -->
+                <div class="game-reel-bg" aria-hidden="true"></div>
+                <!-- Center locked playhead needle -->
+                <div class="game-reel-playhead" aria-hidden="true">
+                  <span class="playhead-cap">▼ PLAYHEAD</span>
+                </div>
+
+                <div class="game-reel-track" id="game-reel-track">
+                  <div class="reel-ruler" id="reel-ruler"></div>
+                  <!-- Real extracted gameplay keyframe filmstrip -->
+                  <div class="reel-filmstrip" id="reel-filmstrip" aria-hidden="true"></div>
+                  <!-- Candidate interval blocks -->
+                  <div class="reel-candidates" id="reel-candidates"></div>
+                  <!-- Multi-layer audio waveform -->
+                  <div class="reel-waveform" id="reel-waveform"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Infinite Scrolling Pixel-Anime Marquee Strip -->
+    <section class="marquee-strip" aria-label="核心特性滚动条">
+      <div class="marquee-track">
+        <div class="marquee-group">
+          <span class="marquee-chip">⚡ ONNX Runtime Web 本地推理</span>
+          <span class="marquee-chip marquee-chip--pink">🎯 枪声候选自动定位（前后保留 5s）</span>
+          <span class="marquee-chip marquee-chip--blue">🎞️ 上方原片抽样帧 + 下方声波双轴联动</span>
+          <span class="marquee-chip marquee-chip--green">💾 Chrome 原生目录流式直写保存</span>
+          <span class="marquee-chip marquee-chip--gold">🎧 Shift + Space 一键试听选片区间</span>
+          <span class="marquee-chip">🛡️ 零云端上传 · 几十 GB 原盘秒开</span>
+          <span class="marquee-chip marquee-chip--pink">🔄 勾选与排除独立解耦 · 支持 100 步撤销</span>
+        </div>
+        <div class="marquee-group" aria-hidden="true">
+          <span class="marquee-chip">⚡ ONNX Runtime Web 本地推理</span>
+          <span class="marquee-chip marquee-chip--pink">🎯 枪声候选自动定位（前后保留 5s）</span>
+          <span class="marquee-chip marquee-chip--blue">🎞️ 上方原片抽样帧 + 下方声波双轴联动</span>
+          <span class="marquee-chip marquee-chip--green">💾 Chrome 原生目录流式直写保存</span>
+          <span class="marquee-chip marquee-chip--gold">🎧 Shift + Space 一键试听选片区间</span>
+          <span class="marquee-chip">🛡️ 零云端上传 · 几十 GB 原盘秒开</span>
+          <span class="marquee-chip marquee-chip--pink">🔄 勾选与排除独立解耦 · 支持 100 步撤销</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FragCut-Style Interactive Before/After & Real Walkthrough Showcase -->
+    <section id="walkthrough" class="section">
+      <div class="container">
+        <div class="section-head">
+          <span class="section-kicker">WORKBENCH IN ACTION // REAL RECORDING</span>
+          <h2 class="section-title" data-i18n="walk_title">真实工作台全流程：从拖入长录像到成片落盘</h2>
+          <p class="section-sub" data-i18n="walk_sub">
+            从拖入本地录屏、试听微调切点到批量导出成片，全程在浏览器本地完成
+          </p>
+        </div>
+
+        <div class="walkthrough-grid">
+          <div class="pa-window walkthrough-player-card">
+            <div class="pa-window-bar">
+              <div class="pa-window-dots" aria-hidden="true">
+                <span class="pa-dot pa-dot--pink"></span>
+                <span class="pa-dot pa-dot--gold"></span>
+                <span class="pa-dot pa-dot--green"></span>
+              </div>
+              <div class="pa-window-title">APEX LOCAL CUT // 33s WORKFLOW WALKTHROUGH</div>
+              <div class="pa-window-meta">
+                <span class="hud-source-badge">720P 60FPS 实录</span>
+              </div>
+            </div>
+            <div class="walkthrough-video-wrap">
+              <video
+                id="walkthrough-video"
+                class="walkthrough-video"
+                src="demo-walkthrough.mp4"
+                muted
+                loop
+                autoplay
+                playsinline
+                controls
+              ></video>
+            </div>
+          </div>
+
+          <div class="walkthrough-steps">
+            <article class="pa-card walk-step is-active" data-seek="2">
+              <div class="walk-step-head">
+                <span class="step-badge">QUEST 01 · 00:02</span>
+                <span class="walk-step-jump" data-i18n="click_to_jump">点击跳转演示 ↗</span>
+              </div>
+              <h3 data-i18n="wstep1_title">导入整场录像，后台边扫边出候选</h3>
+              <p data-i18n="wstep1_desc">支持一次拖入多场 MP4 / MKV / MOV 录像自动排队。无需确认音轨，模型在后台流式解码并逐步浮现枪声候选片段。</p>
+            </article>
+
+            <article class="pa-card pa-card--blue walk-step" data-seek="13">
+              <div class="walk-step-head">
+                <span class="step-badge step-badge--blue">QUEST 02 · 00:13</span>
+                <span class="walk-step-jump" data-i18n="click_to_jump">点击跳转演示 ↗</span>
+              </div>
+              <h3 data-i18n="wstep2_title">点击候选自动放大 3 倍邻域，双轴精调切点</h3>
+              <p data-i18n="wstep2_desc">点击任意候选区间，时间轴平滑聚焦至该片段约 3 倍视野；拖动左右手柄或按 I / O 键精确微调，按 Shift+Space 单独试听选片。</p>
+            </article>
+
+            <article class="pa-card pa-card--green walk-step" data-seek="25">
+              <div class="walk-step-head">
+                <span class="step-badge step-badge--green">QUEST 03 · 00:25</span>
+                <span class="walk-step-jump" data-i18n="click_to_jump">点击跳转演示 ↗</span>
+              </div>
+              <h3 data-i18n="wstep3_title">锁定导出批次，流式直写本地文件夹</h3>
+              <p data-i18n="wstep3_desc">无需等待整场分析结束即可提前提交导出批次。通过浏览器原生目录授权，独立成片逐个直接写入你的硬盘目录。</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FragCut Benchmark Comparison: Why Local Cut vs Cloud Clippers -->
+    <section id="compare" class="section section--tinted">
+      <div class="container">
+        <div class="section-head">
+          <span class="section-kicker">BENCHMARK // VS CLOUD CLIPPERS</span>
+          <h2 class="section-title" data-i18n="comp_title">吸收 FragCut 的快剪直觉，同时解决本地大文件痛点</h2>
+          <p class="section-sub" data-i18n="comp_sub">
+            云端剪辑工具适合在线直播链接，而针对本机录制的几十 GB 高码率原盘，纯本地架构拥有天然优势
+          </p>
+        </div>
+
+        <div class="compare-grid">
+          <div class="pa-card compare-card compare-card--cloud">
+            <div class="compare-header">
+              <span class="compare-tag" data-i18n="comp_cloud_tag">传统云端 AI 剪辑站</span>
+              <h3 data-i18n="comp_cloud_title">上传等待久 · 切点黑盒难微调</h3>
+            </div>
+            <ul class="compare-list">
+              <li data-i18n="comp_cloud_1">❌ 动辄 10GB~30GB 的本地录屏需耗费数十分钟上传云端</li>
+              <li data-i18n="comp_cloud_2">❌ 免费额度受限，长对局或高频录屏受时长与排队限制</li>
+              <li data-i18n="comp_cloud_3">❌ 自动切片往往掐头去尾，缺少原片全局声波与上下文对照</li>
+              <li data-i18n="comp_cloud_4">❌ 生成十几个片段后需要逐个点击下载，文件管理繁琐</li>
+            </ul>
+          </div>
+
+          <div class="pa-card pa-card--pink compare-card compare-card--local">
+            <div class="compare-header">
+              <span class="compare-tag compare-tag--win" data-i18n="comp_local_tag">APEX LOCAL CUT · 本机工作台</span>
+              <h3 data-i18n="comp_local_title">零上传秒开 · 声画双轴自由掌控</h3>
+            </div>
+            <ul class="compare-list">
+              <li data-i18n="comp_local_1">✅ <strong>0 字节上传</strong>：流式分块读取本地硬盘原片，几秒内直接开始分析</li>
+              <li data-i18n="comp_local_2">✅ <strong>边扫边看</strong>：首个枪声候选出现即可进入复核，分析与选片并行推进</li>
+              <li data-i18n="comp_local_3">✅ <strong>5 组声音图层 + 原片抽样帧</strong>：枪声、人声、脚步、音乐分层可视，0.1s 级裁边</li>
+              <li data-i18n="comp_local_4">✅ <strong>原生目录直写</strong>：一次授权输出文件夹，批量成片自动落盘保存</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Core Features Bento Grid -->
+    <section id="features" class="section">
+      <div class="container">
+        <div class="section-head">
+          <span class="section-kicker">PIXEL ANIME DESIGN // CORE CAPABILITIES</span>
+          <h2 class="section-title" data-i18n="features_title">专为 FPS 玩家与创作者打磨的选片细节</h2>
+        </div>
+
+        <div class="features-grid">
+          <article class="pa-card feature-card">
+            <div class="feature-top">
+              <span class="feature-icon">🛡️</span>
+              <span class="feature-code">LOCAL_01</span>
+            </div>
+            <h3 data-i18n="feat1_title">零上传，流式读取超大原录像</h3>
+            <p data-i18n="feat1_desc">采用按需分块解复用与 WebCodecs 硬件加速解码，不把整份视频读入内存，几小时的 1080p/4K 录像也能稳定处理。</p>
+          </article>
+
+          <article class="pa-card pa-card--pink feature-card">
+            <div class="feature-top">
+              <span class="feature-icon">🎯</span>
+              <span class="feature-code">AUDIO_02</span>
+            </div>
+            <h3 data-i18n="feat2_title">EfficientSED 40ms 逐帧枪声检测</h3>
+            <p data-i18n="feat2_desc">围绕枪声候选事件自动保留前后 5 秒缓冲并连锁合并相邻交火；同时提供 EfficientAT 与 BEATs 模型切换与实验室对比。</p>
+          </article>
+
+          <article class="pa-card pa-card--blue feature-card">
+            <div class="feature-top">
+              <span class="feature-icon">🎛️</span>
+              <span class="feature-code">TIMELINE_03</span>
+            </div>
+            <h3 data-i18n="feat3_title">勾选与排除解耦，调参不丢进度</h3>
+            <p data-i18n="feat3_desc">人工裁边、保留勾选与显式排除独立记录（支持 Ctrl/Cmd+Z 撤销重做）。即使重新调整检测阈值，你的手动决定也完好无损。</p>
+          </article>
+
+          <article class="pa-card pa-card--green feature-card">
+            <div class="feature-top">
+              <span class="feature-icon">💾</span>
+              <span class="feature-code">EXPORT_04</span>
+            </div>
+            <h3 data-i18n="feat4_title">保留原画规格，批量直写本地目录</h3>
+            <p data-i18n="feat4_desc">默认沿用原视频分辨率与帧率导出 MP4（H.264 + AAC）或 WebM；中途取消导出也会完整保留已写入磁盘的成片。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom CTA Banner -->
+    <section class="section cta-section">
+      <div class="container">
+        <div class="pa-window cta-banner">
+          <div class="cta-inner">
+            <div class="cta-copy">
+              <span class="cta-kicker">READY TO START // ZERO UPLOAD</span>
+              <h2 data-i18n="cta_title">准备好从下一场 Apex 录像里挑出精彩交火了吗？</h2>
+              <p data-i18n="cta_desc">无需注册账号、无需安装客户端、无需上传视频，点击下方按钮立即进入浅色选片工作台。</p>
+            </div>
+            <div class="cta-actions">
+              <a class="pa-btn pa-btn--primary" href="index.html" data-i18n="cta_button">▶ 立即进入选片工作台</a>
+              <a class="pa-btn pa-btn--ghost" href="model-lab.html" data-i18n="cta_lab">🔬 打开模型实验室</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <strong>Apex Local Cut</strong>
+        <span data-i18n="footer_disclaimer">· 基于游戏音频自动识别交火区间，导出前请预览确认。</span>
+      </div>
+      <div class="footer-links">
+        <a href="index.html" data-i18n="footer_workspace">选片工作台</a>
+        <a href="model-lab.html" data-i18n="footer_lab">模型实验室</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="landing.js"></script>
+</body>
+</html>

@@ -17,26 +17,27 @@
         <span class="brand-badge" aria-hidden="true"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 26 15 5h3l-6 12h7l-4 9H4Zm17-14 7 14h-8l4-8-3-6Z" fill="currentColor"/></svg></span>
         <span>Apex Local Cut <span class="brand-secondary" data-i18n="brand_secondary">· Local Video Clipping Workspace</span></span>
       </div>
-      <nav class="navigation" aria-label="工作区" data-i18n-aria="nav_aria">
-        <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Analysis Queue</button>
-        <button id="nav-review" disabled data-i18n="nav_review">Clip Review</button>
-        <button id="nav-exports" data-i18n="nav_exports">Export Tasks</button>
+      <nav class="navigation" aria-label="Workspace" data-i18n-aria="nav_aria">
+        <a href="landing.html" class="nav-portal-link" data-i18n="nav_portal">✦ Portal</a>
+        <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Analysis</button>
+        <button id="nav-review" disabled data-i18n="nav_review">Review</button>
+        <button id="nav-exports" data-i18n="nav_exports">Exports</button>
       </nav>
-      <div class="session-notice" data-i18n="session_notice">Tasks persist in current page only · Re-import after refresh or close</div>
-      <button id="lang-toggle" class="quiet lang-toggle" type="button" aria-label="Switch language to Chinese" data-i18n="lang_toggle" data-i18n-aria="lang_toggle_aria">中文</button>
+      <div class="session-notice" data-i18n="session_notice">Re-import videos after refresh or close</div>
+      <button id="lang-toggle" class="quiet lang-toggle" type="button" disabled aria-label="Switch language to Chinese" data-i18n="lang_toggle" data-i18n-aria="lang_toggle_aria">中文</button>
     </div>
   </header>
   <main id="main" tabindex="-1">
     <p id="status" class="workspace-status" role="status" aria-live="polite" data-i18n="status_ready">Workspace ready</p>
     <div id="analysis-page">
       <div class="page-heading">
-        <div><h1 data-i18n="page_heading">Video Workspace</h1><p class="intro" data-i18n="page_intro">Find clips worth keeping from full match recordings.</p></div>
+        <div><h1 data-i18n="page_heading">Video Workspace</h1><p class="intro" data-i18n="page_intro">Import full match recordings, auto-locate combat segments, and export standalone clips.</p></div>
         <span class="local-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8m-4-4v4"/></svg><span data-i18n="local_note">Recordings stay on device</span></span>
       </div>
       <div class="analysis-layout">
         <section class="panel queue-panel" aria-labelledby="queue-heading">
           <div class="panel-heading">
-            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Analysis Queue</h2><span id="queue-count" class="count" data-i18n="queue_count">0 recordings</span></div>
+            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Analysis Queue</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
             <div class="row queue-heading-actions">
               <button id="import-files" class="primary" disabled><span aria-hidden="true">＋</span> <span data-i18n="import_files">Import Videos</span></button>
             </div>
@@ -61,6 +62,7 @@
             </div>
             <div class="player-dock">
               <div id="player-overview-bar" class="player-overview-bar" aria-label="Full recording progress & candidates" data-i18n-aria="overview_aria">
+                <canvas id="player-overview-distribution" class="player-overview-distribution" height="16" aria-hidden="true"></canvas>
                 <div id="player-overview-progress" class="player-overview-progress" aria-hidden="true"></div>
                 <div id="prediction-source-window" class="player-overview-window" aria-hidden="true" hidden></div>
                 <div id="player-overview-markers" class="player-overview-markers" aria-hidden="true"></div>
@@ -109,6 +111,10 @@
                 <button id="source-fit" class="quiet" data-i18n="fit_all">Fit All</button>
               </div>
             </div>
+            <div class="waveform-group-bar">
+              <span class="group-toggles-label" data-i18n="group_toggles_label">Layers</span>
+              <div id="waveform-group-toggles" class="waveform-group-toggles" role="group" aria-label="Sound display groups" data-i18n-aria="group_toggles_aria"></div>
+            </div>
             <div id="source-axis" class="source-axis">
               <canvas id="prediction-wave" height="68" role="img" aria-label="Audio waveform, click to seek; generated progressively with analysis" data-i18n-aria="wave_aria" aria-describedby="waveform-status"></canvas>
               <div id="source-filmstrip" class="source-filmstrip" hidden></div>
@@ -120,7 +126,7 @@
               <div id="source-ticks" class="axis-ticks"></div>
               <div class="axis-meta-status"><span id="waveform-status" class="muted"></span><span id="prediction-empty" class="muted"></span></div>
             </div>
-            <div id="source-hover" hidden><img alt="Source preview frame"><span data-i18n="hover_sample_text">Source preview frame</span></div>
+            <div id="source-hover" hidden role="status" aria-live="polite" aria-atomic="true"><img id="source-hover-img" alt="Source preview frame" hidden><span id="source-hover-label" data-i18n="hover_sample_text">Source preview frame</span><div id="source-hover-scores" class="hover-scores"></div></div>
           </div>
           <div class="selection-actions">
             <div class="selection-summary-group"><p id="selection-summary" role="status"></p></div>
@@ -130,12 +136,13 @@
       </div>
     </div>
     <section id="exports-section" hidden class="panel exports-panel" aria-labelledby="exports-heading">
-      <div class="panel-heading"><div class="heading-label"><h2 id="exports-heading" data-i18n="exports_heading">Export Tasks</h2><span id="export-count" class="count" data-i18n="export_count">0 batches</span></div><div class="row"><button id="choose-directory" data-i18n="choose_directory">Choose Output Folder</button></div></div>
+      <div class="panel-heading"><div class="heading-label"><h2 id="exports-heading" data-i18n="exports_heading">Export Tasks</h2><span id="export-count" class="count" data-i18n="export_count" data-i18n-count="0">0 batches</span></div><div class="row"><button id="choose-directory" data-i18n="choose_directory">Choose Output Folder</button></div></div>
       <p id="output-directory" class="muted" data-i18n="output_dir_hint">Please choose an output folder on first export; subsequent batches in this session will reuse it.</p>
       <div id="export-batches"></div>
     </section>
-    <footer class="workspace-footer"><span data-i18n="footer_tag">Apex Local Cut · Local Video Clipping Workspace</span><span data-i18n="footer_disclaimer">Gunshot candidates do not imply player shots, hits, or kills.</span></footer>
+    <footer class="workspace-footer"><span data-i18n="footer_tag">Apex Local Cut · Local Video Clipping Workspace</span><span data-i18n="footer_disclaimer">Combat segments are detected from game audio—preview before exporting.</span></footer>
   </main>
+  <script type="module" src="i18n.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { loadCachedModel } from '../model-cache.mjs';
+import { loadCachedModel } from '../../../site/model-cache.mjs';
 
 async function fixture() {
   const bytes = new Uint8Array([1, 2, 3, 4]);

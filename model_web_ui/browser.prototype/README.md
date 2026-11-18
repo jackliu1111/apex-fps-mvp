@@ -6,11 +6,13 @@
 
 ## 启动
 
+正式选片工作区默认通过 `model-registry.mjs` 使用浏览器端逐帧模型 EfficientSED（`DEFAULT_MODEL = 'efficientsed'`，40 ms 步距、16 kHz），同时保留 EfficientAT 与 BEATs 路由支持。EfficientSED 全类别录像外置盘导出实验仍保留在独立入口 [MODEL-LAB.md](MODEL-LAB.md)。
+
 ```sh
 python3 model_web_ui/browser.prototype/serve.py
 ```
 
-打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。需要独立后台预览时使用 `--background`。可通过 `--assets /绝对路径` 指定运行库与模型目录；开发机此前沿用的默认目录是 `/private/tmp/apex-browser-prototype-20261026/assets`，它位于系统临时空间，可能被清理，使用前请确认文件仍在。这批已有资产来自此前获准的本机存储例外，不代表重建大型资产可以继续写本机。
+打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。纯静态页面与默认模型资产（`vendor/`、`efficientsed/`、`efficientat/`）现已统一归入仓库根目录下的自包含发布目录 [`site/`](../../site)，`serve.py` 默认直接读取 `site/` 与 `site/assets/`，Cloudflare Pages 或服务器从 Git 拉取后可直接将根目录指向 `site/` 部署。需要独立后台预览时使用 `--background`；开发阶段测试实验资产时仍可通过 `--assets /绝对路径` 覆盖资产目录。
 
 
 ## 故障排查：模型清单无法读取（HTTP 404）
@@ -19,7 +21,8 @@ python3 model_web_ui/browser.prototype/serve.py
 
 ```sh
 ASSETS=/absolute/path/to/assets   # 与启动命令的 --assets 相同
-ls "$ASSETS/efficientat/model.json" "$ASSETS/efficientat/mn04.onnx" "$ASSETS/efficientat/frontend.json"
+ls "$ASSETS/efficientsed/model.json" "$ASSETS/efficientsed/fmn10-tf256.onnx" "$ASSETS/efficientsed/frontend.json" \
+   "$ASSETS/efficientat/model.json" "$ASSETS/efficientat/mn04.onnx" "$ASSETS/efficientat/frontend.json"
 ```
 
 文件缺失时按「开发阶段重建资产」重建，或把 `--assets` 指向完整目录。`serve.py` 启动时也会打印缺失清单；默认的 `/private/tmp` 路径被系统清理后就会出现这种状态，页面本身仍可打开。
@@ -69,7 +72,18 @@ PLAYWRIGHT_MODULE=/path/to/playwright CHROME_EXECUTABLE=/path/to/chrome \
 
 同样的环境变量也可运行 `tests/verify-review-fixes.cjs`，覆盖单文件身份读取失败／慢读取、目录选择竞态与取消、批量选择，以及实际 WebCodecs 输出中的目录配额失败和逐片段状态恢复。故障只注入浏览器文件读取与目录接口边界，测试使用小型合成媒体；临时目录在验证后删除。
 
-该检查使用真实 WebCodecs 与 EfficientAT：验证自动分析、完整原片复核、重复导入去重、人工裁边、候选更新期间的输入焦点、提前提交固定批次并实际导出、离页暂停与返回，以及刷新后工作区清空。长录像播放、资源竞争、最终 4 MiB 读取调优和已修复审查问题见[最新验收记录](../../docs/parallel-analysis-review-validation.md)，合成样本不替代性能验收。
+该检查使用真实 WebCodecs 与默认模型 EfficientSED：验证自动分析、完整原片复核、重复导入去重、人工裁边、候选更新期间的输入焦点、提前提交固定批次并实际导出、离页暂停与返回，以及刷新后工作区清空。长录像播放、资源竞争、最终 4 MiB 读取调优和已修复审查问题见[最新验收记录](../../docs/parallel-analysis-review-validation.md)，合成样本不替代性能验收。
+
+EfficientSED 接入与分层波形时间轴回归可使用 `tests/verify-efficientsed-timeline.cjs`（支持 Playwright `PLAYWRIGHT_MODULE` + `REVIEW_URL`，无 Playwright 时可由 `CDP_HARNESS=/tmp/cdp-harness.mjs` 驱动）与 Node 单元对照 `tests/efficientsed-frontend.test.mjs`：
+
+```sh
+ASSETS_DIR=/path/to/assets SAMPLE_PATH=/path/to/sample-combat.mp4 \
+  node model_web_ui/browser.prototype/tests/verify-efficientsed-timeline.cjs
+
+ASSETS_DIR=/path/to/assets node --test model_web_ui/browser.prototype/tests/efficientsed-frontend.test.mjs
+```
+
+`verify-efficientsed-timeline.cjs` 覆盖：参考波形与 PyTorch 概率对照（`maxError < 1e-4`）、自定义注册模型经真实 `inference-worker.js` 边界推理、默认 EfficientSED 单次解码（`decoderPasses === 1`）、`#player-overview-distribution` 与 5 组无 `softmax` 分层画布渲染、40 ms 金字塔缩放平移及播放/寻道 `toDataURL()` 不变性、`#waveform-group-toggles` 开关隔离、`#source-hover` 时间与 5 组原始分数、裁边/排除与 OPFS 目录导出、1440×900 / 1280×800 零滚动与刷新清空。未传 `SAMPLE_PATH` 或设 `SYNTHETIC=1` 时自动使用合成媒体。
 
 ## 开发阶段重建资产
 
@@ -101,8 +115,8 @@ env PYTHONDONTWRITEBYTECODE=1 TMPDIR="$APEX_BUILD_ROOT/tmp" \
 
 - 当前通过 WASM CPU 运行，未接 WebGPU；并发等待与吞吐以验收记录中的真实测量及其覆盖范围为准。
 - 不读取整份视频进内存，不保留完整导出 Blob 等待下载。目录写入队列有独立容量边界；任意浏览器、配额和长时间后台生命周期仍不在验收保证内。
-- 音频重采样和多声道混音由浏览器完成，尚未证明与 FFmpeg 全链路数值一致。模型合成基准对照不能替代真实录像验证。
-- 分析内存中只保留两个枪声类的时间分数，不实现已归档 Python 服务的完整 447 类预测存档或分析断点续算。人工复核记录可独立恢复。
+- 音频重采样和多声道混音由浏览器完成，尚未证明与 FFmpeg 全链路数值一致。模型合成基准对照不能替代真实录像验证；在未建立人工标注真值集前，不宣称 Apex 识别准确率或召回率。
+- 分析内存中只保留枪声两类原始分数（用于候选派生与会话内调参重算）以及当前会话的五组展示分数与多级金字塔缓存，均不跨刷新持久化；不实现已归档 Python 服务的完整 447 类预测存档或分析断点续算。视觉展示层对 `<= 80 ms` 同组内部断点做纯展示连接（`>= 0.2` 截断、低振幅枪声 `4 CSS px` 最小顶边指示），不改写原始分数、悬停原值、候选判定或人工复核决定。人工复核记录可独立在当前会话中编辑与撤销。
 - 格式支持取决于浏览器与 Mediabunny；不支持的解码／编码会显示失败。MP4 和 WebM 重编码均不保证原视频质量；声音沿用原片默认音轨，声画边界仍需人工复核。
 - 候选不代表本人开枪、命中或击杀；分析自动音轨策略与默认声音保留规则见上文。
 
@@ -177,7 +191,7 @@ EfficientAT 使用下一窗口起点作为未来事件边界；BEATs 仅发布�
 
 删除跨刷新恢复、波形持久化、导航持久化和重新关联。保留分析解码生成的波形、会话内撤销/重做、固定导出批次及有效成片复用。历史验证中的持久化结果不再代表当前功能。
 
-当前验证入口：`node --test model_web_ui/browser.prototype/tests/*.test.mjs`；浏览器脚本 `verify-review-browser.cjs`、`verify-selection-timeline.cjs`、`verify-progressive-waveform.cjs`、`verify-session-lifecycle.cjs`。最后一个脚本用真实录像验证分析和导出、离开提示、刷新为空，以及旧 IndexedDB/localStorage 记录不被读取或修改；通过 `MEDIA_PATH` 指定真实样本。
+当前验证入口：`node --test model_web_ui/browser.prototype/tests/*.test.mjs`；浏览器脚本 `verify-review-browser.cjs`、`verify-selection-timeline.cjs`、`verify-progressive-waveform.cjs`、`verify-session-lifecycle.cjs`、`verify-efficientsed-timeline.cjs`。最后一个浏览器生命周期脚本用真实录像验证分析和导出、离开提示、刷新为空，以及旧 IndexedDB/localStorage 记录不被读取或修改；通过 `MEDIA_PATH` 指定真实样本。
 
 ## 2026-10-30 选片勾选与排除解耦
 

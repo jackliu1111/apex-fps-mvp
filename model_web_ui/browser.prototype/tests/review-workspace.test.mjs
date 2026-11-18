@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createReviewWorkspace } from '../review-workspace.mjs';
+import { createReviewWorkspace } from '../../../site/review-workspace.mjs';
 
 const source = { id: 'recording-a', name: 'A.mkv', size: 1000, lastModified: 1, fingerprint: 'a', duration: 3000 };
 const setup = (options) => {
@@ -138,7 +138,7 @@ test('bulk choices preserve existing decisions, skip provisional suggestions and
   assert.deepEqual(workspace.getSource(source.id).clips, retained.clips, 'All stable non-excluded clips can be selected again');
 });
 
-import { createExportQueue } from '../export-queue.mjs';
+import { createExportQueue } from '../../../site/export-queue.mjs';
 
 test('partial export outcomes and saved destinations remain available during the session', async () => {
   const workspace = setup();
@@ -294,4 +294,21 @@ test('only explicit exclusion hides a range, and bulk selection cannot restore i
   assert.equal(workspace.getSource(source.id).clips[0].excluded, true);
   workspace.redo(source.id);
   assert.equal(workspace.getSource(source.id).clips[0].selected, true);
+});
+
+test('workspace freezes waveform pyramids cleanly and never crashes if a TypedArray is present', () => {
+  const workspace = setup();
+  const wave = {
+    version: 1,
+    step: 0.05,
+    peaks: [0.1, 0.8, null, null],
+    pyramid: { factor: 2, levels: [{ level: 1, stride: 2, step: 0.1, length: 2, peaks: [0.8, null] }] },
+    decodedUntil: 0.1,
+    trackIndex: 0,
+    extraView: new Float32Array([0.2, 0.5]),
+  };
+  workspace.updateWaveform(source.id, wave);
+  const stored = workspace.getSource(source.id).waveform;
+  assert.equal(stored.pyramid.levels[0].peaks[0], 0.8);
+  assert.throws(() => { stored.pyramid.levels[0].peaks[0] = 0; }, TypeError);
 });

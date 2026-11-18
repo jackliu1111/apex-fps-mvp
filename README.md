@@ -104,16 +104,20 @@ Keyboard shortcuts are available anywhere on the review page:
 
 If you want to run the static local server from source or contribute to model and timeline development:
 
-### Quick Local Start
+### Quick Local Start & Git Deployment
+
+The `site/` directory at the repository root is a self-contained static web bundle (including frontend code, `_headers` for `COOP/COEP`, and `site/assets/` runtime & model files):
 
 ```bash
 git clone https://github.com/jackliu1111/apex-fps-mvp.git
 cd apex-fps-mvp
 
-# Start local static server (no Python inference or Node dependencies needed for daily usage)
-python3 model_web_ui/browser.prototype/serve.py \
-  --assets /path/to/assets
+# Start local static server (serves ./site and ./site/assets out of the box)
+python3 model_web_ui/browser.prototype/serve.py
 ```
+
+- **Cloudflare Pages Deployment**: Connect your Git repository, leave **Build command** empty, and set **Build output / Root directory** to `site`.
+- **Self-Hosted Server (Nginx / Caddy)**: Pull the repository via `git pull`, point the document root to `site/`, and include the `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` headers from `site/_headers`.
 
 Open `http://127.0.0.1:8792` in your browser. For in-depth technical documentation and architectural decisions, see below:
 

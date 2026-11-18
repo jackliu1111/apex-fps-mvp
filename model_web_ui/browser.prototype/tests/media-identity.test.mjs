@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { identifyFile } from '../media-identity.mjs';
+import { identifyFile } from '../../../site/media-identity.mjs';
 
 test('deduplicating the same source uses content and metadata rather than its name alone', async () => {
   const first = new File(['original media'], 'same.mkv', { lastModified: 123 });

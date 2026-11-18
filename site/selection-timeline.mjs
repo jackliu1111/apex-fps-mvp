@@ -1,6 +1,7 @@
-import { waveformColumns } from './audio-peaks.mjs';
 import { createSelectionEvidence } from './selection-evidence.mjs';
-import { getLang } from './i18n.js';
+import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
+import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime, layeredWaveColumns, overviewDistributionColumns } from './waveform-layers.mjs';
+import { getLang, t } from './i18n.js';
 
 export function selectionWindow(duration, { start, end }) {
   const length = Math.min(duration, (end - start) * 3);
@@ -12,12 +13,83 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   isActive = () => true, playPause, playRange, toggleMute, toggleFullscreen }) {
   const $ = (id) => document.getElementById(id);
   const axis = $('source-axis'), predictions = $('overview-markers');
-  const stamp = (t) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+  const stamp = (t, decimals = 1) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(decimals).padStart(decimals + 3, '0')}`;
+  const spanDecimals = (span) => (span < 0.5 ? 3 : span < 5 ? 2 : 1);
   const ZOOM_TRANSITION_MS = 220;
-  let sourceId, evidenceKey, waveKey, overviewMarkerKey, frames = [], drag, overviewDrag;
+  const MIN_ZOOM_SPAN = 0.04;
+  let sourceId, evidenceKey, waveKey, overviewWaveKey, cachedWaveColor = null, overviewMarkerKey, markerRenderKey, frames = [], drag, overviewDrag;
+  let wavePaintCount = 0, overviewPaintCount = 0;
   let overviewTarget = null;
   let displayLow = 0, displayHigh = 1, targetLow = 0, targetHigh = 1, transition = null;
   let latestEvidenceStatus = '', evidenceProvisional = false;
+  const enabledGroups = new Set(DISPLAY_GROUPS.map((group) => group.id));
+  const groupButtons = new Map();
+  let groupToggleLang = null;
+  const hoverScoreRows = new Map();
+  let hoverStatusNode = null;
+  let hoverScoresLang = null;
+  const enabledGroupsKey = () => DISPLAY_GROUPS.map((group) => (enabledGroups.has(group.id) ? '1' : '0')).join('');
+  const syncGroupToggles = () => {
+    const host = $('waveform-group-toggles');
+    if (!host) return;
+    if (host.getAttribute('role') !== 'group') host.setAttribute('role', 'group');
+    const lang = getLang();
+    const aria = t('group_toggles_aria');
+    if (host.getAttribute('aria-label') !== aria) host.setAttribute('aria-label', aria);
+    if (groupButtons.size === 0 || host.children.length !== DISPLAY_GROUPS.length) {
+      groupButtons.clear();
+      const buttons = DISPLAY_GROUPS.map((group) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'group-toggle';
+        button.dataset.groupId = group.id;
+        const swatch = document.createElement('span');
+        swatch.className = 'group-swatch';
+        swatch.setAttribute('aria-hidden', 'true');
+        swatch.style.backgroundColor = group.color;
+        const label = document.createElement('span');
+        label.className = 'group-toggle-label';
+        button.replaceChildren(swatch, label);
+        button.onclick = () => {
+          if (enabledGroups.has(group.id)) enabledGroups.delete(group.id);
+          else enabledGroups.add(group.id);
+          syncGroupToggles();
+          const current = getSource();
+          if (current) {
+            const [low, high] = visibleBounds(current);
+            paintOverviewDistribution(current);
+            paintWaveform(current, low, high);
+          }
+        };
+        groupButtons.set(group.id, { button, label });
+        return button;
+      });
+      host.replaceChildren(...buttons);
+      groupToggleLang = null;
+    }
+    const langChanged = groupToggleLang !== lang;
+    groupToggleLang = lang;
+    for (const group of DISPLAY_GROUPS) {
+      const entry = groupButtons.get(group.id);
+      if (!entry) continue;
+      const pressed = String(enabledGroups.has(group.id));
+      if (entry.button.getAttribute('aria-pressed') !== pressed) {
+        entry.button.setAttribute('aria-pressed', pressed);
+      }
+      if (langChanged || !entry.label.textContent) {
+        const name = t(group.i18nKey);
+        entry.label.textContent = name;
+        entry.button.title = t('group_toggle_title', { group: name });
+      }
+    }
+  };
+  const resolveWaveColor = (canvas) => {
+    if (cachedWaveColor) return cachedWaveColor;
+    cachedWaveColor = typeof getComputedStyle === 'function' && canvas
+      ? (getComputedStyle(canvas).getPropertyValue('--wave-bar').trim() || '#7b8391')
+      : '#7b8391';
+    return cachedWaveColor;
+  };
   const clipFor = (source) => source.clips.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional && !clip.excluded);
   const windowFor = (source) => [source.review.zoomStart, source.review.zoomEnd];
   const visibleBounds = (source) => {
@@ -26,7 +98,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   };
   const ticks = (node, low, high) => {
     if (!node) return;
-    const value = [0, 0.5, 1].map((ratio) => stamp(low + ratio * (high - low)));
+    const decimals = spanDecimals(high - low);
+    const value = [0, 0.5, 1].map((ratio) => stamp(low + ratio * (high - low), decimals));
     if (node.textContent === value.join('')) return;
     node.replaceChildren(...value.map((text) => { const span = document.createElement('span'); span.textContent = text; return span; }));
   };
@@ -35,34 +108,139 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     if (strip) strip.dataset.provisional = String(!!(evidenceProvisional || transition));
     $('selection-player-axis').dataset.evidenceStatus = latestEvidenceStatus;
   }
-  function paintWaveform(source, low, high) {
-    if (!source) return;
-    const wave = source.waveform;
-    const canvas = $('prediction-wave');
-    if (!canvas) return;
-    const context = canvas.getContext('2d');
+  function ensureCanvasSize(canvas, fallbackWidth, fallbackHeight) {
     const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || 1200));
-    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || 68));
+    const cssWidth = Math.max(1, Math.round(canvas.clientWidth || canvas.parentElement?.clientWidth || fallbackWidth));
+    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || fallbackHeight));
     const pixelWidth = Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
     const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
-    const waveColor = typeof getComputedStyle === 'function' ? (getComputedStyle(canvas).getPropertyValue('--wave-bar').trim() || '#94a3b8') : '#94a3b8';
-    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${low}:${high}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    return { dpr, pixelWidth, pixelHeight };
+  }
+  function prepareCanvasRender(source, { canvasId, fallbackWidth, fallbackHeight, colorCanvas = null, extraKey }) {
+    const canvas = $(canvasId);
+    const context = canvas?.getContext?.('2d');
+    if (!canvas || !context) return null;
+    const { dpr, pixelWidth, pixelHeight } = ensureCanvasSize(canvas, fallbackWidth, fallbackHeight);
+    const waveColor = resolveWaveColor(colorCanvas || canvas);
+    const wave = source.waveform;
+    const record = getRecord(source.id);
+    const scoreTimeline = record?.scoreTimeline || null;
+    const groupFrames = scoreTimeline?.groupScoreFrames ?? 0;
+    const audioOffset = scoreTimeline?.audioOffset ?? 0;
+    const analysisStarted = record?.analysisStarted ?? 0;
+    const renderKey = `${source.id}:${wave?.decodedUntil ?? 0}:${wave?.trackIndex ?? -1}:${groupFrames}:${audioOffset}:${analysisStarted}:${extraKey}:${pixelWidth}:${pixelHeight}:${waveColor}`;
+    return {
+      canvas,
+      context,
+      dpr,
+      waveColor,
+      wave,
+      scoreTimeline,
+      renderKey,
+      syncDataset() {
+        canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
+        canvas.dataset.groupScoreFrames = String(groupFrames);
+      },
+    };
+  }
+  function paintOverviewDistribution(source) {
+    if (!source || !(source.duration > 0)) return;
+    const gunshotEnabled = enabledGroups.has(DISPLAY_GROUPS[0].id);
+    const state = prepareCanvasRender(source, {
+      canvasId: 'player-overview-distribution',
+      fallbackWidth: 1200,
+      fallbackHeight: 16,
+      colorCanvas: $('prediction-wave'),
+      extraKey: `${source.duration}:${gunshotEnabled}`,
+    });
+    if (!state) return;
+    const { canvas, context, dpr, waveColor, wave, scoreTimeline, renderKey, syncDataset } = state;
+    if (overviewWaveKey !== renderKey) {
+      overviewWaveKey = renderKey;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      const pad = Math.round(2 * dpr), minBar = Math.max(1, Math.round(dpr));
+      const columns = overviewDistributionColumns({
+        wave,
+        scoreTimeline,
+        duration: source.duration,
+        width: canvas.width,
+        canvasHeight: canvas.height,
+        pad,
+        minBar,
+        enabledGroups,
+      });
+      context.fillStyle = waveColor;
+      context.globalAlpha = 0.35;
+      for (let x = 0; x < columns.length; x++) {
+        const col = columns[x];
+        if (col.waveHeight > 0) context.fillRect(x, col.waveTop, 1, col.waveHeight);
+      }
+      const gunshot = DISPLAY_GROUPS[0];
+      context.fillStyle = gunshot.color;
+      context.globalAlpha = 0.92;
+      for (let x = 0; x < columns.length; x++) {
+        const col = columns[x];
+        if (col.gunshotHeight > 0) context.fillRect(x, col.gunshotY, 1, col.gunshotHeight);
+      }
+      context.globalAlpha = 1;
+      canvas.dataset.paintCount = String(++overviewPaintCount);
+    }
+    syncDataset();
+  }
+  function paintWaveform(source, low, high) {
+    if (!source) return;
+    const state = prepareCanvasRender(source, {
+      canvasId: 'prediction-wave',
+      fallbackWidth: 1200,
+      fallbackHeight: 68,
+      extraKey: `${enabledGroupsKey()}:${low}:${high}`,
+    });
+    if (!state) return;
+    const { canvas, context, dpr, waveColor, wave, scoreTimeline, renderKey, syncDataset } = state;
     if (waveKey !== renderKey) {
       waveKey = renderKey;
       context.clearRect(0, 0, canvas.width, canvas.height);
-      const columns = waveformColumns(wave, low, high, canvas.width);
       const pad = Math.round(8 * dpr), minBar = Math.max(1, Math.round(dpr));
-      context.fillStyle = waveColor;
-      columns.forEach((peak, x) => {
-        if (peak === null) return;
-        const height = Math.max(minBar, Math.round(Math.sqrt(peak) * (canvas.height - pad)));
-        context.fillRect(x, canvas.height - height, 1, height);
+      const columns = layeredWaveColumns({
+        wave,
+        scoreTimeline,
+        start: low,
+        end: high,
+        width: canvas.width,
+        canvasHeight: canvas.height,
+        pad,
+        minBar,
+        enabledGroups,
       });
+      // Base opaque neutral waveform contour first so unanalyzed gaps stay blank and amplitude silhouette stays intact.
+      context.globalAlpha = 1;
+      context.fillStyle = waveColor;
+      for (let x = 0; x < columns.length; x++) {
+        const col = columns[x];
+        if (col.state === 'unanalyzed') continue;
+        context.fillRect(x, col.waveTop, 1, col.waveHeight);
+      }
+      // Draw non-gunshot bottom-up translucent layers first, then gunshot top-down high-contrast foreground last.
+      for (let pass = 1; pass <= DISPLAY_GROUPS.length; pass++) {
+        const group = DISPLAY_GROUPS[pass === DISPLAY_GROUPS.length ? 0 : pass];
+        let styleSet = false;
+        for (let x = 0; x < columns.length; x++) {
+          const layer = columns[x].layers.find((item) => item.id === group.id);
+          if (!layer) continue;
+          if (!styleSet) {
+            context.globalAlpha = layer.alpha;
+            context.fillStyle = layer.color;
+            styleSet = true;
+          }
+          context.fillRect(x, layer.y, 1, layer.height);
+        }
+      }
+      context.globalAlpha = 1;
+      canvas.dataset.paintCount = String(++wavePaintCount);
     }
-    canvas.dataset.decodedUntil = String(wave?.decodedUntil ?? 0);
+    syncDataset();
   }
   function paintMarkers(source, low, high) {
     if (!predictions || !source) return;
@@ -73,6 +251,9 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       .map((clip) => ({ ...clip, label: clip.excluded ? (isZh ? '恢复' : 'Restore') : String(++number) }))
       .filter((clip) => !clip.excluded || showExcluded);
     const visible = items.filter((item) => item.start < high && item.end > low);
+    const nextMarkerKey = `${source.id}:${low}:${high}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
+    if (markerRenderKey === nextMarkerKey) return;
+    markerRenderKey = nextMarkerKey;
     const ids = new Set(visible.map((item) => item.id));
     for (const node of [...predictions.children]) {
       if (!ids.has(node.dataset.clipId)) {
@@ -117,13 +298,14 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const [low, high] = visibleBounds(source);
     const spanWindow = Math.max(1e-6, high - low);
     const percent = (t) => (t - low) / spanWindow * 100;
-    const targetZoomed = canonicalLow > 1e-3 || canonicalHigh < source.duration - 1e-3;
+    const targetZoomed = canonicalLow > 1e-5 || canonicalHigh < source.duration - 1e-5;
     const isZh = getLang() === 'zh';
+    const decimals = spanDecimals(high - low);
     const scopeLabel = targetZoomed
-      ? (isZh ? `局部 ${stamp(low)}—${stamp(high)}` : `${stamp(low)}—${stamp(high)}`)
+      ? (isZh ? `局部 ${stamp(low, decimals)}—${stamp(high, decimals)}` : `${stamp(low, decimals)}—${stamp(high, decimals)}`)
       : (isZh ? '全片视野' : 'Full view');
     const canonicalScopeLabel = targetZoomed
-      ? `局部视野 · ${stamp(low)} — ${stamp(high)}`
+      ? `局部视野 · ${stamp(low, decimals)} — ${stamp(high, decimals)}`
       : '全片视野';
     $('selection-player-axis').dataset.zoomed = String(targetZoomed);
     $('selection-player-axis').dataset.scopeLabel = canonicalScopeLabel;
@@ -195,6 +377,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   function paintTrack(source) {
     const [low, high] = visibleBounds(source);
     paintSelection(source);
+    paintOverviewDistribution(source);
     paintWaveform(source, low, high);
     paintMarkers(source, low, high);
     ticks($('source-ticks'), low, high);
@@ -262,13 +445,16 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   } });
   const run = (fn) => { try { Promise.resolve(fn()).catch(report); } catch (error) { report(error); } };
   function render(source) {
+    syncGroupToggles();
     if (!source) return;
     const [low, high] = windowFor(source);
     if (sourceId !== source.id) {
       stopTransition(false);
-      drag = null; overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; sourceId = source.id;
+      drag = null; overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; sourceId = source.id;
+      frames = [];
+      if ($('source-filmstrip') && !$('source-filmstrip').dataset.previewFrames) $('source-filmstrip').replaceChildren();
       displayLow = targetLow = low; displayHigh = targetHigh = high;
-    } else if (Math.abs(low - targetLow) > 1e-3 || Math.abs(high - targetHigh) > 1e-3) {
+    } else if (Math.abs(low - targetLow) > 1e-5 || Math.abs(high - targetHigh) > 1e-5) {
       const fromLow = transition ? displayLow : targetLow;
       const fromHigh = transition ? displayHigh : targetHigh;
       targetLow = low; targetHigh = high;
@@ -276,19 +462,34 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       else startTransition(fromLow, fromHigh, low, high);
     }
     paintTrack(source);
+    const record = getRecord(source.id);
     const wave = source.waveform;
-    const isZh = getLang() === 'zh';
-    const track = wave ? (isZh ? `音轨 ${wave.trackIndex + 1}` : `Track ${wave.trackIndex + 1}`) : '';
-    if ($('waveform-status')) {
-      $('waveform-status').textContent = wave?.decodedUntil > 0
-        ? (isZh ? `波形 · ${track} · ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}` : `Wave · ${track} · ${stamp(wave.decodedUntil)} / ${stamp(source.duration)}`)
-        : source.analysis.status === 'completed' ? (isZh ? '暂无已保存波形' : 'No saved waveform') : (isZh ? '音频波形随分析逐步出现' : 'Waveform loading progressively');
+    const isFallbackTrack = Boolean(wave && (record?.audioPolicy?.fallback || (Number.isInteger(record?.outputAudioTrackIndex) && wave.trackIndex !== record.outputAudioTrackIndex)));
+    const statusNode = $('waveform-status');
+    if (statusNode) {
+      const trackNumber = wave ? wave.trackIndex + 1 : 1;
+      const outputTrackNumber = (Number.isInteger(record?.outputAudioTrackIndex) ? record.outputAudioTrackIndex : (wave?.trackIndex ?? 0)) + 1;
+      statusNode.dataset.trackFallback = String(isFallbackTrack);
+      if (wave) statusNode.dataset.trackIndex = String(wave.trackIndex);
+      else delete statusNode.dataset.trackIndex;
+      statusNode.textContent = wave?.decodedUntil > 0
+        ? t(isFallbackTrack ? 'wave_status_fallback' : 'wave_status_track', {
+            track: trackNumber,
+            outputTrack: outputTrackNumber,
+            current: stamp(wave.decodedUntil),
+            total: stamp(source.duration),
+          })
+        : source.analysis.status === 'completed'
+          ? t('wave_status_empty')
+          : isFallbackTrack
+            ? t('wave_status_fallback_loading', { track: trackNumber, outputTrack: outputTrackNumber })
+            : t('wave_status_loading');
     }
-    const fullView = low <= 1e-6 && high >= source.duration - 1e-6;
+    const fullView = low <= 1e-5 && high >= source.duration - 1e-5;
     if ($('source-fit')) $('source-fit').disabled = fullView;
     if ($('prediction-zoom-out')) $('prediction-zoom-out').disabled = fullView;
-    if ($('prediction-zoom')) $('prediction-zoom').disabled = high - low <= Math.min(source.duration, 1) + 1e-6;
-    const record = getRecord(source.id), key = `${source.id}:${!!record}:${low}:${high}`;
+    if ($('prediction-zoom')) $('prediction-zoom').disabled = high - low <= Math.min(source.duration, MIN_ZOOM_SPAN) + 1e-6;
+    const key = `${source.id}:${!!record}:${low}:${high}`;
     if (evidenceKey !== key) { evidenceKey = key; evidence.request(record, low, high); }
     if ($('exclude-selection')) $('exclude-selection').disabled = !clipFor(source);
     if ($('undo-selection')) $('undo-selection').disabled = !source.canUndo;
@@ -300,7 +501,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const source = getSource();
     if (!source) return;
     const [low, high] = windowFor(source);
-    const minSpan = Math.min(source.duration, 1);
+    const minSpan = Math.min(source.duration, MIN_ZOOM_SPAN);
     const newSpan = Math.max(minSpan, Math.min(source.duration, (high - low) * factor));
     const clip = clipFor(source);
     const center = clip ? (clip.start + clip.end) / 2 : (low + high) / 2;
@@ -378,7 +579,9 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   };
   const xTime = (event, source) => {
     const box = axis.getBoundingClientRect(), [low, high] = windowFor(source);
-    return low + Math.max(0, Math.min(1, (event.clientX - box.x) / box.width)) * (high - low);
+    const left = box.x ?? box.left ?? 0;
+    const width = box.width > 0 ? box.width : 1;
+    return low + Math.max(0, Math.min(1, (event.clientX - left) / width)) * (high - low);
   };
   const bounded = (clip, key, value) => key === 'start'
     ? Math.max(0, Math.min(clip.end - 0.1, value))
@@ -388,6 +591,58 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const strip = $('source-filmstrip');
     if (!strip) return [];
     return [...strip.children].map((img) => ({ time: Number(img.dataset?.time || 0), image: img.src })).filter((item) => item.image);
+  };
+  const updateHoverScores = (scoreInfo) => {
+    const container = $('source-hover-scores');
+    if (!container) return;
+    if (hoverScoreRows.size === 0 || !container.children.length) {
+      hoverScoreRows.clear();
+      const rows = DISPLAY_GROUPS.map((group) => {
+        const row = document.createElement('div');
+        row.className = 'hover-score-row';
+        row.dataset.groupId = group.id;
+        const swatch = document.createElement('i');
+        swatch.className = 'hover-score-swatch';
+        swatch.setAttribute('aria-hidden', 'true');
+        swatch.style.backgroundColor = group.color;
+        const name = document.createElement('b');
+        name.className = 'hover-score-name';
+        const val = document.createElement('data');
+        val.className = 'hover-score-value';
+        row.replaceChildren(swatch, name, val);
+        hoverScoreRows.set(group.id, { row, name, val });
+        return row;
+      });
+      hoverStatusNode = document.createElement('div');
+      hoverStatusNode.className = 'hover-score-status';
+      container.replaceChildren(...rows, hoverStatusNode);
+      hoverScoresLang = null;
+    }
+    const lang = getLang();
+    const langChanged = hoverScoresLang !== lang;
+    hoverScoresLang = lang;
+    const ok = scoreInfo.status === 'ok' && scoreInfo.scores;
+    DISPLAY_GROUPS.forEach((group, idx) => {
+      const entry = hoverScoreRows.get(group.id);
+      if (!entry) return;
+      if (langChanged || !entry.name.textContent) entry.name.textContent = t(group.i18nKey);
+      entry.row.dataset.enabled = String(enabledGroups.has(group.id));
+      if (ok) {
+        const raw = scoreInfo.scores[idx] ?? 0;
+        entry.row.dataset.active = String(raw >= DEFAULT_DISPLAY_THRESHOLD);
+        entry.val.value = raw.toFixed(4);
+        entry.val.textContent = raw.toFixed(2);
+      } else {
+        entry.row.dataset.active = 'false';
+        entry.val.value = '';
+        entry.val.textContent = '—';
+      }
+    });
+    if (hoverStatusNode) {
+      hoverStatusNode.textContent = ok
+        ? ''
+        : t(scoreInfo.status === 'out-of-range' ? 'hover_scores_out_of_range' : 'hover_scores_unanalyzed');
+    }
   };
   axis.onpointerdown = (event) => run(() => {
     if (event.button !== 0 || drag) return;
@@ -408,6 +663,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   axis.onpointermove = (event) => {
     const source = getSource(); if (!source) return;
     if (drag) {
+      $('source-hover').hidden = true;
       if (drag.pointer !== event.pointerId) return;
       const value = xTime(event, source);
       if (drag.kind === 'head') drag.position = value;
@@ -416,16 +672,47 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       }
       paintSelection(source); return;
     }
+    if (overviewDrag || !(source.duration > 0)) {
+      $('source-hover').hidden = true;
+      return;
+    }
+    const axisBox = axis.getBoundingClientRect?.();
+    if (!axisBox || !(axisBox.width > 0)) return;
+    const target = xTime(event, source);
+    const [low, high] = windowFor(source);
+    const decimals = spanDecimals(high - low);
     const availableFrames = hoverFrames();
-    if (!availableFrames.length) return;
-    const target = xTime(event, source), frame = availableFrames.reduce((best, next) => Math.abs(next.time - target) < Math.abs(best.time - target) ? next : best);
-    const hostBox = $('selection-player-axis').getBoundingClientRect(), hoverWidth = $('source-hover').offsetWidth || 180;
-    const hoverLeft = Math.max(16, Math.min(Math.max(16, hostBox.width - hoverWidth - 16), event.clientX - hostBox.left - hoverWidth / 2));
-    $('source-hover').style.left = `${hoverLeft}px`;
-    $('source-hover').style.right = 'auto';
-    $('source-hover').hidden = false;
-    $('source-hover').querySelector('img').src = frame.image;
-    $('source-hover').querySelector('span').textContent = `${stamp(target)} · ${getLang() === 'zh' ? '原片参考画面' : 'Source preview frame'}`;
+    const frame = availableFrames.length
+      ? availableFrames.reduce((best, next) => Math.abs(next.time - target) < Math.abs(best.time - target) ? next : best)
+      : null;
+    const hover = $('source-hover');
+    const hostBox = $('selection-player-axis').getBoundingClientRect?.() || axisBox;
+    const hostLeft = hostBox.left ?? hostBox.x ?? 0;
+    const hoverWidth = hover.offsetWidth || 204;
+    const hoverLeft = Math.max(16, Math.min(Math.max(16, hostBox.width - hoverWidth - 16), event.clientX - hostLeft - hoverWidth / 2));
+    hover.style.left = `${hoverLeft}px`;
+    hover.style.right = 'auto';
+    hover.hidden = false;
+    hover.dataset.time = target.toFixed(3);
+    const hoverImg = $('source-hover-img') || hover.querySelector('img');
+    if (hoverImg) {
+      if (frame) {
+        hoverImg.hidden = false;
+        hoverImg.src = frame.image;
+        hoverImg.alt = t('hover_sample_alt');
+      } else {
+        hoverImg.hidden = true;
+        hoverImg.removeAttribute?.('src');
+      }
+    }
+    const hoverLabel = $('source-hover-label') || hover.querySelector('span');
+    if (hoverLabel) {
+      hoverLabel.textContent = `${stamp(target, decimals)} · ${frame ? t('hover_sample_text') : t('hover_no_frame')}`;
+    }
+    const lookupTime = target >= source.duration ? Math.max(0, source.duration - 1e-6) : target;
+    const scoreInfo = groupScoresAtTime(getRecord(source.id)?.scoreTimeline || null, lookupTime);
+    hover.dataset.scoreStatus = scoreInfo.status;
+    updateHoverScores(scoreInfo);
   };
   axis.onpointerleave = () => { $('source-hover').hidden = true; };
   function finish(cancel = false) {
@@ -462,7 +749,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       event.preventDefault();
       if (!event.deltaY) return;
       const factor = Math.max(0.5, Math.min(2.0, 1 + event.deltaY * 0.002));
-      const minSpan = Math.min(duration, 1);
+      const minSpan = Math.min(duration, MIN_ZOOM_SPAN);
       const newSpan = Math.max(minSpan, Math.min(duration, span * factor));
       const newLow = Math.max(0, Math.min(duration - newSpan, anchorTime - ratio * newSpan));
       onUpdate(newLow, newLow + newSpan);
@@ -496,7 +783,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (drag) { event.preventDefault(); finish(true); return; }
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         const [low, high] = windowFor(source);
-        if (low > 1e-3 || high < source.duration - 1e-3) {
+        if (low > 1e-5 || high < source.duration - 1e-5) {
           event.preventDefault();
           if (!event.repeat) run(exit);
           return;
@@ -542,7 +829,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       });
     }
   };
+  syncGroupToggles();
   window.addEventListener('keydown', keydown);
-  window.addEventListener('resize', () => { const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintWaveform(current, low, high); } });
-  return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; $('source-hover').hidden = true; } };
+  window.addEventListener('resize', () => { cachedWaveColor = null; const current = getSource(); if (current) { const [low, high] = visibleBounds(current); paintOverviewDistribution(current); paintWaveform(current, low, high); } });
+  return { render, suspend() { stopTransition(true); finish(true); overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; evidence.cancel(); evidenceKey = null; waveKey = null; overviewWaveKey = null; cachedWaveColor = null; $('source-hover').hidden = true; } };
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { batchSummary, justCompleted } from '../task-feedback.mjs';
+import { batchSummary, justCompleted } from '../../../site/task-feedback.mjs';
 
 test('partial export summary counts actual outcomes even when progress reaches one', () => {
   const batch = { clips: [{}, {}, {}], progress: 1, status: 'failed', clipResults: [{ status: 'completed' }, { status: 'failed' }, { status: 'not-started' }] };
