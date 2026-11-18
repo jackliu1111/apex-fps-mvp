@@ -15,11 +15,11 @@
 
 ## 📺 快速上手视频演示
 
-> *以下为核心操作演示：从载入录像、边播边选到完成片段导出。*
+> *当前流程：本地导入 → EfficientSED 分析 → 四组声音图层复核 → 调整切点 → 导出。录屏为自动化导出使用浏览器本地 OPFS 目录，未展示原生文件夹选择器。*
 
 [![Apex Local Cut 操作演示](docs/assets/demo-preview.gif)](docs/assets/demo-walkthrough.mp4)
 
-> 💡 **提示**：点击上方动态演示图可查看 [高清 MP4 完整视频](docs/assets/demo-walkthrough.mp4)（33 秒，720p 60fps）。完整视频分镜脚本与录制指引参见 [docs/video-script.md](docs/video-script.md)。
+> 💡 **提示**：点击上方动态演示图可查看 [高清 MP4 完整视频](docs/assets/demo-walkthrough.mp4)（38 秒，1440×900，25fps；2026-11-18 更新）。完整视频分镜脚本与录制指引参见 [docs/video-script.md](docs/video-script.md)。
 
 ---
 
@@ -39,9 +39,9 @@
 
 - ⚡ **边分析边选片，无需死等**  
   几个小时的长视频不用等整片扫描完毕。导入后后台自动分析，枪声候选实时浮现；你可以立即点进片段观看原片，甚至能随时跳转到尚未分析的任意区域。
-- 🎯 **双时间轴联动，看着原片调切点**  
-  - **上方原片时间轴**：展示真实抽样画面预览、播放头与裁边手柄，支持拖动调整起止时间与键盘 0.1 秒精调。
-  - **下方音频预测轴**：展示全局波形与枪声密度，哪有交火一目了然。
+- 🎯 **单行主时间轴，看着原片调切点**
+  - **主时间轴**：叠加原片波形、候选范围、播放头与裁边手柄，支持拖动调整起止时间与键盘 0.1 秒精调。
+  - **四组声音图层与全片概览**：查看枪声、语音、音乐、冲击／碎裂预测，通过播放器下方的概览条定位完整录像。
   - **一键试听**：按 `Shift + Space` 即可仅试听当前选片区间，到期自动暂停，确认无误再导出。
 - 🔒 **100% 浏览器本地运算，零流量零泄露**  
   利用现代浏览器 WebCodecs 与本地 WebAssembly 模型推理，不用把动辄几十 GB 的游戏原盘上传到云端，保护隐私且不耗费宽带。
@@ -124,9 +124,9 @@ python3 model_web_ui/browser.prototype/serve.py
 | 专题模块 | 入口链接 | 说明 |
 | :--- | :--- | :--- |
 | **浏览器工作区指南** | [browser.prototype/README.md](model_web_ui/browser.prototype/README.md) | 深入操作流程、开发阶段资产转换与模型重建说明 |
-| **视频分镜与录制指南** | [docs/video-script.md](docs/video-script.md) | 50 秒产品演示视频拍摄、字幕、动作与录制规范 |
+| **视频分镜与录制指南** | [docs/video-script.md](docs/video-script.md) | 当前操作流程、录制命令与 OPFS 演示边界 |
 | **概念术语与边界** | [CONTEXT.md](CONTEXT.md) | 候选、人工决定、请求范围与导出批次的规范定义 |
-| **双时间轴与交互设计** | [docs/design/DESIGN.md](docs/design/DESIGN.md) | Descript Studio Pro 战术设计语言与时间轴架构 |
+| **时间轴与交互设计** | [docs/design/DESIGN.md](docs/design/DESIGN.md) | 当前工作区视觉规范与单行时间轴架构 |
 | **目录直接导出 ADR** | [ADR 0006](docs/adr/0006-directory-only-export.md) | 浏览器原生目录直接写入与取消保存机制 |
 | **选片与排除解耦 ADR** | [ADR 0007](docs/adr/0007-decouple-clip-selection-from-exclusion.md) | 勾选状态与人工排除解耦的设计考量 |
 | **公网与本地验收记录** | [docs/public-demo-validation.md](docs/public-demo-validation.md) | 生产环境与开发机自动化回归验收报告 |
