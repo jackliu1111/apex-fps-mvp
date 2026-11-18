@@ -15,11 +15,11 @@ English | [简体中文](README_zh.md)
 
 ## 📺 Quick Video Walkthrough
 
-> *Core workflow demo: from importing video and interactive review to clip export.*
+> *Current workflow: local import → EfficientSED analysis → review with four sound layers → adjust cut points → export. The recording uses a local browser OPFS directory for automated export; it does not show the native folder picker.*
 
 [![Apex Local Cut Demo Walkthrough](docs/assets/demo-preview.gif)](docs/assets/demo-walkthrough.mp4)
 
-> 💡 **Tip**: Click the animated preview above to watch the [Full HD MP4 Walkthrough](docs/assets/demo-walkthrough.mp4) (33s, 720p 60fps). For the full video storyboard and recording guidelines, see [docs/video-script.md](docs/video-script.md).
+> 💡 **Tip**: Click the animated preview above to watch the [MP4 Walkthrough](docs/assets/demo-walkthrough.mp4) (38s, 1440×900, 25fps; updated 2026-11-18). For the full video storyboard and recording guidelines, see [docs/video-script.md](docs/video-script.md).
 
 ---
 
@@ -39,9 +39,9 @@ English | [简体中文](README_zh.md)
 
 - ⚡ **Review while analyzing—no waiting required**  
   Don't wait for hours-long videos to finish scanning. Analysis runs in the background right after import, with gunshot candidates appearing in real time. Jump straight into detected segments to watch footage, or seek freely to unanalyzed regions anytime.
-- 🎯 **Dual interactive timelines: trim clips with source context**  
-  - **Upper Source Timeline**: Displays sampled video thumbnail previews, playhead, and trim handles, supporting drag adjustments and 0.1s keyboard precision trimming.
-  - **Lower Audio Prediction Timeline**: Shows full audio waveforms and gunshot density, making combat hotspots instantly visible.
+- 🎯 **One main timeline: trim clips with source context**
+  - **Main Timeline**: Overlays the source waveform, candidate ranges, playhead, and trim handles; supports drag adjustments and 0.1s keyboard precision trimming.
+  - **Four Sound Layers & Full-Source Overview**: Inspect gunshot, speech, music, and impact predictions, with an overview scrub bar for navigating the whole recording.
   - **One-Key Audition**: Press `Shift + Space` to audition only the active clip selection—playback pauses automatically at the end point before you commit to export.
 - 🔒 **100% In-Browser Execution, Zero Bandwidth & Zero Leakage**  
   Powered by modern browser WebCodecs and local WebAssembly AI inference. There is no need to upload multi-gigabyte raw footage to the cloud, protecting your privacy and saving bandwidth.
@@ -124,9 +124,9 @@ Open `http://127.0.0.1:8792` in your browser. For in-depth technical documentati
 | Topic / Module | Link | Description |
 | :--- | :--- | :--- |
 | **Browser Workspace Guide** | [browser.prototype/README.md](model_web_ui/browser.prototype/README.md) | In-depth workflows, development asset conversions, and model reconstruction |
-| **Video Script & Guidelines** | [docs/video-script.md](docs/video-script.md) | 50s product demo video storyboard, captions, actions, and recording guide |
+| **Video Script & Guidelines** | [docs/video-script.md](docs/video-script.md) | Current workflow, recording commands, and OPFS demonstration boundary |
 | **Concepts & Terminology** | [CONTEXT.md](CONTEXT.md) | Canonical definitions for candidates, human decisions, requested ranges, and export batches |
-| **Dual Timeline & UI Design** | [docs/design/DESIGN.md](docs/design/DESIGN.md) | Descript Studio Pro tactical design language and timeline architecture |
+| **Timeline & UI Design** | [docs/design/DESIGN.md](docs/design/DESIGN.md) | Current workspace visual rules and single-row timeline architecture |
 | **Directory Export ADR** | [ADR 0006](docs/adr/0006-directory-only-export.md) | Browser native directory direct writes and cancellation handling |
 | **Selection Decoupling ADR** | [ADR 0007](docs/adr/0007-decouple-clip-selection-from-exclusion.md) | Decoupling checkbox selection state from manual exclusion |
 | **Public & Local Validation** | [docs/public-demo-validation.md](docs/public-demo-validation.md) | Automated regression test reports across production and dev environments |
