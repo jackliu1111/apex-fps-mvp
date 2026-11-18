@@ -1,13 +1,6 @@
 import type { E2EConfig } from 'e2e';
 import { web } from '@e2e-dev/web';
 import { openai } from '@ai-sdk/openai';
-import { existsSync } from 'node:fs';
-
-const sampleFile = [
-  process.env.APEX_SAMPLE,
-  '/Users/jackliu/.codex/artifacts/apex-fps-mvp/real-combat-sample-20261028/apex-combat-60s.mp4',
-  'docs/assets/demo-walkthrough.mp4',
-].find((p) => p && existsSync(p)) ?? 'docs/assets/demo-walkthrough.mp4';
 
 export default {
   // Model behind every agent.* step: reads OPENAI_API_KEY from environment
@@ -30,8 +23,6 @@ export default {
           '/private/tmp/apex-browser-prototype-20261026/assets',
           '--port',
           '{port}',
-          '--sample',
-          sampleFile,
         ],
         reuseExisting: true,
         log: '.e2e/logs/app.log',
