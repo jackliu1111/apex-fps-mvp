@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBrowserConverter } from '../browser-export.mjs';
-import { createExportQueue } from '../export-queue.mjs';
+import { createBrowserConverter } from '../../../site/browser-export.mjs';
+import { createExportQueue } from '../../../site/export-queue.mjs';
 
 const batch = (id, clips = [{ start: 10, end: 15 }]) => ({ id, sourceId: 'source', clips,
   audio: { trackIndex: 1 }, output: { videoBitrate: 2000, audioBitrate: 1000 } });

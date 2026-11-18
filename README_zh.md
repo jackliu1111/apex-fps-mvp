@@ -104,16 +104,20 @@
 
 如果你希望自行从源码启动本地静态服务，或参与模型与时间轴优化开发：
 
-### 快速本地启动
+### 快速本地启动与 Git 部署
+
+仓库根目录下的 `site/` 是完整的自包含静态发布目录（已内置全部前端代码、`_headers` 跨域安全响应头配置以及 `site/assets/` 模型与运行库资产）：
 
 ```bash
 git clone https://github.com/jackliu1111/apex-fps-mvp.git
 cd apex-fps-mvp
 
-# 启动本地静态服务（日常运行无需 Python 推理或 Node 依赖）
-python3 model_web_ui/browser.prototype/serve.py \
-  --assets /path/to/assets
+# 直接启动本地静态服务（默认读取 ./site 与 ./site/assets，无需额外参数）
+python3 model_web_ui/browser.prototype/serve.py
 ```
+
+- **Cloudflare Pages 部署**：连接 Git 仓库后，**Build command（构建命令）留空**，将发布目录（Root / Build output directory）设为 `site` 即可自动部署。
+- **自有服务器部署（Nginx / Caddy）**：在服务器上直接 `git pull`，将站点根目录指向 `site/`，并按 `site/_headers` 配置 `Cross-Origin-Opener-Policy: same-origin` 与 `Cross-Origin-Embedder-Policy: require-corp` 响应头即可。
 
 打开 `http://127.0.0.1:8792` 即可访问。更多技术实现与架构说明请参阅下表：
 

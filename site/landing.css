@@ -253,6 +253,7 @@ button {
   font-weight: 800;
   letter-spacing: 0.04em;
   color: var(--pa-ink);
+  white-space: nowrap;
 }
 
 .brand-mark {
@@ -278,6 +279,7 @@ button {
   background: var(--pa-blue-soft);
   color: var(--pa-blue);
   border: 1.5px solid var(--pa-border);
+  white-space: nowrap;
 }
 
 .nav-links {
@@ -287,6 +289,11 @@ button {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--pa-muted);
+  white-space: nowrap;
+}
+
+.nav-links a {
+  white-space: nowrap;
 }
 
 .nav-links a:hover {
@@ -297,6 +304,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap;
 }
 
 .lang-btn {
@@ -1422,6 +1430,16 @@ button {
 
 .footer-links a:hover {
   color: var(--pa-blue);
+}
+
+@media (max-width: 1120px) {
+  .brand-tag {
+    display: none;
+  }
+
+  .nav-links {
+    gap: 14px;
+  }
 }
 
 @media (max-width: 960px) {

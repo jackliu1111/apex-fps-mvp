@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAudioPeaks, appendAudioPeaks, waveformColumns } from '../audio-peaks.mjs';
+import { createAudioPeaks, appendAudioPeaks, waveformColumns } from '../../../site/audio-peaks.mjs';
 const block = (timestamp, channels, sampleRate = 20) => ({ timestamp, buffer: { numberOfChannels: channels.length, sampleRate, duration: channels[0].length / sampleRate, getChannelData: i => channels[i] } });
 test('source-time peaks preserve channels, offsets, silence, gaps and progressive coverage beyond one minute', () => {
   const wave = createAudioPeaks(135, 1);

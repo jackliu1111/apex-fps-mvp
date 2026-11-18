@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createReviewWorkspace } from '../review-workspace.mjs';
+import { createReviewWorkspace } from '../../../site/review-workspace.mjs';
 
 const source = { id: 'recording-a', name: 'A.mkv', size: 1000, lastModified: 1, fingerprint: 'a', duration: 3000 };
 const setup = (options) => {
@@ -138,7 +138,7 @@ test('bulk choices preserve existing decisions, skip provisional suggestions and
   assert.deepEqual(workspace.getSource(source.id).clips, retained.clips, 'All stable non-excluded clips can be selected again');
 });
 
-import { createExportQueue } from '../export-queue.mjs';
+import { createExportQueue } from '../../../site/export-queue.mjs';
 
 test('partial export outcomes and saved destinations remain available during the session', async () => {
   const workspace = setup();

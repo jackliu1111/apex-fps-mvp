@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createSedFrontend } from '../efficientsed-frontend.mjs';
-import { getModelSpec, validateInferenceOutput, validateModelManifest } from '../model-registry.mjs';
+import { fileURLToPath } from 'node:url';
+import { createSedFrontend } from '../../../site/efficientsed-frontend.mjs';
+import { getModelSpec, validateInferenceOutput, validateModelManifest } from '../../../site/model-registry.mjs';
+
+const REPO_SITE_ASSETS = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../site/assets');
 
 function readFloat32File(filePath) {
   const buf = fs.readFileSync(filePath);
@@ -15,7 +18,7 @@ function resolveReferenceAssetsDir() {
   if (process.env.ASSETS_DIR) {
     return { dir: path.resolve(process.env.ASSETS_DIR), explicit: true };
   }
-  for (const candidate of ['/tmp/apex-spec-38-assets', '/private/tmp/apex-browser-prototype-20261026/assets']) {
+  for (const candidate of [REPO_SITE_ASSETS, '/tmp/apex-spec-38-assets', '/private/tmp/apex-browser-prototype-20261026/assets']) {
     if (fs.existsSync(path.join(candidate, 'efficientsed', 'reference-mel.f32'))) {
       return { dir: candidate, explicit: false };
     }

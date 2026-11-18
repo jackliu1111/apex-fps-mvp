@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createAnalysisQueue } from '../analysis-queue.mjs';
+import { createAnalysisQueue } from '../../../site/analysis-queue.mjs';
 
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const tick = () => new Promise((resolve) => setImmediate(resolve));

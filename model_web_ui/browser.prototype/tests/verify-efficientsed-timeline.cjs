@@ -101,8 +101,8 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     process.exit(1);
   }, 120000);
 
-  const rootDir = path.resolve(__dirname, '..');
-  const assetsDir = resolvePath(process.env.ASSETS_DIR, ['/tmp/apex-spec-38-assets', '/private/tmp/apex-browser-prototype-20261026/assets'], 'ASSETS_DIR');
+  const rootDir = path.resolve(__dirname, '../../../site');
+  const assetsDir = resolvePath(process.env.ASSETS_DIR, [path.join(rootDir, 'assets'), '/tmp/apex-spec-38-assets', '/private/tmp/apex-browser-prototype-20261026/assets'], 'ASSETS_DIR');
   const useSynthetic = process.env.SYNTHETIC === '1';
   const samplePath = useSynthetic
     ? null

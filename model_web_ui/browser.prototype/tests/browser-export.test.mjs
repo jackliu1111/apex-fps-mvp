@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBrowserConverter } from '../browser-export.mjs';
-import { createExportQueue } from '../export-queue.mjs';
+import { createBrowserConverter } from '../../../site/browser-export.mjs';
+import { createExportQueue } from '../../../site/export-queue.mjs';
 
 function mediaFixture({ hang = false, format = 'webm', executeError = null, probeDuration = async () => 5.02, queuedWrites = null, maxBufferedBytes, afterCloseError = null, onExecute = () => {}, maskWriteError = false } = {}) {
   const selected = [], closed = [];
@@ -294,7 +294,7 @@ test('buffer failure survives a later encoder close error and cleanup failure', 
 });
 
 test('export shares bounded media read scheduling with analysis and preview and aborts pending reads on cancel', async () => {
-  const { createMediaReadSource } = await import('../media-read-source.mjs');
+  const { createMediaReadSource } = await import('../../../site/media-read-source.mjs');
   const slices = [];
   const file = {
     name: 'combat.mp4',

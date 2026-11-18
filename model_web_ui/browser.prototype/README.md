@@ -12,7 +12,7 @@
 python3 model_web_ui/browser.prototype/serve.py
 ```
 
-打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。需要独立后台预览时使用 `--background`。可通过 `--assets /绝对路径` 指定运行库与模型目录（需包含 `vendor/`、`efficientat/` 与 `efficientsed/` 资产）；开发机此前沿用的默认目录是 `/private/tmp/apex-browser-prototype-20261026/assets`，它位于系统临时空间，可能被清理，使用前请确认文件仍在。这批已有资产来自此前获准的本机存储例外，不代表重建大型资产可以继续写本机。
+打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。纯静态页面与默认模型资产（`vendor/`、`efficientsed/`、`efficientat/`）现已统一归入仓库根目录下的自包含发布目录 [`site/`](../../site)，`serve.py` 默认直接读取 `site/` 与 `site/assets/`，Cloudflare Pages 或服务器从 Git 拉取后可直接将根目录指向 `site/` 部署。需要独立后台预览时使用 `--background`；开发阶段测试实验资产时仍可通过 `--assets /绝对路径` 覆盖资产目录。
 
 
 ## 故障排查：模型清单无法读取（HTTP 404）

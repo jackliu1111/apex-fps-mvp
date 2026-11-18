@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectionWindow, createSelectionTimeline } from '../selection-timeline.mjs';
-import { createSelectionEvidence } from '../selection-evidence.mjs';
-import { getLang, setLang } from '../i18n.js';
+import { selectionWindow, createSelectionTimeline } from '../../../site/selection-timeline.mjs';
+import { createSelectionEvidence } from '../../../site/selection-evidence.mjs';
+import { getLang, setLang } from '../../../site/i18n.js';
 
 test('a candidate occupies one third of the source window with context on both sides', () => {
   assert.deepEqual(selectionWindow(300, { start: 100, end: 130 }), { zoomStart: 70, zoomEnd: 160 });

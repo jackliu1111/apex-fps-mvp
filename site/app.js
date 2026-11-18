@@ -10,7 +10,7 @@ import { createSourcePlayer } from './source-player.mjs';
 import { createExportQueue } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
 import { DEFAULT_EXPORT_SETTINGS, sourceExportSettings, exportSettings } from './export-policy.mjs';
-import { t, getLang, setLang, onLanguageChange, applyTranslations } from './i18n.js';
+import { t, getLang, onLanguageChange } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Set();
@@ -678,17 +678,7 @@ const fitSelectedClip = () => safely(() => { const clip = selectedClip(); if (cl
 if ($('quick-fit-clip')) $('quick-fit-clip').onclick = fitSelectedClip;
 $('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); };
 
-// Language switcher
-const langBtn = $('lang-toggle');
-if (langBtn) {
-  langBtn.onclick = () => {
-    setLang(getLang() === 'en' ? 'zh' : 'en');
-  };
-}
-onLanguageChange(() => {
-  applyTranslations();
-  render();
-});
+onLanguageChange(render);
 
 // Session state is intentionally not written to browser storage.
 const shouldWarnOnLeave = () => !preview && (
@@ -703,7 +693,6 @@ window.addEventListener('beforeunload', event => {
 window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
 const ready = Promise.resolve();
 $('import-files').disabled = false;
-applyTranslations();
 render();
 note(t('status_ready'), 'quiet');
 window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };

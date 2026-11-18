@@ -9,6 +9,8 @@ import time
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parent
+SITE_ROOT = ROOT.parents[1] / 'site'
+DEFAULT_ASSETS = SITE_ROOT / 'assets'
 
 # The browser page imports these before it can render; analysis additionally
 # needs the ONNX Runtime files and the manifest/weights of the chosen model.
@@ -74,10 +76,17 @@ class StaticHandler(SimpleHTTPRequestHandler):
         path = unquote(urlsplit(path).path)
         if path == '/demo/recording.mp4':
             return str(self.server.sample or ROOT / '__missing__')
-        root = self.server.assets if path.startswith('/assets/') else ROOT
-        relative = path[len('/assets/'):] if path.startswith('/assets/') else path.lstrip('/')
-        candidate = (root / (relative or 'index.html')).resolve()
-        return str(candidate if candidate.is_relative_to(root) else ROOT / '__missing__')
+        if path.startswith('/assets/'):
+            root = self.server.assets
+            relative = path[len('/assets/'):]
+            candidate = (root / (relative or 'index.html')).resolve()
+            return str(candidate if candidate.is_relative_to(root) else ROOT / '__missing__')
+        relative = path.lstrip('/') or 'index.html'
+        for base in (SITE_ROOT, ROOT):
+            candidate = (base / relative).resolve()
+            if candidate.is_relative_to(base) and candidate.exists():
+                return str(candidate)
+        return str(ROOT / '__missing__')
 
     def end_headers(self):
         self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
@@ -92,7 +101,7 @@ class StaticHandler(SimpleHTTPRequestHandler):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--assets', type=Path, default=Path('/private/tmp/apex-browser-prototype-20261026/assets'))
+    parser.add_argument('--assets', type=Path, default=DEFAULT_ASSETS)
     parser.add_argument('--port', type=int, default=8792)
     parser.add_argument('--sample', type=Path, help='Local one-minute combat MP4, served read-only as the demo (under 100 MiB)')
     parser.add_argument('--background', action='store_true', help='Detach the static preview server from this terminal session')

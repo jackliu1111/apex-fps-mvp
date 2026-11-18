@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FrameOverlap, ScoreStatistics, displayWeights } from '../lab-scores.mjs';
+import { FrameOverlap, ScoreStatistics, displayWeights } from '../../../site/lab-scores.mjs';
 
 test('overlap publishes each original frame once, averages overlap, clips tail', () => {
   const accumulator = new FrameOverlap(2, 7, 4, 2);

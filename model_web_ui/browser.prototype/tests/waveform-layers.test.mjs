@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DISPLAY_GROUPS, createDisplayGrouping } from '../lab-display-groups.mjs';
-import { createAudioPeaks, appendAudioPeaks } from '../audio-peaks.mjs';
+import { DISPLAY_GROUPS, createDisplayGrouping } from '../../../site/lab-display-groups.mjs';
+import { createAudioPeaks, appendAudioPeaks } from '../../../site/audio-peaks.mjs';
 import {
   DEFAULT_DISPLAY_THRESHOLD,
   DEFAULT_GAP_BRIDGE_MS,
@@ -12,7 +12,7 @@ import {
   layeredWaveColumns,
   overviewDistributionColumns,
   groupScoresAtTime,
-} from '../waveform-layers.mjs';
+} from '../../../site/waveform-layers.mjs';
 
 function hexToRgb(hex) {
   const clean = hex.replace('#', '');

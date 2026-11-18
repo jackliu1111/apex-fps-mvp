@@ -3,18 +3,19 @@ export const translations = {
     page_title: 'Apex Local Cut · Local Video Clipping Workspace',
     skip_link: 'Skip to workspace',
     brand_secondary: '· Local Video Clipping Workspace',
+    nav_aria: 'Workspace',
     nav_portal: '✦ Portal',
-    nav_analysis: 'Analysis Queue',
-    nav_review: 'Clip Review',
-    nav_exports: 'Export Tasks',
-    session_notice: 'Tasks persist in current page only · Re-import after refresh or close',
+    nav_analysis: 'Analysis',
+    nav_review: 'Review',
+    nav_exports: 'Exports',
+    session_notice: 'Re-import videos after refresh or close',
     lang_toggle: '中文',
     lang_toggle_aria: 'Switch language to Chinese',
 
     // Analysis page
     status_ready: 'Workspace ready',
     page_heading: 'Video Workspace',
-    page_intro: 'Find clips worth keeping from full match recordings.',
+    page_intro: 'Import full match recordings, auto-locate combat segments, and export standalone clips.',
     local_note: 'Recordings stay on device',
     queue_heading: 'Analysis Queue',
     queue_count: '{count} recordings',
@@ -42,7 +43,7 @@ export const translations = {
     // Settings
     settings_heading: 'Analysis Settings & Runtime Logs',
     model_label: 'Model for new tasks',
-    model_note: 'Model selection only affects new tasks. Gunshot candidates retain 5 seconds before and after; overlapping, adjacent, or gaps <= 5s merge into one segment. Detection uses the default decodable audio track without judging game sounds; preview and export preserve original audio.',
+    model_note: 'Model changes apply to newly imported videos. Detected gunshot segments include 5s of padding before and after, merging clips within 5s of each other. Preview and export keep the original default audio track.',
     session_storage_note: 'Tasks persist only within the current page. Please finish exporting and saving videos before refresh or close; reopening requires re-importing.',
     download_report: 'Download Analysis Report',
 
@@ -102,7 +103,7 @@ export const translations = {
     local_view_summary: 'Local View & Cut Point Notes',
     zoom_start_label: 'View start / s',
     zoom_end_label: 'View end / s',
-    cut_point_note: 'Adjusting boundaries does not move playback position. Requested ranges are shown here; actual exported boundaries may be constrained by codec and keyframes.',
+    cut_point_note: 'Adjusting start/end times does not jump the playhead; exported frame boundaries follow video keyframes.',
 
     // Prediction workspace
     toggle_clip_export: 'Keep',
@@ -143,7 +144,7 @@ export const translations = {
     filter_rules_summary: 'Filter & Clipping Rules',
     threshold_label: 'Gunshot threshold',
     recompute_filter: 'Recompute Filter',
-    rules_note: 'Standard stable candidates are selected by default; supplemental suggestions are unselected by default. Checkboxes do not imply verified highlights. Batch actions preserve trims and skip unfinished candidates. Filtering uses existing prediction scores while preserving manual decisions.',
+    rules_note: 'High-confidence clips are checked for export by default. Adjusting thresholds or running batch actions preserves your manual trims and exclusions.',
     reset_decisions: 'Reset Manual Decisions',
 
     // Exports section
@@ -157,7 +158,7 @@ export const translations = {
     output_specs_p1: 'Each clip is exported individually as {format}, with audio from the source default track. Resolution and frame rate are preserved; re-encoding is not lossless. Exports execute once analysis frees up resources, during which review can continue.',
     output_specs_p2: 'Clips stream directly into the chosen folder and are marked saved once write streams close successfully. For large batches, pick a mounted external drive folder with sufficient space. Desktop Chrome or Edge is recommended.',
     footer_tag: 'Apex Local Cut · Local Video Clipping Workspace',
-    footer_disclaimer: 'Gunshot candidates do not imply player shots, hits, or kills.',
+    footer_disclaimer: 'Combat segments are detected from game audio—preview before exporting.',
 
     // Dynamic runtime texts
     status_preparing: 'Preparing',
@@ -246,7 +247,7 @@ export const translations = {
     output_item_readback: ' · Measured {duration}s',
     output_item_readback_incomplete: ' · Readback incomplete',
 
-    nav_exports_badge: 'Export Tasks · {count}',
+    nav_exports_badge: 'Exports · {count}',
 
     output_format_render: '{format} ({video} + {audio}) at original resolution and frame rate',
 
@@ -277,18 +278,19 @@ export const translations = {
     page_title: 'Apex Local Cut · 本地选片工作区',
     skip_link: '跳到工作区',
     brand_secondary: '· 本地选片工作区',
+    nav_aria: '工作区',
     nav_portal: '✦ 官网入口',
     nav_analysis: '分析队列',
     nav_review: '片段复核',
     nav_exports: '导出任务',
-    session_notice: '任务仅在当前页面保留 · 刷新或关闭后需重新导入',
+    session_notice: '刷新或关闭后需重新导入录像',
     lang_toggle: 'English',
     lang_toggle_aria: 'Switch language to English / 切换为英文',
 
     // Analysis page
     status_ready: '工作区已就绪',
     page_heading: '录像工作区',
-    page_intro: '从整场对局，找到值得留下的片段。',
+    page_intro: '导入整局录像，自动定位交火片段并快速切出成片。',
     local_note: '录像留在本机',
     queue_heading: '分析队列',
     queue_count: '{count} 份录像',
@@ -316,7 +318,7 @@ export const translations = {
     // Settings
     settings_heading: '分析设置与运行记录',
     model_label: '新任务模型',
-    model_note: '模型仅影响新任务。枪声候选前后各保留 5 秒，扩展后重叠、相接或间隔不超过 5 秒的范围合并为一段。检测自动使用默认且可解码的音轨，不判断是否为游戏声音；预览和导出沿用原片默认声音。',
+    model_note: '模型设置仅对新导入的录像生效。系统会在检测到枪声前后各保留 5 秒，并将间隔不超过 5 秒的相邻片段自动合并。预览与导出均保留原视频默认音轨。',
     session_storage_note: '任务仅在当前页面保留。请在刷新或关闭前完成导出并保存视频；重新打开需重新导入录像。',
     download_report: '下载当前录像分析报告',
 
@@ -376,7 +378,7 @@ export const translations = {
     local_view_summary: '局部视野与切点说明',
     zoom_start_label: '视野起点 / 秒',
     zoom_end_label: '视野终点 / 秒',
-    cut_point_note: '调整范围不会移动播放位置。这里记录请求范围，实际导出边界可能受编码和包边界影响。',
+    cut_point_note: '微调起止时间不会打断当前播放位置；实际导出的首尾帧受视频编码关键帧约束。',
 
     // Prediction workspace
     toggle_clip_export: '纳入导出',
@@ -417,7 +419,7 @@ export const translations = {
     filter_rules_summary: '筛选与选片规则',
     threshold_label: '枪声阈值',
     recompute_filter: '调整筛选',
-    rules_note: '普通稳定候选默认选中，补充建议默认不选；勾选不表示已经看过或确认精彩。批量操作保留裁边，跳过尚未收尾的候选。筛选使用已有预测分数，保留人工决定。',
+    rules_note: '高置信度片段默认勾选导出，调整阈值或批量操作不会覆盖你手动调整过的起止切点与排除状态。',
     reset_decisions: '重置人工选片',
 
     // Exports section
@@ -431,7 +433,7 @@ export const translations = {
     output_specs_p1: '每段独立导出为{format}，声音沿用原片默认音轨。保留分辨率与帧率，重新编码不等于无损。分析释放资源后执行导出，期间可继续复核。',
     output_specs_p2: '成片直接写入所选目录，写入流成功关闭后显示已保存。大批次请选择已挂载且空间充足的外接盘目录，浏览器不能验证挂载身份。建议使用桌面 Chrome 或 Edge。',
     footer_tag: 'Apex Local Cut · 本地选片',
-    footer_disclaimer: '枪声候选不代表本人开枪、命中或击杀。',
+    footer_disclaimer: '基于游戏音频自动识别交火区间，导出前请预览确认。',
 
     // Dynamic runtime texts
     status_preparing: '正在准备',
@@ -601,8 +603,8 @@ export function applyTranslations() {
 
   const elements = document.querySelectorAll('[data-i18n]');
   for (const el of elements) {
-    const key = el.dataset.i18n;
-    if (key) el.textContent = t(key);
+    const { i18n: key, i18nCount: count } = el.dataset;
+    if (key) el.textContent = t(key, count === undefined ? undefined : { count });
   }
 
   const titleElements = document.querySelectorAll('[data-i18n-title]');
@@ -616,10 +618,12 @@ export function applyTranslations() {
     const key = el.dataset.i18nAria;
     if (key) el.setAttribute('aria-label', t(key));
   }
+}
 
-  const toggleBtn = document.getElementById('lang-toggle');
-  if (toggleBtn) {
-    toggleBtn.textContent = t('lang_toggle');
-    toggleBtn.setAttribute('aria-label', t('lang_toggle_aria'));
-  }
+// This module is also a page entry so locale controls work while app.js is loading.
+const languageToggle = globalThis.document?.getElementById('lang-toggle');
+if (languageToggle) {
+  languageToggle.addEventListener('click', () => setLang(getLang() === 'en' ? 'zh' : 'en'));
+  applyTranslations();
+  languageToggle.disabled = false;
 }

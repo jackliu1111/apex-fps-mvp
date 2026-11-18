@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { candidatesFromScores, chooseAudioTracks, createBrowserAnalysis, modelManifestUrl } from '../browser-analysis.mjs';
-import { groupScoreColumns } from '../waveform-layers.mjs';
-import { DEFAULT_MODEL, createModelRegistry, resolveModelAssets, validateModelManifest, validateInferenceOutput } from '../model-registry.mjs';
+import { candidatesFromScores, chooseAudioTracks, createBrowserAnalysis, modelManifestUrl } from '../../../site/browser-analysis.mjs';
+import { groupScoreColumns } from '../../../site/waveform-layers.mjs';
+import { DEFAULT_MODEL, createModelRegistry, resolveModelAssets, validateModelManifest, validateInferenceOutput } from '../../../site/model-registry.mjs';
 
 test('nearby padded gunfire ranges become one candidate and the final tail waits for EOF', () => {
   const record = { duration: 60, windowScores: [
