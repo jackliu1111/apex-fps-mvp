@@ -27,7 +27,7 @@ English | [简体中文](README_zh.md)
 
 **No dev environment or desktop installation required—experience it right in modern browsers:**
 
-👉 **[Open Apex Local Cut Online Demo](https://140.143.223.69:8443/)**
+👉 **[Try Apex Local Cut Online: https://fpslocalcut.top/](https://fpslocalcut.top/)**
 
 - **Browser Requirements**: **Desktop Google Chrome** or **Microsoft Edge** is strongly recommended.
 - **Privacy & Security**: Web assets and models load once from the network; **all video decoding, AI audio inference, and clip exports run 100% locally on your machine. Your recordings are never uploaded to any server.**
@@ -97,6 +97,12 @@ Keyboard shortcuts are available anywhere on the review page:
 1. **Environment:** Relies on modern WebCodecs, WebAssembly, and File System Access APIs. Currently **only desktop Google Chrome and Microsoft Edge are recommended** (mobile browsers and legacy browsers are not supported).
 2. **Export Encoding:** Exported MP4/WebM videos are re-encoded matching original resolution and frame rate; this is not a lossless stream copy.
 3. **Audio Tracks:** Automatically analyzes the primary default audio track; exported clips preserve the source default audio.
+
+---
+
+## 🗺️ Roadmap / TODO
+
+- [ ] **Real-Time Clipping (Live Companion Mode, in progress)**: Monitor game audio live in the browser alongside any external recorder (OBS, NVIDIA, AMD, Steam, etc.) to surface gunshot candidates in real time, review recent moments via a rolling proxy buffer, and pre-mark clips—then automatically align and conform to the full-quality recording once saved to disk for fine trimming and export (see [ADR 0008](docs/adr/0008-live-proxy-and-directory-conform.md)).
 
 ---
 
