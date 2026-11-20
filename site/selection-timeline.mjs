@@ -1,6 +1,13 @@
 import { createSelectionEvidence } from './selection-evidence.mjs';
 import { DISPLAY_GROUPS } from './lab-display-groups.mjs';
-import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime, layeredWaveColumns, overviewDistributionColumns, resolveWaveBarLayout } from './waveform-layers.mjs';
+import { DEFAULT_DISPLAY_THRESHOLD, groupScoresAtTime } from './waveform-layers.mjs';
+import {
+  createGroupToggleBar,
+  ensureCanvasSize,
+  paintLayeredWaveform,
+  paintOverviewDistribution as paintOverviewDistributionCanvas,
+  resolveWaveColor as resolveWaveColorFromCanvas,
+} from './waveform-renderer.mjs';
 import { getLang, t } from './i18n.js';
 
 export function selectionWindow(duration, { start, end }) {
@@ -23,8 +30,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   let displayLow = 0, displayHigh = 1, targetLow = 0, targetHigh = 1, transition = null;
   let latestEvidenceStatus = '', evidenceProvisional = false;
   const enabledGroups = new Set(DISPLAY_GROUPS.map((group) => group.id));
-  const groupButtons = new Map();
-  let groupToggleLang = null;
+  let groupToggleBar = null;
+  let groupToggleHost = null;
   const hoverScoreRows = new Map();
   let hoverStatusNode = null;
   let hoverScoresLang = null;
@@ -32,62 +39,26 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   const syncGroupToggles = () => {
     const host = $('waveform-group-toggles');
     if (!host) return;
-    if (host.getAttribute('role') !== 'group') host.setAttribute('role', 'group');
-    const lang = getLang();
-    const aria = t('group_toggles_aria');
-    if (host.getAttribute('aria-label') !== aria) host.setAttribute('aria-label', aria);
-    if (groupButtons.size === 0 || host.children.length !== DISPLAY_GROUPS.length) {
-      groupButtons.clear();
-      const buttons = DISPLAY_GROUPS.map((group) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'group-toggle';
-        button.dataset.groupId = group.id;
-        const swatch = document.createElement('span');
-        swatch.className = 'group-swatch';
-        swatch.setAttribute('aria-hidden', 'true');
-        swatch.style.backgroundColor = group.color;
-        const label = document.createElement('span');
-        label.className = 'group-toggle-label';
-        button.replaceChildren(swatch, label);
-        button.onclick = () => {
-          if (enabledGroups.has(group.id)) enabledGroups.delete(group.id);
-          else enabledGroups.add(group.id);
-          syncGroupToggles();
+    if (!groupToggleBar || groupToggleHost !== host) {
+      groupToggleHost = host;
+      groupToggleBar = createGroupToggleBar({
+        host,
+        enabledGroups,
+        onToggle() {
           const current = getSource();
           if (current) {
             const [low, high] = visibleBounds(current);
             paintOverviewDistribution(current);
             paintWaveform(current, low, high);
           }
-        };
-        groupButtons.set(group.id, { button, label });
-        return button;
+        },
       });
-      host.replaceChildren(...buttons);
-      groupToggleLang = null;
     }
-    const langChanged = groupToggleLang !== lang;
-    groupToggleLang = lang;
-    for (const group of DISPLAY_GROUPS) {
-      const entry = groupButtons.get(group.id);
-      if (!entry) continue;
-      const pressed = String(enabledGroups.has(group.id));
-      if (entry.button.getAttribute('aria-pressed') !== pressed) {
-        entry.button.setAttribute('aria-pressed', pressed);
-      }
-      if (langChanged || !entry.label.textContent) {
-        const name = t(group.i18nKey);
-        entry.label.textContent = name;
-        entry.button.title = t('group_toggle_title', { group: name });
-      }
-    }
+    groupToggleBar.sync();
   };
   const resolveWaveColor = (canvas) => {
     if (cachedWaveColor) return cachedWaveColor;
-    cachedWaveColor = typeof getComputedStyle === 'function' && canvas
-      ? (getComputedStyle(canvas).getPropertyValue('--wave-bar').trim() || '#7b8391')
-      : '#7b8391';
+    cachedWaveColor = resolveWaveColorFromCanvas(canvas, '#7b8391');
     return cachedWaveColor;
   };
   const clipFor = (source) => source.clips.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional && !clip.excluded);
@@ -107,17 +78,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const strip = $('source-filmstrip');
     if (strip) strip.dataset.provisional = String(!!(evidenceProvisional || transition));
     $('selection-player-axis').dataset.evidenceStatus = latestEvidenceStatus;
-  }
-  function ensureCanvasSize(canvas, fallbackWidth, fallbackHeight) {
-    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
-    const rawCssWidth = canvas.clientWidth || canvas.parentElement?.clientWidth || 0;
-    const cssWidth = Math.max(1, Math.round(rawCssWidth || fallbackWidth));
-    const cssHeight = Math.max(1, Math.round(canvas.clientHeight || fallbackHeight));
-    const pixelWidth = rawCssWidth > 0 ? Math.max(1, Math.round(cssWidth * dpr)) : Math.max(canvas.width || 0, Math.round(cssWidth * dpr));
-    const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
-    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
-    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
-    return { dpr, pixelWidth, pixelHeight };
   }
   function prepareCanvasRender(source, { canvasId, fallbackWidth, fallbackHeight, colorCanvas = null, extraKey }) {
     const canvas = $(canvasId);
@@ -160,38 +120,16 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const { canvas, context, dpr, waveColor, wave, scoreTimeline, renderKey, syncDataset } = state;
     if (overviewWaveKey !== renderKey) {
       overviewWaveKey = renderKey;
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      const pad = Math.round(2 * dpr), minBar = Math.max(1, Math.round(dpr));
-      const layout = resolveWaveBarLayout(canvas.width, dpr, { cssStride: 2, cssBarWidth: 1, minBars: 60 });
-      const columns = overviewDistributionColumns({
+      paintOverviewDistributionCanvas({
+        canvas,
+        context,
+        dpr,
         wave,
         scoreTimeline,
         duration: source.duration,
-        width: layout.barCount,
-        canvasHeight: canvas.height,
-        pad,
-        minBar,
+        waveColor,
         enabledGroups,
-        smooth: layout.barStride > 1,
       });
-      context.fillStyle = waveColor;
-      context.globalAlpha = 0.35;
-      for (let i = 0; i < columns.length; i++) {
-        const col = columns[i];
-        const x = i * layout.barStride;
-        const w = Math.min(layout.barWidth, canvas.width - x);
-        if (col.waveHeight > 0 && w > 0) context.fillRect(x, col.waveTop, w, col.waveHeight);
-      }
-      const gunshot = DISPLAY_GROUPS[0];
-      context.fillStyle = gunshot.color;
-      context.globalAlpha = 0.92;
-      for (let i = 0; i < columns.length; i++) {
-        const col = columns[i];
-        const x = i * layout.barStride;
-        const w = Math.min(layout.barWidth, canvas.width - x);
-        if (col.gunshotHeight > 0 && w > 0) context.fillRect(x, col.gunshotY, w, col.gunshotHeight);
-      }
-      context.globalAlpha = 1;
       canvas.dataset.paintCount = String(++overviewPaintCount);
     }
     syncDataset();
@@ -208,50 +146,17 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const { canvas, context, dpr, waveColor, wave, scoreTimeline, renderKey, syncDataset } = state;
     if (waveKey !== renderKey) {
       waveKey = renderKey;
-      context.clearRect(0, 0, canvas.width, canvas.height);
-      const pad = Math.round(10 * dpr), minBar = Math.max(1, Math.round(dpr));
-      const layout = resolveWaveBarLayout(canvas.width, dpr, { cssStride: 4, cssBarWidth: 2, minBars: 60 });
-      const columns = layeredWaveColumns({
+      paintLayeredWaveform({
+        canvas,
+        context,
+        dpr,
         wave,
         scoreTimeline,
         start: low,
         end: high,
-        width: layout.barCount,
-        canvasHeight: canvas.height,
-        pad,
-        minBar,
+        waveColor,
         enabledGroups,
-        smooth: layout.barStride > 1,
       });
-      // Base opaque neutral waveform contour first so unanalyzed gaps stay blank and amplitude silhouette stays intact.
-      context.globalAlpha = 1;
-      context.fillStyle = waveColor;
-      for (let i = 0; i < columns.length; i++) {
-        const col = columns[i];
-        if (col.state === 'unanalyzed') continue;
-        const x = i * layout.barStride;
-        const w = Math.min(layout.barWidth, canvas.width - x);
-        if (w > 0) context.fillRect(x, col.waveTop, w, col.waveHeight);
-      }
-      // Draw non-gunshot bottom-up translucent layers first, then gunshot top-down high-contrast foreground last.
-      for (let pass = 1; pass <= DISPLAY_GROUPS.length; pass++) {
-        const group = DISPLAY_GROUPS[pass === DISPLAY_GROUPS.length ? 0 : pass];
-        let styleSet = false;
-        for (let i = 0; i < columns.length; i++) {
-          const layer = columns[i].layers.find((item) => item.id === group.id);
-          if (!layer) continue;
-          const x = i * layout.barStride;
-          const w = Math.min(layout.barWidth, canvas.width - x);
-          if (!(w > 0)) continue;
-          if (!styleSet) {
-            context.globalAlpha = layer.alpha;
-            context.fillStyle = layer.color;
-            styleSet = true;
-          }
-          context.fillRect(x, layer.y, w, layer.height);
-        }
-      }
-      context.globalAlpha = 1;
       canvas.dataset.paintCount = String(++wavePaintCount);
     }
     syncDataset();

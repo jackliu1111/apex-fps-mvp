@@ -102,7 +102,7 @@
 
 ## 🗺️ 开发计划 / TODO
 
-- [ ] **实时剪辑（实时伴随模式，开发中）**：在外部录屏软件（OBS / NVIDIA / AMD / Steam 等）录制游戏期间，浏览器本地实时监听声音并标出枪声候选，支持近期滑动窗口代理回看与预打标；待高画质原录像落盘后自动对齐升格，无缝衔接至本地精剪与导出（设计见 [ADR 0008](docs/adr/0008-live-proxy-and-directory-conform.md)）。
+- [ ] **实时模式（开发中）**：在外部录屏软件（OBS / NVIDIA / AMD / Steam 等）录制游戏期间，浏览器本地实时监听声音并标出枪声候选，支持即时回看与打点；待新录像保存后自动对齐关联，直接进入本地剪辑与导出（设计见 [ADR 0008](docs/adr/0008-live-proxy-and-directory-conform.md)）。
 
 ---
 
@@ -144,7 +144,7 @@ python3 model_web_ui/browser.prototype/serve.py
 本项目采用 **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)** 协议开源。
 
 ### 第三方模型与核心依赖致谢
-- **[EfficientAT](https://github.com/fschmid56/EfficientAT)**：本项目音频特征提取与枪声检测模型架构及预训练权重来源于 EfficientAT，采用宽松的 [MIT 许可证](https://github.com/fschmid56/EfficientAT/blob/main/LICENSE)；所用 AudioSet 标签类别遵循 [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)。
+- **[EfficientSED](https://github.com/theMoro/EfficientSED)**：本项目 40ms 逐帧声音事件与枪声检测模型架构及预训练权重来源于 EfficientSED，采用宽松的 [MIT 许可证](https://github.com/theMoro/EfficientSED/blob/main/LICENSE)；所用 AudioSet 标签类别遵循 [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)。
 - **[Mediabunny](https://github.com/Vanilagy/mediabunny)**：纯前端音视频解复用与多轨道打包封装工具，采用 [Mozilla Public License 2.0 (MPL-2.0)](https://github.com/Vanilagy/mediabunny/blob/main/LICENSE)。
 - **[ONNX Runtime Web](https://github.com/microsoft/onnxruntime)**：微软官方浏览器端 WebAssembly / WebGPU 推理运行时，采用 [MIT 许可证](https://github.com/microsoft/onnxruntime/blob/main/LICENSE)。
 

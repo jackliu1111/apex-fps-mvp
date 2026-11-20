@@ -126,12 +126,12 @@ test('queue defaults new imports to efficientsed and supports explicit model ove
   });
   const [defaultRec, customRec] = await queue.importFiles([{ name: 'a.mp4' }, { name: 'b.mp4' }]);
   assert.equal(defaultRec.model, 'efficientsed');
-  const [atRec] = await queue.importFiles([{ name: 'c.mp4' }], { model: 'efficientat', threshold: 0.35 });
-  assert.equal(atRec.model, 'efficientat');
-  assert.equal(atRec.threshold, 0.35);
+  const [overrideRec] = await queue.importFiles([{ name: 'c.mp4' }], { model: 'custom-sed-a', threshold: 0.35 });
+  assert.equal(overrideRec.model, 'custom-sed-a');
+  assert.equal(overrideRec.threshold, 0.35);
   await queue.whenIdle();
-  await queue.retry(customRec.id, { model: 'beats' });
+  await queue.retry(customRec.id, { model: 'custom-sed-b' });
   await queue.whenIdle();
-  assert.equal(customRec.model, 'beats');
-  assert.deepEqual(seenModels, ['efficientsed', 'efficientsed', 'efficientat', 'beats']);
+  assert.equal(customRec.model, 'custom-sed-b');
+  assert.deepEqual(seenModels, ['efficientsed', 'efficientsed', 'custom-sed-a', 'custom-sed-b']);
 });

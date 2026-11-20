@@ -4,16 +4,16 @@ Apex Local Cut incorporates components and pre-trained models from third-party o
 
 ---
 
-### 1. EfficientAT (Audio Tagging Model)
-- **Project**: Efficient Large-Scale Audio Tagging via Transformer-to-CNN Knowledge Distillation
-- **Repository**: [https://github.com/fschmid56/EfficientAT](https://github.com/fschmid56/EfficientAT)
-- **Authors**: Florian Schmid, Khaled Koutini, Gerhard Widmer (Johannes Kepler University Linz)
+### 1. EfficientSED (Sound Event Detection Model)
+- **Project**: EfficientSED — Frame-Level Sound Event Detection via Knowledge Distillation (`fmn10+tf-256_advanced-kd-weak-strong`)
+- **Repository**: [https://github.com/theMoro/EfficientSED](https://github.com/theMoro/EfficientSED)
+- **Author**: Florian Schmid
 - **License**: MIT License
 - **Notice**:
 ```
 MIT License
 
-Copyright (c) 2023 Florian Schmid
+Copyright (c) 2024 Florian Schmid
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

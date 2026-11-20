@@ -21,14 +21,12 @@ VENDOR_ASSETS = (
     'vendor/ort-wasm-simd-threaded.wasm',
 )
 MODEL_ASSETS = {
-    'EfficientSED 默认模型': ('efficientsed/model.json', 'efficientsed/fmn10-tf256.onnx', 'efficientsed/frontend.json'),
-    'EfficientAT 可选模型': ('efficientat/model.json', 'efficientat/mn04.onnx', 'efficientat/frontend.json'),
-    'BEATs 可选模型': ('model.json', 'beats.onnx'),
+    'EfficientSED 模型': ('efficientsed/model.json', 'efficientsed/fmn10-tf256.onnx', 'efficientsed/frontend.json'),
 }
 
 
 LAB_MODEL_ASSETS = {
-    'EfficientSED 实验模型': MODEL_ASSETS['EfficientSED 默认模型'],
+    'EfficientSED 实验模型': MODEL_ASSETS['EfficientSED 模型'],
 }
 
 

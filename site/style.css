@@ -202,6 +202,23 @@ strong { font-weight: 600; }
   white-space: nowrap;
 }
 .lang-toggle { min-height: 30px; padding: 3px 12px; font-size: 12px; font-weight: 600; border-radius: var(--radius-pill); cursor: pointer; white-space: nowrap; }
+.diag-toggle {
+  min-height: 30px;
+  padding: 3px 10px;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+}
+.diag-toggle svg { width: 14px; height: 14px; stroke-width: 1.8; }
+.diag-toggle[data-copied="true"] {
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.08);
+}
 main { max-width: var(--container-max); padding: 18px 32px 28px; margin: auto; }
 main:focus { outline: none; }
 .workspace-status {
@@ -429,10 +446,16 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   color: var(--faint);
   font-size: 12px;
 }
-@media (max-width: 1200px) {
+@media (max-width: 1240px) {
   .header-inner { gap: 12px; padding-inline: 24px; }
   .brand-secondary { display: none; }
   .navigation button, .navigation .nav-portal-link { padding-inline: 8px; }
+  .session-notice { display: none; }
+  .diag-toggle { margin-left: auto; }
+}
+@media (max-width: 1024px) {
+  .diag-toggle { width: 30px; padding: 0; }
+  .diag-toggle .diag-label { display: none; }
 }
 @media (max-width: 1100px) {
   .workspace { grid-template-columns: minmax(0, 1fr) 330px; }
@@ -440,11 +463,12 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   .file-actions { grid-column: auto; }
 }
 @media (max-width: 850px) {
-  .header-inner { flex-wrap: wrap; padding: 10px 24px; gap: 10px 18px; }
+  .header-inner { flex-wrap: wrap; padding: 10px 24px; gap: 10px 12px; }
   .brand { flex: 1; }
   .navigation { order: 3; width: 100%; flex-wrap: wrap; }
   .navigation button { min-height: 36px; }
-  .session-notice { max-width: 52%; white-space: normal; }
+  .session-notice { display: flex; max-width: 52%; white-space: normal; }
+  .diag-toggle { margin-left: 0; }
   main { padding: 16px 24px 24px; }
   .analysis-layout, .workspace { grid-template-columns: 1fr; }
   .workflow-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -457,6 +481,8 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   :root { --pad: 16px; }
   .header-inner { padding: 12px 20px 8px; gap: 10px; }
   .brand { font-size: 15px; }
+  .diag-toggle { width: 32px; min-height: 32px; }
+  .lang-toggle { min-height: 32px; }
   .session-notice { width: 100%; max-width: none; order: 2; }
   .navigation { margin-top: 2px; }
   .navigation button { min-height: 40px; }

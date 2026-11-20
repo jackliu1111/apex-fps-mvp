@@ -102,7 +102,7 @@ Keyboard shortcuts are available anywhere on the review page:
 
 ## 🗺️ Roadmap / TODO
 
-- [ ] **Real-Time Clipping (Live Companion Mode, in progress)**: Monitor game audio live in the browser alongside any external recorder (OBS, NVIDIA, AMD, Steam, etc.) to surface gunshot candidates in real time, review recent moments via a rolling proxy buffer, and pre-mark clips—then automatically align and conform to the full-quality recording once saved to disk for fine trimming and export (see [ADR 0008](docs/adr/0008-live-proxy-and-directory-conform.md)).
+- [ ] **Live Mode (in progress)**: Monitor game audio live in the browser alongside any external recorder (OBS, NVIDIA, AMD, Steam, etc.) to surface gunshot candidates in real time, review recent moments via instant replay, and pre-mark clips—then automatically align to the full-quality recording once saved to disk for fine trimming and export (see [ADR 0008](docs/adr/0008-live-proxy-and-directory-conform.md)).
 
 ---
 
@@ -144,7 +144,7 @@ Open `http://127.0.0.1:8792` in your browser. For in-depth technical documentati
 This project is licensed under the **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)**.
 
 ### Third-Party Models and Libraries
-- **[EfficientAT](https://github.com/fschmid56/EfficientAT)**: Used for audio gunshot feature extraction, licensed under the [MIT License](https://github.com/fschmid56/EfficientAT/blob/main/LICENSE). AudioSet pretraining labels under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
+- **[EfficientSED](https://github.com/theMoro/EfficientSED)**: Used for 40ms frame-level audio event & gunshot detection, licensed under the [MIT License](https://github.com/theMoro/EfficientSED/blob/main/LICENSE). AudioSet pretraining labels under [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/).
 - **[Mediabunny](https://github.com/Vanilagy/mediabunny)**: Browser media container demuxer & muxer, licensed under the [Mozilla Public License 2.0 (MPL-2.0)](https://github.com/Vanilagy/mediabunny/blob/main/LICENSE).
 - **[ONNX Runtime Web](https://github.com/microsoft/onnxruntime)**: In-browser WebAssembly/WebGPU inference engine by Microsoft, licensed under the [MIT License](https://github.com/microsoft/onnxruntime/blob/main/LICENSE).
 

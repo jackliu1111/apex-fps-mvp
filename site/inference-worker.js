@@ -1,5 +1,4 @@
 import * as ort from '/assets/vendor/ort.wasm.min.mjs';
-import { createFrontend as createEfficientAtFrontend } from './efficientat-frontend.js';
 import { createSedFrontend } from './efficientsed-frontend.mjs';
 import { loadCachedModel } from './model-cache.mjs';
 import { assetRecoveryHint, getModelSpec, resolveModelAssets } from './model-registry.mjs';
@@ -8,9 +7,7 @@ ort.env.wasm.wasmPaths = new URL('/assets/vendor/', self.location).href;
 ort.env.wasm.numThreads = 1;
 
 const FRONTEND_LOADERS = {
-  efficientat: createEfficientAtFrontend,
   efficientsed: createSedFrontend,
-  waveform: () => (waveform) => waveform,
 };
 
 let session, frontend, loadedKey;
