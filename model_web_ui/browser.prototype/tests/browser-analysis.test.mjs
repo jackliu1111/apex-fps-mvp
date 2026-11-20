@@ -49,33 +49,22 @@ test('a decoder capability failure can use another track without changing source
   assert.equal(choice.audioPolicy.fallback, true);
 });
 
-test('each selectable model reads the manifest from its own asset path', () => {
+test('only efficientsed is built in and reads the manifest from its asset path', () => {
   assert.equal(DEFAULT_MODEL, 'efficientsed');
   assert.equal(modelManifestUrl('efficientsed'), '/assets/efficientsed/model.json');
-  assert.equal(modelManifestUrl('efficientat'), '/assets/efficientat/model.json');
-  assert.equal(modelManifestUrl('beats'), '/assets/model.json');
+  assert.throws(() => modelManifestUrl('efficientat'), /未知分析模型/);
+  assert.throws(() => modelManifestUrl('beats'), /未知分析模型/);
   assert.throws(() => modelManifestUrl('other'), /未知分析模型/);
 });
 
 test('model registry resolves model weights and preprocessing assets and supports extension', () => {
   const registry = createModelRegistry();
-  assert.deepEqual(registry.list(), ['efficientsed', 'efficientat', 'beats']);
+  assert.deepEqual(registry.list(), ['efficientsed']);
 
   const sedAssets = resolveModelAssets(registry.get('efficientsed'), { modelFile: 'fmn10-tf256.onnx' }, 'http://127.0.0.1:8792/inference-worker.js');
   assert.equal(sedAssets.manifestUrl, 'http://127.0.0.1:8792/assets/efficientsed/model.json');
   assert.equal(sedAssets.onnxUrl, 'http://127.0.0.1:8792/assets/efficientsed/fmn10-tf256.onnx');
   assert.equal(sedAssets.frontendUrl, 'http://127.0.0.1:8792/assets/efficientsed/frontend.json');
-
-  const atAssets = resolveModelAssets(registry.get('efficientat'), { modelFile: 'mn04.onnx' }, 'http://127.0.0.1:8792/inference-worker.js');
-  assert.equal(atAssets.onnxUrl, 'http://127.0.0.1:8792/assets/efficientat/mn04.onnx');
-  assert.equal(atAssets.frontendUrl, 'http://127.0.0.1:8792/assets/efficientat/frontend.json');
-
-  // BEATs manifest omits modelFile and scoreType.
-  const beatsSpec = registry.get('beats');
-  assert.equal(beatsSpec.scoreType, 'frame');
-  const beatsAssets = resolveModelAssets(beatsSpec, {}, 'http://127.0.0.1:8792/inference-worker.js');
-  assert.equal(beatsAssets.onnxUrl, 'http://127.0.0.1:8792/assets/beats.onnx');
-  assert.equal(beatsAssets.frontendUrl, null);
 
   assert.throws(() => resolveModelAssets(registry.get('efficientsed'), { modelFile: '../escape.onnx' }, 'http://127.0.0.1:8792/inference-worker.js'), /模型文件路径无效/);
 
@@ -91,13 +80,12 @@ test('model registry resolves model weights and preprocessing assets and support
   });
   assert.equal(modelManifestUrl('custom-sed', registry), '/assets/custom/model.json');
   assert.throws(() => registry.register('bad', { manifestUrl: '/x.json', scoreType: 'invalid' }), /模型注册配置无效/);
+  assert.throws(() => registry.register('bad-window', { manifestUrl: '/x.json', onnxUrl: '/x.onnx', sampleRate: 32000, scoreType: 'window', inputName: 'mel', inputShape: [1, 1, 128, 1000] }), /模型注册配置无效/);
 });
 
-test('manifest validation verifies dimensions, classes order, gunshot labels, and BEATs missing scoreType', () => {
+test('manifest validation verifies dimensions, classes order, and gunshot labels for EfficientSED', () => {
   const registry = createModelRegistry();
   const sedSpec = registry.get('efficientsed');
-  const atSpec = registry.get('efficientat');
-  const beatsSpec = registry.get('beats');
 
   const classes = ['Speech', 'Gunshot, gunfire', 'Music', 'Machine gun'];
   const sedMeta = validateModelManifest(sedSpec, {
@@ -112,29 +100,9 @@ test('manifest validation verifies dimensions, classes order, gunshot labels, an
   });
   assert.deepEqual(sedMeta.gunshotIndices, [1, 3]);
 
-  // BEATs omits scoreType in manifest, still validates as frame model.
-  const beatsMeta = validateModelManifest(beatsSpec, {
-    model: 'BEATs_strong_1',
-    classes: ['Machine gun', 'Speech', 'Gunshot, gunfire'],
-    sampleRate: 16000,
-    output: [1, 250, 3],
-  });
-  assert.equal(beatsMeta.scoreType, 'frame');
-  assert.deepEqual(beatsMeta.gunshotIndices, [2, 0]);
-
-  const atMeta = validateModelManifest(atSpec, {
-    model: 'EfficientAT',
-    classes,
-    sampleRate: 32000,
-    scoreType: 'window',
-    output: [1, 4],
-  });
-  assert.equal(atMeta.scoreType, 'window');
-
   // Mismatched output shape / transposed axes / class mismatch / duplicates / missing gunshot
   assert.throws(() => validateModelManifest(sedSpec, { classes, sampleRate: 16000, scoreType: 'frame', output: [1, 4, 250] }), /输出维度/);
   assert.throws(() => validateModelManifest(sedSpec, { classes, sampleRate: 16000, scoreType: 'frame', output: [1, 250, 5] }), /输出维度/);
-  assert.throws(() => validateModelManifest(atSpec, { classes, sampleRate: 32000, scoreType: 'window', output: [1, 250, 4] }), /输出维度/);
   assert.throws(() => validateModelManifest(sedSpec, { classes, sampleRate: 32000, scoreType: 'frame', output: [1, 250, 4] }), /采样率/);
   assert.throws(() => validateModelManifest(sedSpec, { classes, sampleRate: 16000, scoreType: 'window', output: [1, 250, 4] }), /分数类型/);
   assert.throws(() => validateModelManifest(sedSpec, { classes: ['Speech', 'Speech', 'Gunshot, gunfire', 'Machine gun'], sampleRate: 16000, output: [1, 250, 4] }), /类别/);
@@ -148,7 +116,6 @@ test('manifest validation verifies dimensions, classes order, gunshot labels, an
   const badProb = validSedValues.slice();
   badProb[10] = 1.2;
   assert.throws(() => validateInferenceOutput(sedSpec, { classes }, { values: badProb, dims: [1, 250, 4] }), /模型输出/);
-  assert.throws(() => validateInferenceOutput(atSpec, { classes }, { values: new Float32Array([0.1, 0.2, 0.3, NaN]), dims: [1, 4] }), /窗口分数无效/);
 });
 
 function createFakeMediaBoundary({ duration = 12, audioDuration = duration, videoOrigin = 0, audioOrigin = 0 } = {}) {
@@ -267,45 +234,6 @@ test('createBrowserAnalysis averages overlapping 40ms frames, clips last frame d
   assert.deepEqual(record.candidates.map(({ start, end }) => [+start.toFixed(4), +end.toFixed(4)]), [[4.92, 15.02]]);
 });
 
-test('createBrowserAnalysis handles BEATs without scoreType and EfficientAT window model', async () => {
-  const classes = ['Speech', 'Gunshot, gunfire', 'Machine gun'];
-  const manifests = {
-    '/assets/model.json': { model: 'BEATs_strong_1', classes, sampleRate: 16000, output: [1, 250, 3] },
-    '/assets/efficientat/model.json': { model: 'EfficientAT', classes, sampleRate: 32000, scoreType: 'window', output: [1, 3] },
-  };
-  const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 12 });
-  const queue = createBrowserAnalysis({
-    MB,
-    openAudioStream,
-    fetch: async (url) => ({ ok: Boolean(manifests[url]), status: manifests[url] ? 200 : 404, json: async () => manifests[url] }),
-    infer: async (_waveform, { model }) => {
-      if (model === 'beats') {
-        const values = new Float32Array(250 * 3);
-        for (let f = 10; f < 20; f++) values[f * 3 + 1] = 0.85;
-        return { values, dims: [1, 250, 3], timings: {} };
-      }
-      return { values: new Float32Array([0.1, 0.7, 0.05]), dims: [1, 3], timings: {} };
-    },
-  });
-
-  await queue.importFiles([{ name: 'beats.mp4', size: 1, lastModified: 1 }], { model: 'beats', threshold: 0.5 });
-  await queue.importFiles([{ name: 'at.mp4', size: 1, lastModified: 2 }], { model: 'efficientat', threshold: 0.5 });
-  await queue.whenIdle();
-
-  const [beatsRecord, atRecord] = queue.records;
-  assert.equal(beatsRecord.status, 'complete', beatsRecord.error);
-  assert.equal(beatsRecord.modelInfo.scoreType, 'frame');
-  assert.equal(beatsRecord.scoreFrames, 300);
-  assert.equal(beatsRecord.windowScores, null);
-  assert.equal(beatsRecord.candidates.length, 1);
-
-  assert.equal(atRecord.status, 'complete', atRecord.error);
-  assert.equal(atRecord.modelInfo.scoreType, 'window');
-  assert.equal(atRecord.scores, null);
-  assert.equal(atRecord.windowScores.length, 2);
-  assert.equal(atRecord.candidates.length, 1);
-});
-
 test('createBrowserAnalysis rejects 0.28s exact multiple without spurious 8th frame and reports actionable 404 hint', async () => {
   const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 0.28 });
   const queue = createBrowserAnalysis({
@@ -328,11 +256,10 @@ test('createBrowserAnalysis rejects 0.28s exact multiple without spurious 8th fr
   assert.deepEqual(exact.map(({ start, end }) => [+start.toFixed(4), +end.toFixed(4)]), [[0, 5.28]]);
 });
 
-test('createBrowserAnalysis reduces overlap-averaged frames into 4 session group scores without O(N^2) churn and isolates recompute/EfficientAT', async () => {
+test('createBrowserAnalysis reduces overlap-averaged frames into 4 session group scores without O(N^2) churn and isolates recompute', async () => {
   const classes = ['Speech', 'Whispering', 'Gunshot, gunfire', 'Machine gun', 'Music', 'Walk, footsteps', 'Breaking'];
   const manifests = {
     '/assets/efficientsed/model.json': { model: 'EfficientSED', modelFile: 'fmn10-tf256.onnx', classes, sampleRate: 16000, scoreType: 'frame', frameSeconds: 0.04, output: [1, 250, classes.length] },
-    '/assets/efficientat/model.json': { model: 'EfficientAT', modelFile: 'mn04.onnx', classes, sampleRate: 32000, scoreType: 'window', output: [1, classes.length] },
   };
   const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 20, audioDuration: 10.04, videoOrigin: 10, audioOrigin: 8.5 });
   const groupBuffers = [];
@@ -343,10 +270,7 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 4 session group
     MB,
     openAudioStream,
     fetch: async (url) => ({ ok: Boolean(manifests[url]), status: manifests[url] ? 200 : 404, json: async () => manifests[url] }),
-    infer: async (_waveform, { model }) => {
-      if (model === 'efficientat') {
-        return { values: new Float32Array([0.9, 0.2, 0.8, 0.1, 0.7, 0.6, 0.5]), dims: [1, classes.length], timings: {} };
-      }
+    infer: async () => {
       const values = new Float32Array(250 * classes.length);
       if (sedWindow === 0) {
         // Overlap frame 130: Speech=0.8, Whispering=0.2 in window 0; window 1 swaps them -> avg per class is 0.5 each -> group max = 0.5 (not 0.8).
@@ -378,10 +302,9 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 4 session group
   });
 
   await queue.importFiles([{ name: 'sed.mkv', size: 100, lastModified: 1 }]);
-  await queue.importFiles([{ name: 'at.mkv', size: 100, lastModified: 2 }], { model: 'efficientat' });
   await queue.whenIdle();
 
-  const [sedRecord, atRecord] = queue.records;
+  const [sedRecord] = queue.records;
   assert.equal(sedRecord.status, 'complete', sedRecord.error);
   assert.equal(sedRecord.audioOffset, -1.5);
   assert.equal('groupScores' in sedRecord, false);
@@ -413,10 +336,6 @@ test('createBrowserAnalysis reduces overlap-averaged frames into 4 session group
   assert.equal(recomputed.length, 0);
   assert.deepEqual(sedRecord.scoreTimeline.groupScores, groupSnapshot);
 
-  // EfficientAT window model keeps scoreTimeline null cleanly.
-  assert.equal(atRecord.status, 'complete', atRecord.error);
-  assert.equal(atRecord.scoreTimeline, null);
-
   // Retry resets scoreTimeline before re-populating.
   sedWindow = 0;
   waveformResets.length = 0;
@@ -430,7 +349,6 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
   const classes = ['Speech', 'Gunshot, gunfire', 'Machine gun', 'Music', 'Walk, footsteps', 'Breaking'];
   const manifests = {
     '/assets/efficientsed/model.json': { model: 'EfficientSED', modelFile: 'fmn10-tf256.onnx', classes, sampleRate: 16000, scoreType: 'frame', frameSeconds: 0.04, output: [1, 250, classes.length] },
-    '/assets/efficientat/model.json': { model: 'EfficientAT', modelFile: 'mn04.onnx', classes, sampleRate: 32000, scoreType: 'window', output: [1, classes.length] },
   };
   const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 25, audioDuration: 20, videoOrigin: 0, audioOrigin: 2 });
   const snapshots = [];
@@ -441,10 +359,7 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
     MB,
     openAudioStream,
     fetch: async (url) => ({ ok: Boolean(manifests[url]), status: manifests[url] ? 200 : 404, json: async () => manifests[url] }),
-    infer: async (_waveform, { model }) => {
-      if (model === 'efficientat') {
-        return { values: new Float32Array(classes.length), dims: [1, classes.length], timings: {} };
-      }
+    infer: async () => {
       const values = new Float32Array(250 * classes.length);
       if (windowIdx === 0) {
         // 0.16s burst in frames 20..23 (audio 0.80..0.96s -> video 2.80..2.96s with audioOffset +2)
@@ -474,10 +389,9 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
   });
 
   await queue.importFiles([{ name: 'long-sed.mkv', size: 100, lastModified: 1 }]);
-  await queue.importFiles([{ name: 'at.mkv', size: 100, lastModified: 2 }], { model: 'efficientat' });
   await queue.whenIdle();
 
-  const [sedRecord, atRecord] = queue.records;
+  const [sedRecord] = queue.records;
   assert.equal(sedRecord.status, 'complete', sedRecord.error);
   assert.ok(sedRecord.scoreTimeline?.groupScorePyramid);
   assert.equal(sedRecord.scoreTimeline.groupScorePyramid.analyzedFrames, 500);
@@ -493,9 +407,6 @@ test('createBrowserAnalysis incrementally updates session groupScorePyramid per 
   assert.ok(Math.abs(snapshots[1].cols[2][0] - 0.86) < 1e-6);
   assert.ok(Math.abs(snapshots[1].cols[10][0] - 0.92) < 1e-6);
   assert.equal(snapshots[1].cols[15], null);
-
-  // EfficientAT window model keeps scoreTimeline null
-  assert.equal(atRecord.scoreTimeline, null);
 
   // Retry resets groupScorePyramid before re-populating
   windowIdx = 0;

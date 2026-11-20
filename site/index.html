@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="tactical-theme.css">
   <link rel="stylesheet" href="selection-timeline.css">
+  <link rel="stylesheet" href="live-companion.css">
 </head>
 <body>
   <a class="skip-link" href="#main" id="skip-link" data-i18n="skip_link">Skip to workspace</a>
@@ -15,20 +16,26 @@
     <div class="header-inner">
       <div class="brand" aria-label="Apex Local Cut">
         <span class="brand-badge" aria-hidden="true"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 26 15 5h3l-6 12h7l-4 9H4Zm17-14 7 14h-8l4-8-3-6Z" fill="currentColor"/></svg></span>
-        <span>Apex Local Cut <span class="brand-secondary" data-i18n="brand_secondary">· Local Video Clipping Workspace</span></span>
+        <span>Apex Local Cut</span>
+        <div class="mode-switcher" role="group" aria-label="Workspace mode">
+          <button id="mode-offline" type="button" aria-pressed="true" data-i18n="mode_offline">Local</button>
+          <button id="mode-live" type="button" aria-pressed="false"><span id="mode-live-dot" class="mode-dot" data-live="false" aria-hidden="true"></span><span data-i18n="mode_live">Live</span></button>
+        </div>
       </div>
-      <nav class="navigation" aria-label="Workspace" data-i18n-aria="nav_aria">
+      <nav id="offline-nav" class="navigation" aria-label="Workspace" data-i18n-aria="nav_aria">
         <a href="landing.html" class="nav-portal-link" data-i18n="nav_portal">✦ Portal</a>
         <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Analysis</button>
         <button id="nav-review" disabled data-i18n="nav_review">Review</button>
         <button id="nav-exports" data-i18n="nav_exports">Exports</button>
       </nav>
       <div class="session-notice" data-i18n="session_notice">Re-import videos after refresh or close</div>
+      <button id="copy-diagnostics" class="quiet diag-toggle" type="button" title="Copy sanitized environment & runtime diagnostics (no file names or paths)" aria-label="Copy diagnostics to clipboard" data-i18n-title="diagnostics_title" data-i18n-aria="diagnostics_aria"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M8 14h2l1.5-3 2 6 1.5-3h1"/></svg><span class="diag-label" data-i18n="diagnostics_btn">Diagnostics</span></button>
       <button id="lang-toggle" class="quiet lang-toggle" type="button" disabled aria-label="Switch language to Chinese" data-i18n="lang_toggle" data-i18n-aria="lang_toggle_aria">中文</button>
     </div>
   </header>
   <main id="main" tabindex="-1">
     <p id="status" class="workspace-status" role="status" aria-live="polite" data-i18n="status_ready">Workspace ready</p>
+    <div id="live-workspace" hidden></div>
     <div id="analysis-page">
       <div class="page-heading">
         <div><h1 data-i18n="page_heading">Video Workspace</h1><p class="intro" data-i18n="page_intro">Import full match recordings, auto-locate combat segments, and export standalone clips.</p></div>

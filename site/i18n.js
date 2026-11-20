@@ -3,12 +3,18 @@ export const translations = {
     page_title: 'Apex Local Cut · Local Video Clipping Workspace',
     skip_link: 'Skip to workspace',
     brand_secondary: '· Local Video Clipping Workspace',
+    mode_offline: 'Local',
+    mode_live: 'Live',
     nav_aria: 'Workspace',
     nav_portal: '✦ Portal',
     nav_analysis: 'Analysis',
     nav_review: 'Review',
     nav_exports: 'Exports',
     session_notice: 'Re-import videos after refresh or close',
+    diagnostics_btn: 'Diagnostics',
+    diagnostics_copied_btn: 'Copied',
+    diagnostics_title: 'Copy sanitized environment & runtime diagnostics (no file names or paths)',
+    diagnostics_aria: 'Copy diagnostics to clipboard',
     lang_toggle: '中文',
     lang_toggle_aria: 'Switch language to Chinese',
 
@@ -272,18 +278,27 @@ export const translations = {
     err_dir_permission_lost: 'Output folder write permission unavailable. Click "Choose Folder & Continue" to re-select.',
     err_dir_aborted: 'Output folder not chosen yet; clips are preserved. Click "Choose Folder & Continue" to retry.',
     err_valid_trim_time: 'Please enter a valid cut time.',
-    err_no_dir_picker: 'Output folder not acquired. If dialog did not appear, open in desktop Chrome and retry.'
+    err_no_dir_picker: 'Output folder not acquired. If dialog did not appear, open in desktop Chrome and retry.',
+    note_diagnostics_copied: 'Diagnostics copied to clipboard (sanitized, no file names or paths).',
+    note_diagnostics_downloaded: 'Clipboard unavailable; downloaded sanitized diagnostics JSON instead.',
+    note_diagnostics_failed: 'Failed to collect or copy diagnostics: {err}'
   },
   zh: {
     page_title: 'Apex Local Cut · 本地选片工作区',
     skip_link: '跳到工作区',
     brand_secondary: '· 本地选片工作区',
+    mode_offline: '本地选片',
+    mode_live: '实时模式',
     nav_aria: '工作区',
     nav_portal: '✦ 官网入口',
     nav_analysis: '分析队列',
     nav_review: '片段复核',
     nav_exports: '导出任务',
     session_notice: '刷新或关闭后需重新导入录像',
+    diagnostics_btn: '诊断',
+    diagnostics_copied_btn: '已复制',
+    diagnostics_title: '一键复制脱敏环境与运行诊断信息（不含录像文件名与路径）',
+    diagnostics_aria: '复制诊断信息到剪贴板',
     lang_toggle: 'English',
     lang_toggle_aria: 'Switch language to English / 切换为英文',
 
@@ -547,7 +562,10 @@ export const translations = {
     err_dir_permission_lost: '输出目录写入权限不可用，请点击「选择目录并继续」重新选择。',
     err_dir_aborted: '尚未选择输出目录，选片已保留。点击「选择目录并继续」即可重试。',
     err_valid_trim_time: '请输入有效的切点时间',
-    err_no_dir_picker: '尚未取得输出目录。若未弹出目录窗口，请在桌面 Chrome 中打开本页后选择。'
+    err_no_dir_picker: '尚未取得输出目录。若未弹出目录窗口，请在桌面 Chrome 中打开本页后选择。',
+    note_diagnostics_copied: '已复制脱敏诊断信息到剪贴板（不含录像文件名与路径）。',
+    note_diagnostics_downloaded: '剪贴板不可用，已改为下载脱敏诊断信息 JSON。',
+    note_diagnostics_failed: '复制诊断信息失败：{err}'
   }
 };
 

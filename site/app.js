@@ -11,6 +11,8 @@ import { createExportQueue } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
 import { DEFAULT_EXPORT_SETTINGS, sourceExportSettings, exportSettings } from './export-policy.mjs';
 import { t, getLang, onLanguageChange } from './i18n.js';
+import { createLiveCompanionWorkspace } from './live-companion-ui.mjs';
+import { createDiagnosticLog, collectDiagnostics, copyTextToClipboard } from './diagnostics.mjs';
 
 const $ = (id) => document.getElementById(id);
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Set();
@@ -18,6 +20,10 @@ const queueRows = new Map(), batchRows = new Map();
 const seenCandidates = new Map();
 const presentedRecords = new WeakSet();
 const startingExports = new Set();
+const recordedErrors = new Map();
+const diagnosticLog = createDiagnosticLog();
+diagnosticLog.attachGlobalListeners(window);
+let workspaceMode = 'offline', liveCompanion = null;
 let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
 let directoryHandle = null, exportQueue, selectionTimeline;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
@@ -39,6 +45,7 @@ const source = () => view.sources.find((item) => item.id === activeSourceId);
 const selectedClip = () => source()?.clips.find((clip) => clip.id === source().review.selectedClipId && !clip.excluded);
 let noteTimer = null;
 const note = (message, tone = 'info') => {
+  if (tone === 'error') diagnosticLog.record('ui.error', message);
   $('status').textContent = message;
   $('status').dataset.tone = tone;
   $('status').dataset.page = currentPage;
@@ -64,6 +71,10 @@ const queue = createBrowserAnalysis({ MB,
   },
   onCandidates(record, candidates) { if (record.sourceId) workspace.publishCandidates(record.sourceId, candidates); },
   onChange(record) {
+    if (record.error && recordedErrors.get(`analysis:${record.id}`) !== record.error) {
+      recordedErrors.set(`analysis:${record.id}`, record.error);
+      diagnosticLog.record('analysis', record.error, { status: record.status, model: record.model });
+    }
     let workspaceUpdated = false;
     if (record.sourceId) {
       const next = { status: record.status === 'complete' ? 'completed' : record.status, processedUntil: Math.min(record.duration, Math.max(0, record.processedUntil || 0)), error: record.error || null };
@@ -109,13 +120,21 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
     const saved = workspace.getSource(playerSourceId).review.position;
     if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position });
   }
+  liveCompanion?.notifyExternalPlayback(!!(next.playing && !next.muted && next.volume > 0));
   renderPlayer();
 } });
 
 let outputSettings = DEFAULT_EXPORT_SETTINGS;
 exportQueue = createExportQueue({
   convert: createBrowserConverter({ MB }),
-  onChange({ id, status, outputs, error, progress, clipResults, destination }) { workspace.updateBatch(id, { status, outputs, error, progress, clipResults, destination }); },
+  onChange({ id, status, outputs, error, progress, clipResults, destination }) {
+    if (error && recordedErrors.get(`export:${id}`) !== error) {
+      recordedErrors.set(`export:${id}`, error);
+      diagnosticLog.record('export', error, { status });
+    }
+    workspace.updateBatch(id, { status, outputs, error, progress, clipResults, destination });
+  },
+  onOutput(_batchId, output) { if (output?.name) liveCompanion?.registerExportedFilename(output.name); },
 });
 function directoryCapabilityError() {
   if (!window.isSecureContext) return t('err_dir_secure');
@@ -524,7 +543,28 @@ function renderExports() {
     }
   }
 }
+function switchWorkspaceMode(mode) {
+  if (mode !== 'offline' && mode !== 'live') return;
+  if (mode === 'live') {
+    player.pause();
+    selectionTimeline?.suspend();
+  }
+  workspaceMode = mode;
+  render();
+}
 function render() {
+  const isLive = workspaceMode === 'live';
+  if ($('mode-offline')) $('mode-offline').setAttribute('aria-pressed', String(!isLive));
+  if ($('mode-live')) $('mode-live').setAttribute('aria-pressed', String(isLive));
+  if ($('offline-nav')) $('offline-nav').hidden = isLive;
+  if ($('live-workspace')) $('live-workspace').hidden = !isLive;
+  if (isLive) {
+    $('analysis-page').hidden = true;
+    $('review-page').hidden = true;
+    $('exports-section').hidden = true;
+    $('status').hidden = true;
+    return;
+  }
   $('exports-section').hidden = currentPage !== 'exports';
   $('nav-exports').setAttribute('aria-current', currentPage === 'exports' ? 'page' : 'false');
   const activeExports = view.batches.filter((batch) => ['awaiting-destination', 'queued', 'running'].includes(batch.status)).length;
@@ -668,7 +708,7 @@ for (const key of ['start', 'end']) {
   if (quickSet) quickSet.onclick = () => safely(() => trimBoundary(key, source().review.position));
 }
 selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(),
-  isActive: () => currentPage === 'review' && !loadingSource,
+  isActive: () => workspaceMode === 'offline' && currentPage === 'review' && !loadingSource,
   playPause: () => { if (!$('play-pause').disabled) $('play-pause').click(); },
   playRange: () => { if (!$('play-selection').disabled) $('play-selection').click(); },
   toggleMute: () => player.toggleMute(),
@@ -692,9 +732,177 @@ window.addEventListener('beforeunload', event => {
 });
 window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
 const ready = Promise.resolve();
+if ($('mode-offline')) $('mode-offline').onclick = () => switchWorkspaceMode('offline');
+if ($('mode-live')) $('mode-live').onclick = () => switchWorkspaceMode('live');
+if ($('live-workspace')) {
+  liveCompanion = createLiveCompanionWorkspace({
+    MB,
+    container: $('live-workspace'),
+    onLiveRunningChange(running) {
+      if ($('mode-live-dot')) $('mode-live-dot').dataset.live = String(!!running);
+      if (running) queue.pause();
+      else queue.resume();
+    },
+    async onOpenMasterReview(conformed) {
+      const identity = await identifyFile(conformed.file);
+      identified.set(conformed.file, identity);
+      let sourceId = bindings.has(identity.id) ? identity.id : null;
+      if (!sourceId) {
+        const record = await queue.importPrecomputed(conformed.file, {
+          model: DEFAULT_MODEL,
+          threshold: 0.2,
+          windowScores: conformed.windowScores,
+          waveform: conformed.waveform,
+          scoreTimeline: conformed.scoreTimeline || null,
+          alignment: conformed.alignment,
+        });
+        sourceId = record.sourceId;
+        for (const dec of conformed.liveDecisions || []) {
+          try {
+            if (dec.kind === 'retain') workspace.addManual(sourceId, { start: dec.start, end: dec.end });
+            else if (dec.kind === 'exclude') {
+              const id = workspace.addManual(sourceId, { start: dec.start, end: dec.end });
+              workspace.exclude(sourceId, id);
+            }
+          } catch {}
+        }
+      }
+      switchWorkspaceMode('offline');
+      await openReview(sourceId);
+      const alignTag = conformed.alignment?.confidence === 'exact'
+        ? `精确对齐 (${conformed.alignment.offsetMs >= 0 ? '+' : ''}${conformed.alignment.offsetMs}ms)`
+        : '粗略对齐（建议微调或重新分析）';
+      note(`已打开录像：${conformed.name} · ${alignTag}`);
+    },
+  });
+}
+function buildDiagnosticState() {
+  const sources = view.sources.map((saved) => {
+    const record = bindings.get(saved.id);
+    const clips = Array.isArray(saved.clips) ? saved.clips : [];
+    const video = record?.video;
+    const tracks = Array.isArray(record?.tracks) ? record.tracks : [];
+    return {
+      status: record?.status || saved.analysis?.status || null,
+      duration: saved.duration || record?.duration || null,
+      processedUntil: record?.processedUntil ?? saved.analysis?.processedUntil ?? null,
+      width: video?.displayWidth || video?.codedWidth || null,
+      height: video?.displayHeight || video?.codedHeight || null,
+      videoCodec: video?.codec || null,
+      audioTrackCount: tracks.length || null,
+      audioCodecs: tracks.map((track) => track?.codec).filter(Boolean),
+      model: record?.model || null,
+      candidateCount: clips.filter((clip) => !clip.provisional && !clip.excluded).length,
+      selectedCount: clips.filter((clip) => clip.selected && !clip.provisional && !clip.excluded).length,
+      timings: record?.timings || null,
+      error: record?.error || saved.analysis?.error || null,
+    };
+  });
+  for (const record of queue.records) {
+    if (record.sourceId) continue;
+    sources.push({
+      status: record.status || null,
+      duration: record.duration || null,
+      processedUntil: record.processedUntil ?? null,
+      model: record.model || null,
+      error: record.error || null,
+    });
+  }
+  const batches = view.batches.map((batch) => ({
+    status: batch.status || null,
+    format: batch.output?.format || null,
+    clipCount: Array.isArray(batch.clips) ? batch.clips.length : null,
+    savedCount: Array.isArray(batch.outputs) ? batch.outputs.filter((item) => item?.saved).length : 0,
+    error: batch.error || null,
+  }));
+  const liveSnap = liveCompanion?.session?.snapshot?.() || null;
+  const watcherState = liveCompanion?.watcher?.state || null;
+  const resourceSnapshot = liveCompanion?.resourceMonitor?.getSnapshot?.() || null;
+  return {
+    mode: workspaceMode,
+    page: currentPage,
+    language: getLang(),
+    workspace: {
+      sources,
+      batches,
+      hasOutputDirectory: Boolean(directoryHandle),
+      player: {
+        status: playerState.status,
+        playing: playerState.playing,
+        muted: playerState.muted,
+      },
+    },
+    liveCompanion: liveSnap ? {
+      active: liveSnap.active,
+      watchingDirectory: Boolean(watcherState?.watching),
+      gated: Boolean(liveSnap.gated),
+      candidateCount: liveSnap.candidates?.length || 0,
+      decisionCount: liveSnap.decisions?.length || 0,
+      conformedCount: liveSnap.conformed?.length || 0,
+      resourceSnapshot,
+    } : null,
+  };
+}
+
+let diagnosticsCopiedTimer = null;
+function setDiagnosticsCopiedVisual(copied) {
+  const btn = $('copy-diagnostics');
+  if (!btn) return;
+  btn.dataset.copied = String(copied);
+  const label = btn.querySelector('.diag-label');
+  if (label) label.textContent = copied ? t('diagnostics_copied_btn') : t('diagnostics_btn');
+}
+
+async function getDiagnosticsSnapshot() {
+  return collectDiagnostics({ env: window, getState: buildDiagnosticState, log: diagnosticLog });
+}
+
+function downloadDiagnosticsFallback(json) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `apex-local-cut-diagnostics-${stamp}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function copyDiagnostics({ allowDownloadFallback = true } = {}) {
+  const btn = $('copy-diagnostics');
+  if (btn) btn.disabled = true;
+  try {
+    const report = await getDiagnosticsSnapshot();
+    const json = JSON.stringify(report, null, 2);
+    const result = await copyTextToClipboard(json, window);
+    if (result.ok) {
+      clearTimeout(diagnosticsCopiedTimer);
+      setDiagnosticsCopiedVisual(true);
+      diagnosticsCopiedTimer = setTimeout(() => setDiagnosticsCopiedVisual(false), 2200);
+      note(t('note_diagnostics_copied'), 'info');
+      return { ...result, report, json };
+    }
+    if (allowDownloadFallback) {
+      downloadDiagnosticsFallback(json);
+      note(t('note_diagnostics_downloaded'), 'info');
+      return { ok: true, method: 'download', report, json };
+    }
+    throw new Error('Clipboard unavailable');
+  } catch (error) {
+    note(t('note_diagnostics_failed', { err: errorText(error) }), 'error');
+    return { ok: false, method: 'failed', error: errorText(error) };
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+if ($('copy-diagnostics')) {
+  $('copy-diagnostics').onclick = () => { void copyDiagnostics(); };
+}
 $('import-files').disabled = false;
 render();
 note(t('status_ready'), 'quiet');
-window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; } };
+window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, switchWorkspaceMode, liveCompanion, collectDiagnostics: getDiagnosticsSnapshot, copyDiagnostics, diagnosticLog, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; }, get mode() { return workspaceMode; } };
 
 if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
+else if (new URLSearchParams(location.search).get('mode') === 'live') switchWorkspaceMode('live');

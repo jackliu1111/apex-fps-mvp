@@ -17,33 +17,6 @@ const BUILTIN_MODELS = Object.freeze({
     inputName: 'mel',
     inputShape: [1, 1, 128, 1000],
   },
-  efficientat: {
-    manifestUrl: '/assets/efficientat/model.json',
-    onnxUrl: '/assets/efficientat/mn04.onnx',
-    frontendUrl: '/assets/efficientat/frontend.json',
-    frontendType: 'efficientat',
-    sampleRate: 32000,
-    windowSeconds: 10,
-    strideSeconds: 5,
-    scoreType: 'window',
-    inputName: 'mel',
-    inputShape: [1, 1, 128, 1000],
-  },
-  beats: {
-    manifestUrl: '/assets/model.json',
-    onnxUrl: '/assets/beats.onnx',
-    frontendUrl: null,
-    frontendType: 'waveform',
-    sampleRate: 16000,
-    windowSeconds: 10,
-    strideSeconds: 5,
-    frameSeconds: 0.04,
-    framesPerWindow: 250,
-    hopFrames: 125,
-    scoreType: 'frame',
-    inputName: 'waveform',
-    inputShape: [1, 160000],
-  },
 });
 
 function normalizeModelSpec(id, raw) {
@@ -51,30 +24,34 @@ function normalizeModelSpec(id, raw) {
     throw new Error(`模型注册配置无效：${String(id)}`);
   }
   const scoreType = raw.scoreType;
-  if (!['frame', 'window'].includes(scoreType)) {
+  if (scoreType !== 'frame') {
     throw new Error(`模型注册配置无效（scoreType）：${String(id)}`);
   }
   if (typeof raw.manifestUrl !== 'string' || !raw.manifestUrl || typeof raw.onnxUrl !== 'string' || !raw.onnxUrl) {
     throw new Error(`模型注册配置无效（资产路径）：${id}`);
   }
-  if (![16000, 32000].includes(raw.sampleRate)) {
+  if (raw.sampleRate !== 16000) {
     throw new Error(`模型注册配置无效（采样率）：${id}`);
   }
   if (typeof raw.inputName !== 'string' || !raw.inputName || !Array.isArray(raw.inputShape) || !raw.inputShape.length) {
     throw new Error(`模型注册配置无效（输入张量）：${id}`);
   }
+  const frontendType = raw.frontendType || 'efficientsed';
+  if (frontendType !== 'efficientsed') {
+    throw new Error(`模型注册配置无效（前处理类型）：${id}`);
+  }
   const windowSeconds = raw.windowSeconds ?? 10;
   const strideSeconds = raw.strideSeconds ?? 5;
-  const frameSeconds = scoreType === 'frame' ? (raw.frameSeconds ?? 0.04) : undefined;
-  const framesPerWindow = scoreType === 'frame' ? (raw.framesPerWindow ?? 250) : undefined;
-  const hopFrames = scoreType === 'frame' ? (raw.hopFrames ?? 125) : undefined;
+  const frameSeconds = raw.frameSeconds ?? 0.04;
+  const framesPerWindow = raw.framesPerWindow ?? 250;
+  const hopFrames = raw.hopFrames ?? 125;
   const gunshotClasses = Object.freeze([...(raw.gunshotClasses || GUNSHOT_CLASSES)]);
   return Object.freeze({
     id,
     manifestUrl: raw.manifestUrl,
     onnxUrl: raw.onnxUrl,
     frontendUrl: raw.frontendUrl ?? null,
-    frontendType: raw.frontendType || 'waveform',
+    frontendType,
     sampleRate: raw.sampleRate,
     windowSeconds,
     strideSeconds,
@@ -147,7 +124,7 @@ const sameShape = (actual, expected) => Array.isArray(actual)
 
 /** Expected ONNX output tensor dimensions for a registered model and manifest class list. */
 export function expectedOutputShape(spec, classCount) {
-  return spec.scoreType === 'window' ? [1, classCount] : [1, spec.framesPerWindow, classCount];
+  return [1, spec.framesPerWindow, classCount];
 }
 
 /** Validate manifest structure, classes order/uniqueness, gunshot labels, and dimensions against a model spec. */
@@ -161,7 +138,6 @@ export function validateModelManifest(spec, manifest) {
   if (manifest.sampleRate !== spec.sampleRate) {
     throw new Error(`模型清单采样率不匹配：期望 ${spec.sampleRate} Hz，实际 ${manifest.sampleRate}`);
   }
-  // BEATs manifests omit scoreType; reject only if explicitly specified and conflicting.
   if (manifest.scoreType !== undefined && manifest.scoreType !== spec.scoreType) {
     throw new Error(`模型清单分数类型不匹配：期望 ${spec.scoreType}，实际 ${manifest.scoreType}`);
   }
@@ -171,7 +147,7 @@ export function validateModelManifest(spec, manifest) {
   if (manifest.strideSeconds !== undefined && manifest.strideSeconds !== spec.strideSeconds) {
     throw new Error(`模型清单步长不匹配：期望 ${spec.strideSeconds}s，实际 ${manifest.strideSeconds}s`);
   }
-  if (spec.scoreType === 'frame' && manifest.frameSeconds !== undefined && Math.abs(manifest.frameSeconds - spec.frameSeconds) > 1e-6) {
+  if (manifest.frameSeconds !== undefined && Math.abs(manifest.frameSeconds - spec.frameSeconds) > 1e-6) {
     throw new Error(`模型清单帧步长不匹配：期望 ${spec.frameSeconds}s，实际 ${manifest.frameSeconds}s`);
   }
   if (manifest.activation !== undefined && manifest.activation !== 'sigmoid') {
@@ -206,7 +182,7 @@ export function validateModelManifest(spec, manifest) {
 export function validateInferenceOutput(spec, manifest, { values, dims } = {}) {
   const outputShape = expectedOutputShape(spec, manifest.classes.length);
   const expectedLength = outputShape.reduce((product, dim) => product * dim, 1);
-  const label = spec.scoreType === 'window' ? '窗口分数无效' : '模型输出无效';
+  const label = '模型输出无效';
   if (Array.isArray(dims) && dims.length > 0 && !sameShape(dims, outputShape)) {
     throw new Error(`${label}：维度 [${dims.join(', ')}] 与清单 [${outputShape.join(', ')}] 不一致`);
   }

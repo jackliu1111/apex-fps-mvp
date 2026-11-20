@@ -3,12 +3,12 @@ import { DEFAULT_MODEL } from './model-registry.mjs';
 
 export function createAnalysisQueue({ prepare, analyze, onPrepared = async () => {}, onChange = () => {}, onCandidates = () => {}, release = () => {} }) {
   const records = [], waiters = [], jobs = new Map(), generations = new Map(), prepared = new Set();
-  let running = false, preparations = 0, disposed = false;
+  let running = false, preparations = 0, disposed = false, paused = false;
   const get = (id) => records.find((record) => record.id === id);
   const emit = (record) => onChange(record);
   const stopped = () => new DOMException('分析已停止', 'AbortError');
   function settle() {
-    if (!running && preparations === 0 && !records.some((record) => record.status === 'queued')) {
+    if (!running && preparations === 0 && (paused || !records.some((record) => record.status === 'queued'))) {
       for (const resolve of waiters.splice(0)) resolve();
     }
   }
@@ -20,11 +20,11 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
     return { controller, current: () => generations.get(record.id) === generation && records.includes(record) };
   }
   async function pump() {
-    if (running || disposed) return;
+    if (running || disposed || paused) return;
     running = true;
     try {
       let record;
-      while (!disposed && (record = records.find((item) => item.status === 'queued'))) {
+      while (!disposed && !paused && (record = records.find((item) => item.status === 'queued'))) {
         const { controller, current } = begin(record);
         record.status = 'analyzing'; emit(record);
         try {
@@ -71,6 +71,48 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       await Promise.all(added.map(prepareOne));
       return added;
     },
+    async importPrecomputed(file, precomputed = {}) {
+      if (disposed) throw new Error('分析队列已关闭');
+      const record = {
+        id: crypto.randomUUID(),
+        file,
+        model: precomputed.model || DEFAULT_MODEL,
+        threshold: precomputed.threshold ?? 0.2,
+        status: 'preparing',
+        error: null,
+        candidates: [],
+        processedUntil: 0,
+        windows: 0,
+        frontier: -Infinity,
+      };
+      records.push(record); emit(record);
+      const { controller, current } = begin(record);
+      preparations++;
+      try {
+        const media = await prepare(record, { signal: controller.signal });
+        if (!current() || controller.signal.aborted) { media?.input?.dispose(); return record; }
+        Object.assign(record, media); prepared.add(record.id);
+        await onPrepared(record);
+        if (!current() || controller.signal.aborted) return record;
+        if (typeof precomputed.apply === 'function') await precomputed.apply(record);
+        record.status = 'complete';
+        record.processedUntil = record.duration;
+        record.frontier = Infinity;
+        jobs.delete(record.id);
+        onCandidates(record, record.candidates);
+        emit(record);
+        return record;
+      } catch (error) {
+        if (current()) { record.status = controller.signal.aborted ? 'stopped' : 'failed'; record.error = controller.signal.aborted ? null : error.message || String(error); emit(record); }
+        throw error;
+      } finally {
+        if (current() && jobs.get(record.id) === controller) jobs.delete(record.id);
+        preparations--; settle();
+      }
+    },
+    pause() { paused = true; settle(); },
+    resume() { paused = false; void pump(); },
+    get paused() { return paused; },
     stop(id) {
       const record = get(id);
       if (!record || !['preparing', 'queued', 'analyzing'].includes(record.status)) return false;

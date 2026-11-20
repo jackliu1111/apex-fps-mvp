@@ -33,7 +33,7 @@ def build(source, output):
         for name in ("index.html", "app.js", "inference-worker.js", "LICENSE", "THIRD_PARTY_NOTICES.md"):
             if not (site / name).is_file():
                 raise ValueError(f"Missing release file: {name}")
-        for model in ("efficientsed", "efficientat"):
+        for model in ("efficientsed",):
             folder = site / "assets" / model
             manifest = json.loads((folder / "model.json").read_text())
             verify_asset(folder / manifest["modelFile"], manifest)

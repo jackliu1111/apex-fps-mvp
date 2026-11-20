@@ -38,8 +38,8 @@ class MissingAssetsTest(unittest.TestCase):
         self.assertIn('efficientsed/model.json', names)
         self.assertIn('efficientsed/fmn10-tf256.onnx', names)
         self.assertIn('efficientsed/frontend.json', names)
-        self.assertIn('efficientat/model.json', names)
-        self.assertIn('model.json', names)
+        self.assertNotIn('efficientat/model.json', names)
+        self.assertNotIn('model.json', names)
 
     def test_complete_directory_reports_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -54,18 +54,15 @@ class MissingAssetsTest(unittest.TestCase):
             complete_assets(Path(tmp))
             (Path(tmp) / 'efficientsed/model.json').unlink()
             (Path(tmp) / 'efficientsed/fmn10-tf256.onnx').unlink()
-            (Path(tmp) / 'efficientat/model.json').unlink()
             output = io.StringIO()
             missing = serve.report_assets(Path(tmp), output)
         self.assertEqual(missing, [
-            ('EfficientSED 默认模型', 'efficientsed/model.json'),
-            ('EfficientSED 默认模型', 'efficientsed/fmn10-tf256.onnx'),
-            ('EfficientAT 可选模型', 'efficientat/model.json'),
+            ('EfficientSED 模型', 'efficientsed/model.json'),
+            ('EfficientSED 模型', 'efficientsed/fmn10-tf256.onnx'),
         ])
         text = output.getvalue()
         self.assertIn('efficientsed/model.json', text)
         self.assertIn('efficientsed/fmn10-tf256.onnx', text)
-        self.assertIn('efficientat/model.json', text)
         self.assertIn('--assets', text)
         self.assertIn('重建模型资产', text)
 

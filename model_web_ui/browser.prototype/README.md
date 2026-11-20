@@ -6,13 +6,13 @@
 
 ## 启动
 
-正式选片工作区默认通过 `model-registry.mjs` 使用浏览器端逐帧模型 EfficientSED（`DEFAULT_MODEL = 'efficientsed'`，40 ms 步距、16 kHz），同时保留 EfficientAT 与 BEATs 路由支持。EfficientSED 全类别录像外置盘导出实验仍保留在独立入口 [MODEL-LAB.md](MODEL-LAB.md)。
+正式选片工作区与实时模式统一通过 `model-registry.mjs` 使用浏览器端逐帧模型 EfficientSED（`DEFAULT_MODEL = 'efficientsed'`，40 ms 步距、16 kHz）。EfficientSED 全类别录像外置盘导出实验仍保留在独立入口 [MODEL-LAB.md](MODEL-LAB.md)。
 
 ```sh
 python3 model_web_ui/browser.prototype/serve.py
 ```
 
-打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。纯静态页面与默认模型资产（`vendor/`、`efficientsed/`、`efficientat/`）现已统一归入仓库根目录下的自包含发布目录 [`site/`](../../site)，`serve.py` 默认直接读取 `site/` 与 `site/assets/`，Cloudflare Pages 或服务器从 Git 拉取后可直接将根目录指向 `site/` 部署。需要独立后台预览时使用 `--background`；开发阶段测试实验资产时仍可通过 `--assets /绝对路径` 覆盖资产目录。
+打开 <http://127.0.0.1:8792>，使用支持 WebCodecs 的桌面 Chrome。纯静态页面与默认模型资产（`vendor/`、`efficientsed/`）现已统一归入仓库根目录下的自包含发布目录 [`site/`](../../site)，`serve.py` 默认直接读取 `site/` 与 `site/assets/`，Cloudflare Pages 或服务器从 Git 拉取后可直接将根目录指向 `site/` 部署。需要独立后台预览时使用 `--background`；开发阶段测试实验资产时仍可通过 `--assets /绝对路径` 覆盖资产目录。
 
 
 ## 故障排查：模型清单无法读取（HTTP 404）
@@ -21,8 +21,7 @@ python3 model_web_ui/browser.prototype/serve.py
 
 ```sh
 ASSETS=/absolute/path/to/assets   # 与启动命令的 --assets 相同
-ls "$ASSETS/efficientsed/model.json" "$ASSETS/efficientsed/fmn10-tf256.onnx" "$ASSETS/efficientsed/frontend.json" \
-   "$ASSETS/efficientat/model.json" "$ASSETS/efficientat/mn04.onnx" "$ASSETS/efficientat/frontend.json"
+ls "$ASSETS/efficientsed/model.json" "$ASSETS/efficientsed/fmn10-tf256.onnx" "$ASSETS/efficientsed/frontend.json"
 ```
 
 文件缺失时按「开发阶段重建资产」重建，或把 `--assets` 指向完整目录。`serve.py` 启动时也会打印缺失清单；默认的 `/private/tmp` 路径被系统清理后就会出现这种状态，页面本身仍可打开。
@@ -87,29 +86,15 @@ ASSETS_DIR=/path/to/assets node --test model_web_ui/browser.prototype/tests/effi
 
 ## 开发阶段重建资产
 
-以下仅是开发者转换和打包步骤，不是网站用户的安装步骤。开发依赖单独列于 [`scripts/requirements-browser-export.txt`](../../scripts/requirements-browser-export.txt)，不再通过旧 Python 服务的 `pyproject.toml` 安装。两个导出器是保留的资产构建工具，主界面仍支持 EfficientAT 和 BEATs。Python 需要既有模型环境和 ONNX 1.19.1、ONNX Runtime 1.23.2；下面只读取此前已有的 `/private/tmp/apex-browser-prototype-20261026/deps`，其他环境须替换为自己的依赖位置。
+以下仅是开发者转换和打包步骤，不是网站用户的安装步骤。开发依赖单独列于 [`scripts/requirements-browser-export.txt`](../../scripts/requirements-browser-export.txt)，不再通过旧 Python 服务的 `pyproject.toml` 安装。当前项目已全面迁移至 EfficientSED（导出步骤见 [MODEL-LAB.md](MODEL-LAB.md) 与 `export_efficientsed.py`）；旧版 BEATs 与 EfficientAT 导出器及资产已移除。
 
-BEATs 单文件约 356 MiB，模型、运行库及开发临时空间至少按 1 GiB 预留。先用 `diskutil info /Volumes/EXTERNALUSB` 确认它是真实已挂载的外接卷，再用 `df -h /Volumes/EXTERNALUSB` 检查空间，并确认目录可写及所需权限、符号链接受支持。挂载不可用时停止重建，不能在本机创建同名目录。以下 `NEW-TASK` 必须改成新的任务名，避免覆盖已有资产。
+`download_runtime.py` 只依赖标准库和 `curl`，可用系统 Python 3.9 补回浏览器运行库：
 
 ```sh
-APEX_BUILD_ROOT=/Volumes/EXTERNALUSB/codex-artifacts/apex-fps-mvp/browser-assets-NEW-TASK
-mkdir -p "$APEX_BUILD_ROOT/tmp"
-
-env PYTHONDONTWRITEBYTECODE=1 TMPDIR="$APEX_BUILD_ROOT/tmp" \
-  PYTHONPATH=/private/tmp/apex-browser-prototype-20261026/deps \
-  /Users/jackliu/apex-voice-detect/.venv-pretrainedsed/bin/python \
-  model_web_ui/browser.prototype/export_model.py \
-  --workspace /Users/jackliu/apex-voice-detect \
-  --output "$APEX_BUILD_ROOT/assets"
-
-/Users/jackliu/apex-voice-detect/.venv-pretrainedsed/bin/python \
-  model_web_ui/browser.prototype/download_runtime.py \
-  --assets "$APEX_BUILD_ROOT/assets"
+python3 model_web_ui/browser.prototype/download_runtime.py --assets site/assets
 ```
 
-重建后用 `python3 model_web_ui/browser.prototype/serve.py --assets "$APEX_BUILD_ROOT/assets"` 指向新资产；使用期间需要该外接卷保持挂载。新生成模型、运行库、权重与缓存均不提交 Git。
-
-导出器将 Kaldi fbank 改写为固定窗口的实数 DFT 矩阵计算，并将 496→250 的 adaptive average pooling 表达成等价固定矩阵。仅支持 `[1,160000]` 波形输入和 `[1,250,447]` 概率输出，短音频补零；该 BEATs 导出器不做量化或蒸馏。`model.json` 包含参数、类别、模型哈希和 Python 对照误差；vendor 清单包含来源、版本、字节数与 SHA-256。
+重建后用 `python3 model_web_ui/browser.prototype/serve.py --assets /path/to/assets` 指向新资产。
 
 ## 范围与限制
 
@@ -125,33 +110,6 @@ env PYTHONDONTWRITEBYTECODE=1 TMPDIR="$APEX_BUILD_ROOT/tmp" \
 此前原型的合成耗时记录覆盖：固定 10 秒音频冷／热各 3 次，重新创建 Worker 作为冷会话；随后测 12 秒合成视频的两窗口分析和 5 秒合成片段导出。只自动确认新生成样本的第一音轨，不分析用户已导入的其他录像。结果可下载 JSON；本机资源读取速度不等于公网下载速度。
 
 上游参考：[ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/)、[Mediabunny](https://mediabunny.dev/guide/converting-media-files)。运行库许可证与静态资产一同下载。
-
-
-## EfficientAT mn04_as 重建
-
-选用作者现成的 Transformer-to-CNN 蒸馏权重，未自行训练、量化或剪枝。源码固定为 `a425fdce92572e602a1d5634799bd9f1f2efa806`。模型计算图 3,972,280 字节；前处理常量、基准数据与来源信息位于 assets/efficientat。重建使用上节已验证挂载的新任务目录 `APEX_BUILD_ROOT`，不沿用历史原型的本机存储例外。
-
-```sh
-git clone --depth 1 --filter=blob:none --sparse https://github.com/fschmid56/EfficientAT.git "$APEX_BUILD_ROOT/EfficientAT"
-git -C "$APEX_BUILD_ROOT/EfficientAT" sparse-checkout set models helpers metadata
-git -C "$APEX_BUILD_ROOT/EfficientAT" fetch --depth 1 origin a425fdce92572e602a1d5634799bd9f1f2efa806
-git -C "$APEX_BUILD_ROOT/EfficientAT" checkout a425fdce92572e602a1d5634799bd9f1f2efa806
-curl -fL https://github.com/fschmid56/EfficientAT/releases/download/v0.0.1/mn04_as_mAP_432.pt -o "$APEX_BUILD_ROOT/mn04_as_mAP_432.pt"
-
-# 既有 Python 为 torch/torchaudio 2.8.0；只在隔离 deps 中补充开发依赖。
-TMPDIR="$APEX_BUILD_ROOT/tmp" /Users/jackliu/apex-voice-detect/.venv-pretrainedsed/bin/python \
-  -m pip install --no-deps --no-cache-dir --target "$APEX_BUILD_ROOT/deps" torchvision==0.23.0 pillow==11.3.0
-PYTHONDONTWRITEBYTECODE=1 TMPDIR="$APEX_BUILD_ROOT/tmp" \
-  PYTHONPATH="$APEX_BUILD_ROOT/deps:/private/tmp/apex-browser-prototype-20261026/deps" \
-  /Users/jackliu/apex-voice-detect/.venv-pretrainedsed/bin/python \
-  model_web_ui/browser.prototype/export_efficientat.py \
-  --source "$APEX_BUILD_ROOT/EfficientAT" --checkpoint "$APEX_BUILD_ROOT/mn04_as_mAP_432.pt" \
-  --output "$APEX_BUILD_ROOT/assets/efficientat"
-```
-
-不要覆盖已存在的 checkout 或重新安装无关依赖。上面的下载权重 SHA-256 应为 `899a8c6217063f6941793102a2780b3dd788ab11fce468d9cf5f0577c453321c`。导出器严格加载全部权重，检查 ONNX，并对照原 PyTorch；前处理固定为作者 eval 的 32 kHz / 128 Mel / 1024 FFT / 800 Hann / 320 hop。前端数值与分类分数都需验证，不能只验证 CNN。
-
-作者仓库 MIT 许可证复制在 `assets/efficientat/EfficientAT-LICENSE`，具体 checkpoint 来源与哈希在 model.json；本轮仅本机实验，未发布第三方模型。原始权重仍保留，不提交 Git。
 
 ## 历史基础：渐进候选与顺序解码（2026-10-27）
 

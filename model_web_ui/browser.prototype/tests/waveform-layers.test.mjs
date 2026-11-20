@@ -172,7 +172,7 @@ test('layeredWaveColumns computes sqrt(peak) contour, 3 visual states, top-down 
   });
   assert.deepEqual(filteredCols[2].layers.map((l) => [l.id, l.height]), [['impact', 15], ['gunshot', 18]]);
 
-  // Missing scoreTimeline (reviewPreview or EfficientAT) falls back gracefully to neutral contour
+  // Missing scoreTimeline (e.g. reviewPreview) falls back gracefully to neutral contour
   const previewCols = layeredWaveColumns({ ...base, scoreTimeline: null });
   assert.equal(previewCols[2].state, 'neutral');
   assert.equal(previewCols[2].waveHeight, 30);

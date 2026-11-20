@@ -22,7 +22,7 @@ class DigestTest(unittest.TestCase):
             self.assertEqual(download_runtime.sha256_file(path), hashlib.sha256(data).hexdigest())
 
     def test_asset_tools_do_not_use_the_python_311_only_digest_api(self):
-        for name in ('download_runtime.py', 'export_efficientat.py', 'export_model.py'):
+        for name in ('download_runtime.py', 'export_efficientsed.py'):
             self.assertNotIn('hashlib.file_digest(', (TOOLS / name).read_text(), name)
 
     def test_empty_file_hashes_like_hashlib(self):

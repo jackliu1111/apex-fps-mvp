@@ -3,7 +3,7 @@ import { createAnalysisQueue } from './analysis-queue.mjs';
 import { sequentialAudio } from './stream-audio.js';
 import { createMediaReadSource } from './media-read-source.mjs';
 import { CANDIDATE_PADDING_SECONDS, CANDIDATE_GAP_SECONDS, mergeCandidateRanges } from './candidate-ranges.mjs';
-import { assetRecoveryHint, defaultModelRegistry, validateModelManifest, validateInferenceOutput } from './model-registry.mjs';
+import { DEFAULT_MODEL, assetRecoveryHint, defaultModelRegistry, validateModelManifest, validateInferenceOutput } from './model-registry.mjs';
 import { FrameOverlap } from './lab-scores.mjs';
 import { DISPLAY_GROUPS, createDisplayGrouping } from './lab-display-groups.mjs';
 import { createGroupScorePyramid, updateGroupScorePyramid } from './waveform-layers.mjs';
@@ -69,7 +69,7 @@ function serializeModelSpec(spec) {
     manifestUrl: spec.manifestUrl,
     onnxUrl: spec.onnxUrl,
     frontendUrl: spec.frontendUrl ?? null,
-    frontendType: spec.frontendType || 'waveform',
+    frontendType: spec.frontendType || 'efficientsed',
     sampleRate: spec.sampleRate,
     windowSeconds: spec.windowSeconds,
     strideSeconds: spec.strideSeconds,
@@ -194,20 +194,18 @@ export function createBrowserAnalysis({
       const metrics = record.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, audioSetupMs: performance.now() - started, audioWaitMs: 0, inferenceRoundTripMs: 0, postprocessAndRenderMs: 0, timingVersion: 3 };
       record.analysisStarted = started; record.windows = 0; record.processedUntil = 0; record.frontier = -Infinity;
       record.scores = null; record.scoreFrames = 0; record.frameSeconds = spec.frameSeconds || 0.04; record.windowScores = null;
-      const small = spec.scoreType === 'window';
       const groupCount = DISPLAY_GROUPS.length;
       record.scoreTimeline = null;
       record.waveform = createAudioPeaks(record.duration, record.selected);
       onWaveform(record, record.waveform);
       const frameSeconds = spec.frameSeconds || 0.04;
-      const frameCount = small ? 0 : Math.max(1, Math.ceil((duration - 1e-9) / frameSeconds));
+      const frameCount = Math.max(1, Math.ceil((duration - 1e-9) / frameSeconds));
       const windows = Math.ceil(Math.max(0, duration - spec.windowSeconds) / spec.strideSeconds) + 1;
-      const overlap = small ? null : new FrameOverlap(manifest.classes.length, frameCount, spec.framesPerWindow, spec.hopFrames);
-      const preallocatedScores = small ? null : new Float32Array(frameCount * 2);
-      const preallocatedGroupScores = small ? null : new Float32Array(frameCount * groupCount);
-      const preallocatedGroupPyramid = small ? null : createGroupScorePyramid(preallocatedGroupScores, frameCount, groupCount, frameSeconds);
-      const groupFrame = small ? null : createDisplayGrouping(manifest.classes);
-      const windowScores = [];
+      const overlap = new FrameOverlap(manifest.classes.length, frameCount, spec.framesPerWindow, spec.hopFrames);
+      const preallocatedScores = new Float32Array(frameCount * 2);
+      const preallocatedGroupScores = new Float32Array(frameCount * groupCount);
+      const preallocatedGroupPyramid = createGroupScorePyramid(preallocatedGroupScores, frameCount, groupCount, frameSeconds);
+      const groupFrame = createDisplayGrouping(manifest.classes);
       const previousStable = record.candidates.filter((candidate) => !candidate.provisional);
       let stream, ahead;
       function publishProgress(frontier, processedUntil) {
@@ -237,42 +235,37 @@ export function createBrowserAnalysis({
           for (const key of ['readMs', 'initializeMs', 'frontendMs', 'inferenceMs']) metrics[key] += timings[key] || 0;
           const postprocessStarted = performance.now();
           validateInferenceOutput(spec, manifest, { values, dims });
-          if (small) {
-            windowScores.push({ start: index * spec.strideSeconds + record.audioOffset, end: Math.min(index * spec.strideSeconds + spec.windowSeconds, duration) + record.audioOffset, scores: indices.map((category) => values[category]) });
-            record.windowScores = windowScores;
+          const block = overlap.push(values, index + 1 === windows);
+          const classCount = manifest.classes.length;
+          for (let frame = 0; frame < block.frameCount; frame++) {
+            const dst = (block.startFrame + frame) * 2;
+            const src = frame * classCount;
+            preallocatedScores[dst] = block.values[src + indices[0]];
+            preallocatedScores[dst + 1] = block.values[src + indices[1]];
+            groupFrame(block.values.subarray(src, src + classCount), preallocatedGroupScores, (block.startFrame + frame) * groupCount);
+          }
+          updateGroupScorePyramid(preallocatedGroupPyramid, block.startFrame, block.frameCount);
+          if (!record.scores) record.scores = preallocatedScores;
+          record.scoreFrames = overlap.cursor;
+          if (!record.scoreTimeline) {
+            record.scoreTimeline = {
+              groupScores: preallocatedGroupScores,
+              groupScoreFrames: overlap.cursor,
+              groupScorePyramid: preallocatedGroupPyramid,
+              groupCount,
+              frameSeconds,
+              audioOffset: record.audioOffset,
+              audioDuration: duration,
+            };
           } else {
-            const block = overlap.push(values, index + 1 === windows);
-            const classCount = manifest.classes.length;
-            for (let frame = 0; frame < block.frameCount; frame++) {
-              const dst = (block.startFrame + frame) * 2;
-              const src = frame * classCount;
-              preallocatedScores[dst] = block.values[src + indices[0]];
-              preallocatedScores[dst + 1] = block.values[src + indices[1]];
-              groupFrame(block.values.subarray(src, src + classCount), preallocatedGroupScores, (block.startFrame + frame) * groupCount);
-            }
-            updateGroupScorePyramid(preallocatedGroupPyramid, block.startFrame, block.frameCount);
-            if (!record.scores) record.scores = preallocatedScores;
-            record.scoreFrames = overlap.cursor;
-            if (!record.scoreTimeline) {
-              record.scoreTimeline = {
-                groupScores: preallocatedGroupScores,
-                groupScoreFrames: overlap.cursor,
-                groupScorePyramid: preallocatedGroupPyramid,
-                groupCount,
-                frameSeconds,
-                audioOffset: record.audioOffset,
-                audioDuration: duration,
-              };
-            } else {
-              record.scoreTimeline.groupScoreFrames = overlap.cursor;
-            }
+            record.scoreTimeline.groupScoreFrames = overlap.cursor;
           }
           record.windows = index + 1;
-          const frontier = (small ? (index + 1) * spec.strideSeconds : (record.scoreFrames - 1) * frameSeconds) + record.audioOffset;
+          const frontier = (record.scoreFrames - 1) * frameSeconds + record.audioOffset;
           publishProgress(frontier, Math.min(record.duration, Math.max(0, (index * spec.strideSeconds + spec.windowSeconds) + record.audioOffset)));
           metrics.postprocessAndRenderMs += performance.now() - postprocessStarted;
         }
-        if (!small && overlap.cursor !== frameCount) throw new Error('分数时间轴有缺口');
+        if (overlap.cursor !== frameCount) throw new Error('分数时间轴有缺口');
       } finally {
         await ahead; // Settle the one prefetched read before returning its iterator.
         await stream?.close();
@@ -292,5 +285,22 @@ export function createBrowserAnalysis({
     onCandidates(record, next); onChange(record);
     return next;
   };
+  const rawImportPrecomputed = queue.importPrecomputed;
+  queue.importPrecomputed = (file, precomputed = {}) => rawImportPrecomputed(file, {
+    model: precomputed.model || DEFAULT_MODEL,
+    threshold: precomputed.threshold ?? 0.2,
+    apply(record) {
+      record.audioDuration = precomputed.audioDuration ?? record.duration;
+      record.audioOffset = precomputed.audioOffset ?? 0;
+      record.windowScores = Array.isArray(precomputed.windowScores) ? structuredClone(precomputed.windowScores) : [];
+      record.windows = record.windowScores.length;
+      record.alignment = precomputed.alignment ? structuredClone(precomputed.alignment) : null;
+      record.modelInfo = precomputed.modelInfo || { model: record.model, scoreType: 'frame', sampleRate: 16000, frameSeconds: 0.04, source: 'live-companion' };
+      record.scoreTimeline = precomputed.scoreTimeline || null;
+      record.waveform = precomputed.waveform || createAudioPeaks(record.duration, record.selected);
+      onWaveform(record, record.waveform);
+      record.candidates = candidatesFromScores(record, record.threshold, Infinity);
+    },
+  });
   return queue;
 }

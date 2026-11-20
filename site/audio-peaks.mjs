@@ -12,7 +12,7 @@ export function createAudioPeaks(duration, trackIndex = 0) {
   return { version: 1, step, peaks, pyramid: { factor: 2, levels }, decodedUntil: 0, trackIndex };
 }
 
-function updateAudioPeakPyramid(wave, firstBucket, lastBucket) {
+export function updateAudioPeakPyramid(wave, firstBucket, lastBucket) {
   const levels = wave.pyramid?.levels;
   if (!levels?.length || !(lastBucket > firstBucket)) return;
   propagatePyramidRange(levels.length, firstBucket, lastBucket, (idx, start, end) => {
