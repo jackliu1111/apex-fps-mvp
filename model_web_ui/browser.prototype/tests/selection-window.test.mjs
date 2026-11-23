@@ -1341,12 +1341,12 @@ test('selection timeline marks narrow markers compact and avoids dense label col
     assert.equal(c1.dataset.compact, 'true');
     assert.equal(c13.dataset.compact, undefined);
 
-    // Merged box spans [1500, 1525] (width = 25 / 2400 * 100%) and shows "10–12" at top-left
+    // Merged box spans [1500, 1525] (width = 25 / 2400 * 100%) and identifies all three members as selected
     assert.ok(Math.abs(parseFloat(c10to12.style.left) - (1500 / 2400 * 100)) < 0.001);
     assert.ok(Math.abs(parseFloat(c10to12.style.width) - (25 / 2400 * 100)) < 0.001);
     assert.equal(c10to12.dataset.merged, 'true');
     assert.equal(c10to12.firstElementChild.className, 'marker-label');
-    assert.equal(c10to12.firstElementChild.textContent, '10–12');
+    assert.equal(c10to12.firstElementChild.textContent, '☑ 10–12');
     assert.equal(c10to12.getAttribute('aria-pressed'), 'true');
     assert.equal(c13.firstElementChild.textContent, '13');
   } finally {

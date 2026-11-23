@@ -23,19 +23,15 @@ export function createDirectoryWatcher({
   onError = () => {},
   now = () => Date.now(),
 } = {}) {
-  let directoryHandle = null;
+  let session = { handle: null, startedAt: 0, tracked: new Map() };
   let timer = null;
-  let polling = false;
-  let startedAt = 0;
-  const baselineNames = new Set();
   const exportedNames = new Set();
-  const tracked = new Map(); // name -> { state, size, lastModified, stableCount, attempts, file, meta }
 
   const snapshot = () => ({
-    watching: !!directoryHandle,
-    directoryName: directoryHandle?.name || null,
-    startedAt,
-    tracked: [...tracked.entries()].map(([name, info]) => ({
+    watching: !!session.handle,
+    directoryName: session.handle?.name || null,
+    startedAt: session.startedAt,
+    tracked: [...session.tracked.entries()].map(([name, info]) => ({
       name,
       state: info.state,
       size: info.size,
@@ -45,31 +41,46 @@ export function createDirectoryWatcher({
   });
 
   const emit = () => onStatus(snapshot());
+  // Without an earlier readable snapshot, only timestamps inside the observed watch interval
+  // distinguish a later write. Equal or future-dated timestamps need a subsequent metadata change.
+  const writtenDuringWatch = (file, startedAt) => file.lastModified > startedAt && file.lastModified <= now();
 
-  async function scanOnce() {
-    if (!directoryHandle || polling) return;
-    polling = true;
+  async function scanOnce(current) {
+    const { handle: directoryHandle, baseline, startedAt, tracked } = current;
     try {
       const seen = new Set();
       for await (const [name, handle] of directoryHandle.entries()) {
+        if (session !== current) return;
         if (handle.kind !== 'file') continue;
         seen.add(name);
-        if (baselineNames.has(name) || exportedNames.has(name) || !isCandidateVideoName(name)) continue;
+        if (exportedNames.has(name) || !isCandidateVideoName(name)) continue;
 
         let entry = tracked.get(name);
-        if (entry && (entry.state === 'ready' || entry.state === 'ignored' || entry.state === 'probing')) continue;
+        if (entry?.state === 'ready') continue;
 
         let file;
         try {
           file = await handle.getFile();
         } catch {
           // Windows exclusive write lock while recording: stay in growing state and retry next poll.
-          if (!entry) {
+          if (session !== current || exportedNames.has(name)) continue;
+          if (!entry && !baseline.has(name)) {
             entry = { state: 'growing', size: -1, lastModified: 0, stableCount: 0, attempts: 0 };
             tracked.set(name, entry);
             emit();
           }
           continue;
+        }
+
+        if (session !== current || exportedNames.has(name)) continue;
+        if (baseline.has(name)) {
+          const initial = baseline.get(name);
+          if (!initial && !writtenDuringWatch(file, startedAt)) {
+            baseline.set(name, { size: file.size, lastModified: file.lastModified });
+            continue;
+          }
+          if (initial && initial.size === file.size && initial.lastModified === file.lastModified) continue;
+          baseline.delete(name);
         }
 
         if (!entry) {
@@ -86,12 +97,14 @@ export function createDirectoryWatcher({
           continue;
         }
 
-        const unchanged = file.size > 0 && file.size === entry.size && file.lastModified === entry.lastModified;
+        const changed = file.size !== entry.size || file.lastModified !== entry.lastModified;
+        if (entry.state === 'ignored' && !changed) continue;
         entry.size = file.size;
         entry.lastModified = file.lastModified;
         entry.file = file;
 
-        if (!unchanged) {
+        if (changed || file.size === 0) {
+          entry.attempts = 0;
           entry.state = 'growing';
           entry.stableCount = 0;
           emit();
@@ -111,11 +124,21 @@ export function createDirectoryWatcher({
         emit();
         try {
           const meta = probeFile ? await probeFile(file) : { duration: null };
+          if (session !== current || exportedNames.has(name)) continue;
+          if (meta?.pendingFinalization) {
+            entry.state = 'growing';
+            entry.stableCount = 0;
+            entry.attempts = 0;
+            emit();
+            continue;
+          }
           const recheck = await handle.getFile();
+          if (session !== current || exportedNames.has(name)) continue;
           if (recheck.size !== file.size || recheck.lastModified !== file.lastModified) {
             entry.size = recheck.size;
             entry.lastModified = recheck.lastModified;
             entry.state = 'growing';
+            entry.attempts = 0;
             entry.stableCount = 0;
             emit();
             continue;
@@ -126,6 +149,7 @@ export function createDirectoryWatcher({
           emit();
           await onReady({ name, file: recheck, handle, meta });
         } catch (error) {
+          if (session !== current || exportedNames.has(name)) continue;
           // Incomplete moov box or temporary lock: drop back to growing unless exceeded max retries.
           if (entry.attempts >= 15) {
             entry.state = 'ignored';
@@ -146,38 +170,69 @@ export function createDirectoryWatcher({
         }
       }
     } catch (error) {
-      onError(error);
-    } finally {
-      polling = false;
+      if (session === current) onError(error);
     }
+  }
+
+  function poll() {
+    const current = session;
+    if (!current.handle) return;
+    // Automatic scans and manual refreshes share the snapshot or scan already in progress.
+    current.pending ??= scanOnce(current).finally(() => { current.pending = null; });
+    return current.pending;
+  }
+
+  async function readBaseline(current) {
+    for await (const [name, entry] of current.handle.entries()) {
+      if (session !== current) return;
+      if (entry.kind !== 'file' || exportedNames.has(name) || !isCandidateVideoName(name)) continue;
+      try {
+        const file = await entry.getFile();
+        if (!writtenDuringWatch(file, current.startedAt)) {
+          current.baseline.set(name, { size: file.size, lastModified: file.lastModified });
+        }
+      } catch {
+        // A locked recording may become readable only when OBS finishes writing it.
+        current.baseline.set(name, null);
+      }
+    }
+  }
+
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    session = { handle: null, startedAt: session.startedAt, tracked: new Map(session.tracked) };
+    emit();
   }
 
   return {
     async start(handle) {
       if (!handle) throw new Error('请选择录像目录');
-      if (timer) clearInterval(timer);
-      directoryHandle = handle;
-      startedAt = now();
-      baselineNames.clear();
-      tracked.clear();
-      for await (const [name, entry] of handle.entries()) {
-        if (entry.kind === 'file') baselineNames.add(name);
+      clearInterval(timer);
+      const current = { handle, startedAt: now(), tracked: new Map(), baseline: new Map(), pending: null };
+      session = current;
+      try {
+        current.pending = readBaseline(current);
+        await current.pending;
+      } catch (error) {
+        if (session === current) stop();
+        throw error;
       }
-      emit();
-      timer = setInterval(() => { void scanOnce(); }, pollIntervalMs);
+      current.pending = null;
+      if (session === current) {
+        timer = setInterval(poll, pollIntervalMs);
+        emit();
+      }
       return snapshot();
     },
-    stop() {
-      if (timer) clearInterval(timer);
-      timer = null;
-      directoryHandle = null;
-      emit();
-    },
+    stop,
     registerExportedFilename(name) {
-      if (name) exportedNames.add(name);
+      if (!name) return;
+      exportedNames.add(name);
+      if (session.tracked.delete(name)) emit();
     },
     async pollNow() {
-      await scanOnce();
+      await poll();
       return snapshot();
     },
     get state() {

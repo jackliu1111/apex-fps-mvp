@@ -188,7 +188,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
         prev.endPx = Math.max(prev.endPx, endPx);
         prev.rawEnd = Math.max(prev.rawEnd, item.end);
         prev.provisional = prev.provisional && !!item.provisional;
-        prev.selected = prev.selected || !!item.selected;
         prev.supplemental = prev.supplemental && !!item.supplemental;
       } else {
         groups.push({
@@ -202,7 +201,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
           endPx,
           excluded: !!item.excluded,
           provisional: !!item.provisional,
-          selected: !!item.selected,
           supplemental: !!item.supplemental,
         });
       }
@@ -226,10 +224,24 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       const widthPx = group.endPx - group.leftPx;
       const isMerged = group.members.length > 1;
       const first = group.members[0], last = group.members.at(-1);
-      const displayLabel = isMerged ? `${first.label}–${last.label}` : first.label;
+      const stableMembers = group.members.filter(member => !member.provisional);
+      const selectedCount = stableMembers.filter(member => member.selected).length;
+      let exportMark = '';
+      let exportSummary = '';
+      if (isMerged && stableMembers.length) {
+        if (selectedCount === 0) exportMark = '☐';
+        else if (selectedCount === stableMembers.length) exportMark = '☑';
+        else exportMark = `✓${selectedCount}/${stableMembers.length}`;
+        exportSummary = isZh
+          ? ` · 可导出片段中已勾选 ${selectedCount}/${stableMembers.length}`
+          : ` · ${selectedCount} of ${stableMembers.length} eligible clips selected for export`;
+      }
+      const label = isMerged ? `${first.label}–${last.label}` : first.label;
+      const displayLabel = exportMark ? `${exportMark} ${label}` : label;
+      const unchecked = isMerged ? stableMembers.length > 0 && selectedCount === 0 : !first.selected;
       node.style.left = `${leftPct}%`;
       node.style.width = `${widthPct}%`;
-      node.className = [group.excluded ? 'excluded' : group.provisional ? 'provisional' : group.supplemental ? 'supplemental' : '', !group.selected && !group.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
+      node.className = [group.excluded ? 'excluded' : group.provisional ? 'provisional' : group.supplemental ? 'supplemental' : '', unchecked && !group.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
       if (widthPx < 14) node.dataset.compact = 'true';
       else delete node.dataset.compact;
       if (isMerged) node.dataset.merged = 'true';
@@ -245,8 +257,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (labelEl.textContent !== displayLabel) labelEl.textContent = displayLabel;
       if (isMerged) {
         node.title = isZh
-          ? `合并显示 ${group.members.length} 段候选（#${first.label}–#${last.label}）· ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · 点击定位展开`
-          : `Merged ${group.members.length} candidates (#${first.label}–#${last.label}) · ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · Click to zoom`;
+          ? `合并显示 ${group.members.length} 段候选（#${first.label}–#${last.label}）· ${stamp(group.rawStart)} — ${stamp(group.rawEnd)}${exportSummary} · 点击定位展开`
+          : `Merged ${group.members.length} candidates (#${first.label}–#${last.label}) · ${stamp(group.rawStart)} — ${stamp(group.rawEnd)}${exportSummary} · Click to zoom`;
       } else {
         const decision = source.decisions.find((d) => d.id === first.id);
         const adjusted = decision && (decision.originRange.start !== first.start || decision.originRange.end !== first.end);
@@ -254,12 +266,13 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       }
       node.setAttribute('aria-label', node.title);
       node.setAttribute('aria-pressed', group.members.some((m) => m.id === source.review.selectedClipId));
-      node.disabled = !!group.provisional;
+      node.disabled = stableMembers.length === 0;
       node.onclick = () => run(() => {
         if (group.excluded) return workspace.restoreExcluded(source.id, first.id);
-        const currentIdx = group.members.findIndex((m) => m.id === getSource().review.selectedClipId);
-        const targetMember = currentIdx >= 0 && currentIdx + 1 < group.members.length ? group.members[currentIdx + 1] : first;
-        return selectRange(getSource().clips.find((clip) => clip.id === targetMember.id));
+        const { selectedClipId } = getSource().review;
+        const currentIndex = stableMembers.findIndex(member => member.id === selectedClipId);
+        const next = stableMembers[currentIndex + 1] ?? stableMembers[0];
+        if (next) return selectRange(next);
       });
     });
     if ($('prediction-empty')) {
@@ -507,19 +520,35 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const ratio = box.width > 0 ? Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) : 0;
     return ratio * source.duration;
   };
+  async function previewOverview(gesture) {
+    if (gesture.seeking) return;
+    gesture.seeking = true;
+    try {
+      // Give each decode time to display a frame. While it runs, retain only the latest pointer position.
+      do {
+        const position = gesture.position;
+        await seek(position);
+        if (gesture.position === position) break;
+      } while (overviewDrag === gesture);
+    } finally {
+      gesture.seeking = false;
+    }
+  }
   if (overviewBar) {
     overviewBar.onpointerdown = (event) => run(() => {
       if (event.button !== 0 || overviewDrag) return;
       const source = getSource();
-      if (!source) return;
+      if (!source || !isActive()) return;
       pause();
+      const initialPosition = getSource().review.position;
       const target = overviewTime(event, source);
-      overviewDrag = { sourceId: source.id, pointer: event.pointerId, position: target };
+      overviewDrag = { sourceId: source.id, pointer: event.pointerId, position: target, initialPosition };
       overviewTarget = target;
       overviewBar.setPointerCapture?.(event.pointerId);
       event.preventDefault();
       paintSelection(source);
       $('selection-player-axis').focus({ preventScroll: true });
+      return previewOverview(overviewDrag);
     });
     overviewBar.onpointermove = (event) => {
       if (!overviewDrag || overviewDrag.pointer !== event.pointerId) return;
@@ -528,20 +557,22 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       overviewDrag.position = overviewTime(event, source);
       overviewTarget = overviewDrag.position;
       paintSelection(source);
+      run(() => previewOverview(overviewDrag));
     };
-    const endOverviewDrag = (cancel = false) => {
-      if (!overviewDrag) return;
+    const endOverviewDrag = (event, cancel = false) => {
+      if (!overviewDrag || overviewDrag.pointer !== event.pointerId) return;
       const ended = overviewDrag;
       overviewDrag = null;
       if (overviewBar.hasPointerCapture?.(ended.pointer)) overviewBar.releasePointerCapture(ended.pointer);
       overviewTarget = null;
       const source = getSource();
-      if (!cancel && source?.id === ended.sourceId) commitOverviewSeek(ended.position);
-      else if (source) paintSelection(source);
+      if (source?.id !== ended.sourceId) return;
+      if (cancel) run(() => seek(ended.initialPosition));
+      else commitOverviewSeek(overviewTime(event, source));
     };
-    overviewBar.onpointerup = () => endOverviewDrag(false);
-    overviewBar.onpointercancel = () => endOverviewDrag(true);
-    overviewBar.onlostpointercapture = () => endOverviewDrag(true);
+    overviewBar.onpointerup = (event) => endOverviewDrag(event);
+    overviewBar.onpointercancel = (event) => endOverviewDrag(event, true);
+    overviewBar.onlostpointercapture = (event) => endOverviewDrag(event, true);
   }
   $('overview').oninput = () => {
     overviewTarget = Number($('overview').value);

@@ -2,6 +2,7 @@ import { createLiveSession } from './live-session.mjs';
 import { createLiveProxyBuffer } from './live-proxy-buffer.mjs';
 import { createLiveResourceMonitor } from './live-resource-monitor.mjs';
 import { createDirectoryWatcher } from './directory-watcher.mjs';
+import { probeRecordingFile } from './recording-probe.mjs';
 import { alignRecordingToLiveSession, extractMasterEnvelopeSlice } from './audio-aligner.mjs';
 import { createMediaReadSource } from './media-read-source.mjs';
 import { DEFAULT_MODEL, getModelSpec } from './model-registry.mjs';
@@ -121,20 +122,6 @@ export function createLiveCompanionWorkspace({
     },
   });
 
-  async function probeMasterFile(file) {
-    const input = new MB.Input({ source: createMediaReadSource({ MB, file, priority: 'analysis' }), formats: MB.ALL_FORMATS });
-    try {
-      const video = await input.getPrimaryVideoTrack();
-      if (!video) throw new Error('无视频轨');
-      const origin = Math.max(0, await video.getFirstTimestamp());
-      const duration = await video.computeDuration() - origin;
-      if (!Number.isFinite(duration) || duration <= 0) throw new Error('无效视频时长');
-      return { duration, origin, width: video.displayWidth, height: video.displayHeight };
-    } finally {
-      input.dispose();
-    }
-  }
-
   async function conformFile(file, { coarseStartOverrideMs = null, meta = null } = {}) {
     const conformStarted = performance.now();
     setNotice(`正在对齐「${file.name}」…`, 'info');
@@ -195,7 +182,7 @@ export function createLiveCompanionWorkspace({
         waveform: result.mapped.waveform,
         scoreTimeline: result.mapped.scoreTimeline,
         liveDecisions: result.mapped.liveDecisions,
-      });
+      }, liveHistory);
 
       const label = result.confidence === 'exact'
         ? `精确对齐 (${result.offsetMs >= 0 ? '+' : ''}${result.offsetMs}ms)`
@@ -214,7 +201,7 @@ export function createLiveCompanionWorkspace({
   const watcher = createDirectoryWatcher({
     pollIntervalMs: 2000,
     stablePollsRequired: 2,
-    probeFile: probeMasterFile,
+    probeFile: file => probeRecordingFile(file, MB),
     onStatus(next) {
       watcherState = next;
       if (!document.hidden) renderWatcher();
@@ -1458,18 +1445,46 @@ export function createLiveCompanionWorkspace({
     }
   }
 
+  let renderedMasters = null;
+  let renderedEvents = null;
+  let cardsRefreshPending = false;
+
+  function refreshAfterRelease() {
+    if (container.querySelector('.live-list :active')) {
+      requestAnimationFrame(refreshAfterRelease);
+      return;
+    }
+    cardsRefreshPending = false;
+    renderPanels();
+  }
+
   function renderPanels() {
     const snap = session.snapshot();
     renderMetrics();
     renderWatcher();
 
-    // Conformed master recordings
+    // A new row can move a pressed button even if its DOM node survives. Keep
+    // both lists in place through native click dispatch, then show the latest snapshot.
+    if (cardsRefreshPending) return;
+    if (container.querySelector('.live-list :active')) {
+      cardsRefreshPending = true;
+      requestAnimationFrame(refreshAfterRelease);
+      return;
+    }
+
+    renderConformed(snap.conformed);
+    renderLiveEvents(snap);
+  }
+
+  function renderConformed(masters) {
+    if (renderedMasters?.length === masters.length && masters.every((item, i) => item === renderedMasters[i])) return;
+    renderedMasters = masters;
     const conformedList = el('live-conformed-list');
-    el('live-conformed-count').textContent = String(snap.conformed.length);
-    if (!snap.conformed.length) {
+    el('live-conformed-count').textContent = String(masters.length);
+    if (!masters.length) {
       conformedList.innerHTML = '<p class="muted">暂无关联录像。新录像保存后会自动对齐并出现在这里。</p>';
     } else {
-      conformedList.replaceChildren(...snap.conformed.map((item) => {
+      conformedList.replaceChildren(...masters.map((item) => {
         const card = document.createElement('div');
         card.className = 'live-card';
         const badge = item.alignment.confidence === 'exact'
@@ -1477,7 +1492,11 @@ export function createLiveCompanionWorkspace({
           : '粗略对齐';
         const body = document.createElement('div');
         body.className = 'live-card-body';
-        body.innerHTML = `<strong>${item.name}</strong><small>${formatSec(item.duration)} · ${badge} · 标记 ${item.liveDecisions.length} 条</small>`;
+        const name = document.createElement('strong');
+        name.textContent = item.name;
+        const summary = document.createElement('small');
+        summary.textContent = `${formatSec(item.duration)} · ${badge} · 标记 ${item.liveDecisions.length} 条`;
+        body.append(name, summary);
         const actions = document.createElement('div');
         actions.className = 'live-card-actions';
         const btn = document.createElement('button');
@@ -1490,8 +1509,9 @@ export function createLiveCompanionWorkspace({
         return card;
       }));
     }
+  }
 
-    // Live events & manual decisions (click card to scrub DVR directly to that fight!)
+  function renderLiveEvents(snap) {
     const eventsList = el('live-events-list');
     const items = [
       ...snap.decisions.map((d) => ({
@@ -1520,10 +1540,18 @@ export function createLiveCompanionWorkspace({
     ].sort((a, b) => b.wallStartMs - a.wallStartMs);
 
     el('live-events-count').textContent = String(items.length);
-    if (!items.length) {
+    const visible = items.slice(0, 30);
+    if (renderedEvents?.length === visible.length && visible.every((item, i) => {
+      const previous = renderedEvents[i];
+      return previous.id === item.id && previous.excluded === item.excluded &&
+        previous.thumbnail === item.thumbnail && previous.wallStartMs === item.wallStartMs &&
+        previous.wallEndMs === item.wallEndMs;
+    })) return;
+    renderedEvents = visible;
+    if (!visible.length) {
       eventsList.innerHTML = '<p class="muted">暂无片段，等待识别枪声或手动打点。</p>';
     } else {
-      eventsList.replaceChildren(...items.slice(0, 30).map((item) => {
+      eventsList.replaceChildren(...visible.map((item) => {
         const card = document.createElement('div');
         card.className = 'live-card';
         card.dataset.excluded = String(!!item.excluded);

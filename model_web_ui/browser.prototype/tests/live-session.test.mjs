@@ -167,3 +167,46 @@ test('live session toWaveformView and conformed scoreTimeline plug directly into
   });
   assert.ok(conformed.scoreTimeline && conformed.scoreTimeline.groupScorePyramid);
 });
+
+test('undo updates already conformed masters and cannot reappear when a pending conform finishes', () => {
+  const session = createLiveSession();
+  session.start({ nowMs: 1000 });
+  const keep = session.addMark({ wallStartMs: 1200, wallEndMs: 2200 });
+  const undoNow = session.addMark({ wallStartMs: 3000, wallEndMs: 4000 });
+  const undoLater = session.excludeRange({ wallStartMs: 4200, wallEndMs: 5000 });
+  const history = session.getHistoryForAlignment();
+  const mapped = mapLiveHistoryToMaster({ liveHistory: history, duration: 8, masterStartEpochMs: 1000 });
+  const record = { name: 'test.mkv', duration: 8, alignment: { masterStartEpochMs: 1000 }, liveDecisions: mapped.liveDecisions };
+  session.registerConformed({ ...record, id: 'first' }, history);
+  session.removeDecision(undoNow.id);
+  session.registerConformed({ ...record, id: 'second' }, history);
+  session.removeDecision(undoLater.id);
+  assert.deepEqual(session.snapshot().conformed.map(item => item.liveDecisions.map(d => d.id)), [[keep.id], [keep.id]]);
+});
+
+test('starting another capture or expiring rolling history during alignment preserves mapped decisions', async (t) => {
+  for (const reason of ['new capture', 'history expiry']) {
+    await t.test(reason, () => {
+      const session = createLiveSession({ maxHistorySeconds: 2 });
+      session.start({ nowMs: 1000 });
+      const mark = session.addMark({ wallStartMs: 1200, wallEndMs: 2200 });
+      const history = session.getHistoryForAlignment();
+      const mapped = mapLiveHistoryToMaster({ liveHistory: history, duration: 5, masterStartEpochMs: 1000 });
+      if (reason === 'new capture') {
+        session.stop();
+        session.start({ nowMs: 6000 });
+      } else {
+        session.pushScoreWindow({ wallStartMs: 5000, wallEndMs: 6000, scores: [0, 0] });
+      }
+      assert.deepEqual(session.snapshot().decisions, []);
+      const next = session.addMark({ wallStartMs: 6200, wallEndMs: 7200 });
+      assert.notEqual(next.id, mark.id);
+      session.registerConformed({ name: 'first.mkv', duration: 5, alignment: { masterStartEpochMs: 1000 },
+        liveDecisions: mapped.liveDecisions }, history);
+      session.removeDecision(next.id);
+      assert.deepEqual(session.snapshot().conformed[0].liveDecisions, [
+        { id: mark.id, kind: 'retain', start: 0.2, end: 1.2 },
+      ]);
+    });
+  }
+});
