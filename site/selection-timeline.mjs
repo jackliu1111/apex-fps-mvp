@@ -507,19 +507,35 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const ratio = box.width > 0 ? Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) : 0;
     return ratio * source.duration;
   };
+  async function previewOverview(gesture) {
+    if (gesture.seeking) return;
+    gesture.seeking = true;
+    try {
+      // Give each decode time to display a frame. While it runs, retain only the latest pointer position.
+      do {
+        const position = gesture.position;
+        await seek(position);
+        if (gesture.position === position) break;
+      } while (overviewDrag === gesture);
+    } finally {
+      gesture.seeking = false;
+    }
+  }
   if (overviewBar) {
     overviewBar.onpointerdown = (event) => run(() => {
       if (event.button !== 0 || overviewDrag) return;
       const source = getSource();
-      if (!source) return;
+      if (!source || !isActive()) return;
       pause();
+      const initialPosition = getSource().review.position;
       const target = overviewTime(event, source);
-      overviewDrag = { sourceId: source.id, pointer: event.pointerId, position: target };
+      overviewDrag = { sourceId: source.id, pointer: event.pointerId, position: target, initialPosition };
       overviewTarget = target;
       overviewBar.setPointerCapture?.(event.pointerId);
       event.preventDefault();
       paintSelection(source);
       $('selection-player-axis').focus({ preventScroll: true });
+      return previewOverview(overviewDrag);
     });
     overviewBar.onpointermove = (event) => {
       if (!overviewDrag || overviewDrag.pointer !== event.pointerId) return;
@@ -528,20 +544,22 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       overviewDrag.position = overviewTime(event, source);
       overviewTarget = overviewDrag.position;
       paintSelection(source);
+      run(() => previewOverview(overviewDrag));
     };
-    const endOverviewDrag = (cancel = false) => {
-      if (!overviewDrag) return;
+    const endOverviewDrag = (event, cancel = false) => {
+      if (!overviewDrag || overviewDrag.pointer !== event.pointerId) return;
       const ended = overviewDrag;
       overviewDrag = null;
       if (overviewBar.hasPointerCapture?.(ended.pointer)) overviewBar.releasePointerCapture(ended.pointer);
       overviewTarget = null;
       const source = getSource();
-      if (!cancel && source?.id === ended.sourceId) commitOverviewSeek(ended.position);
-      else if (source) paintSelection(source);
+      if (source?.id !== ended.sourceId) return;
+      if (cancel) run(() => seek(ended.initialPosition));
+      else commitOverviewSeek(overviewTime(event, source));
     };
-    overviewBar.onpointerup = () => endOverviewDrag(false);
-    overviewBar.onpointercancel = () => endOverviewDrag(true);
-    overviewBar.onlostpointercapture = () => endOverviewDrag(true);
+    overviewBar.onpointerup = (event) => endOverviewDrag(event);
+    overviewBar.onpointercancel = (event) => endOverviewDrag(event, true);
+    overviewBar.onlostpointercapture = (event) => endOverviewDrag(event, true);
   }
   $('overview').oninput = () => {
     overviewTarget = Number($('overview').value);
