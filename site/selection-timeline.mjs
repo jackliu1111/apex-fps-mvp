@@ -266,12 +266,13 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       }
       node.setAttribute('aria-label', node.title);
       node.setAttribute('aria-pressed', group.members.some((m) => m.id === source.review.selectedClipId));
-      node.disabled = !!group.provisional;
+      node.disabled = stableMembers.length === 0;
       node.onclick = () => run(() => {
         if (group.excluded) return workspace.restoreExcluded(source.id, first.id);
-        const currentIdx = group.members.findIndex((m) => m.id === getSource().review.selectedClipId);
-        const targetMember = currentIdx >= 0 && currentIdx + 1 < group.members.length ? group.members[currentIdx + 1] : first;
-        return selectRange(getSource().clips.find((clip) => clip.id === targetMember.id));
+        const { selectedClipId } = getSource().review;
+        const currentIndex = stableMembers.findIndex(member => member.id === selectedClipId);
+        const next = stableMembers[currentIndex + 1] ?? stableMembers[0];
+        if (next) return selectRange(next);
       });
     });
     if ($('prediction-empty')) {
