@@ -195,7 +195,7 @@ export function createLiveCompanionWorkspace({
         waveform: result.mapped.waveform,
         scoreTimeline: result.mapped.scoreTimeline,
         liveDecisions: result.mapped.liveDecisions,
-      });
+      }, liveHistory);
 
       const label = result.confidence === 'exact'
         ? `精确对齐 (${result.offsetMs >= 0 ? '+' : ''}${result.offsetMs}ms)`

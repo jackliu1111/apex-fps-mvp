@@ -31,6 +31,10 @@ export function createLiveSession({
   let allowGateBypass = false;
   let silentSeconds = 0;
   let decisionSeq = 0;
+  // An alignment can outlive the rolling history or even its capture. Only an explicit undo
+  // invalidates a captured decision; weak keys release the bookkeeping with the snapshot.
+  const alignmentDecisions = new WeakMap();
+  const undoneDecisions = new WeakSet();
   let proxyWindowSeconds = Math.max(60, Math.min(300, windowSeconds));
   let detectThreshold = threshold;
 
@@ -188,6 +192,7 @@ export function createLiveSession({
     removeDecision(id) {
       const idx = decisions.findIndex((d) => d.id === id);
       if (idx < 0) return false;
+      undoneDecisions.add(decisions[idx]);
       decisions.splice(idx, 1);
       conformed = conformed.map(master => {
         const remaining = master.liveDecisions.filter(mark => mark.id !== id);
@@ -199,9 +204,9 @@ export function createLiveSession({
     getConformed(id) {
       return conformed.find(master => master.id === id);
     },
-    registerConformed(record) {
-      // Alignment took a snapshot before asynchronous media reads. A mark may have been undone since then.
-      const currentIds = new Set(decisions.map(mark => mark.id));
+    registerConformed(record, alignmentHistory) {
+      const captured = alignmentDecisions.get(alignmentHistory) || [];
+      const undoneIds = new Set(captured.filter(mark => undoneDecisions.has(mark)).map(mark => mark.id));
       const item = {
         id: record.id || `conform:${crypto.randomUUID()}`,
         name: record.name,
@@ -211,7 +216,7 @@ export function createLiveSession({
         windowScores: record.windowScores,
         waveform: record.waveform,
         scoreTimeline: record.scoreTimeline || null,
-        liveDecisions: (record.liveDecisions || []).filter(mark => currentIds.has(mark.id)),
+        liveDecisions: (record.liveDecisions || []).filter(mark => !undoneIds.has(mark.id)),
         wallStartMs: record.alignment.masterStartEpochMs,
         wallEndMs: record.alignment.masterStartEpochMs + record.duration * 1000,
         createdAt: Date.now(),
@@ -221,7 +226,7 @@ export function createLiveSession({
       return item;
     },
     getHistoryForAlignment() {
-      return {
+      const history = {
         startEpochMs,
         envStepSeconds,
         envPeaks: Float32Array.from(envPeaks),
@@ -234,6 +239,8 @@ export function createLiveSession({
         })),
         decisions: decisions.map((d) => ({ ...d })),
       };
+      alignmentDecisions.set(history, [...decisions]);
+      return history;
     },
     /**
      * Project the rolling live window [end - visibleSec, end] into standard
