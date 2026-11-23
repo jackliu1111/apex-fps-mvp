@@ -174,17 +174,110 @@ test('an initial OBS lock admits a later write while an unchanged locked histori
     ['ongoing.mkv', { size: 100, lastModified: 1000, locked: true }],
     ['old.mkv', { size: 500, lastModified: 1000, locked: true }],
   ]);
+  let clock = 2000;
   const ready = [];
   const watcher = createDirectoryWatcher({
-    now: () => 2000,
+    now: () => clock,
     pollIntervalMs: 60_000,
     onReady: ({ name }) => { ready.push(name); },
   });
   t.after(() => watcher.stop());
   await watcher.start(fakeDirectory('OBS', files));
+  clock = 3200;
   files.set('ongoing.mkv', { size: 800, lastModified: 3000 });
   files.get('old.mkv').locked = false;
   for (let i = 0; i < 4; i++) await watcher.pollNow();
   assert.deepEqual(ready, ['ongoing.mkv']);
   assert.deepEqual(watcher.state.tracked.map(entry => entry.name), ready);
+});
+
+test('late self-export registration suppresses an in-flight metadata read or probe', async (t) => {
+  for (const stage of ['metadata', 'probe']) {
+    await t.test(stage, async (t) => {
+      const waiting = Promise.withResolvers(), release = Promise.withResolvers();
+      let exists = false;
+      const ready = [];
+      const watcher = createDirectoryWatcher({
+        pollIntervalMs: 60_000, stablePollsRequired: 1,
+        async probeFile() {
+          if (stage === 'probe') { waiting.resolve(); await release.promise; }
+          return { duration: 1 };
+        },
+        onReady: ({ name }) => { ready.push(name); },
+      });
+      t.after(() => watcher.stop());
+      await watcher.start({ async *entries() {
+        if (exists) yield ['export.mp4', { kind: 'file', async getFile() {
+          if (stage === 'metadata') { waiting.resolve(); await release.promise; }
+          return { size: 500, lastModified: 1000 };
+        } }];
+      } });
+      exists = true;
+      if (stage === 'probe') await watcher.pollNow();
+      const scan = watcher.pollNow();
+      await waiting.promise;
+      watcher.registerExportedFilename('export.mp4');
+      release.resolve();
+      await scan;
+      assert.deepEqual((await watcher.pollNow()).tracked, []);
+      assert.deepEqual(ready, []);
+    });
+  }
+});
+
+test('a file finalized during baseline enumeration is eligible, while unchanged old and future-dated files stay hidden', async (t) => {
+  let clock = 1000;
+  const files = new Map([
+    ['old.mkv', { size: 50, lastModified: 800 }],
+    ['future.mkv', { size: 50, lastModified: 5000 }],
+    ['active.mkv', { size: 100, lastModified: 900 }],
+  ]);
+  const reading = Promise.withResolvers(), release = Promise.withResolvers();
+  const directory = fakeDirectory('OBS', files);
+  const ready = [];
+  const watcher = createDirectoryWatcher({
+    now: () => clock, pollIntervalMs: 60_000, stablePollsRequired: 1,
+    onReady: ({ name }) => { ready.push(name); },
+  });
+  t.after(() => watcher.stop());
+  const starting = watcher.start({ async *entries() {
+    reading.resolve(); await release.promise;
+    yield* directory.entries();
+  } });
+  await reading.promise;
+  files.set('active.mkv', { size: 800, lastModified: 1100 });
+  clock = 1200;
+  release.resolve();
+  await starting;
+  for (let i = 0; i < 3; i++) await watcher.pollNow();
+  assert.deepEqual(ready, ['active.mkv']);
+  assert.deepEqual(watcher.state.tracked.map(entry => entry.name), ready);
+});
+
+test('an incomplete recording that exhausted its probes gets a fresh retry budget only after a change', async (t) => {
+  const files = new Map(), ready = [];
+  let probes = 0;
+  const watcher = createDirectoryWatcher({
+    pollIntervalMs: 60_000, stablePollsRequired: 1,
+    async probeFile(file) {
+      probes++;
+      if (file.size < 200) throw new Error('incomplete container');
+      return { duration: 2 };
+    },
+    onReady: ({ name }) => { ready.push(name); },
+  });
+  t.after(() => watcher.stop());
+  await watcher.start(fakeDirectory('OBS', files));
+  files.set('long.mkv', { size: 100, lastModified: 1000 });
+  for (let i = 0; i < 20; i++) await watcher.pollNow();
+  assert.equal(watcher.state.tracked[0].state, 'ignored');
+  assert.equal(probes, 15);
+  files.set('long.mkv', { size: 140, lastModified: 1200 });
+  await watcher.pollNow();
+  await watcher.pollNow();
+  assert.equal(watcher.state.tracked[0].state, 'growing');
+  assert.equal(watcher.state.tracked[0].attempts, 1);
+  files.set('long.mkv', { size: 220, lastModified: 1500 });
+  for (let i = 0; i < 3; i++) await watcher.pollNow();
+  assert.deepEqual(ready, ['long.mkv']);
 });

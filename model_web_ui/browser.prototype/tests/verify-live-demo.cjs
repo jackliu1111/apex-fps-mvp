@@ -83,6 +83,13 @@ async function clickAcrossRefresh(page, button, duringPress) {
     assert.equal(remaining.length, 1, 'One click across a live refresh must undo exactly one mark');
     assert.notEqual(remaining[0].id, firstMark, 'The newer mark must survive');
 
+    // Keep two distinguishable marks in the mapped recording, then undo the earlier mark after conform.
+    await page.evaluate(() => {
+      const session = reviewApp.liveCompanion.session;
+      const start = session.snapshot().startEpochMs + 250;
+      session.addMark({ wallStartMs: start, wallEndMs: start + 1000 });
+    });
+
     // Trigger simulated master conform (acoustic NCC alignment on demo-apex-clip.mp4).
     await page.locator('#live-btn-sim-conform').click();
     await page.waitForFunction(() => window.reviewApp.liveCompanion.session.snapshot().conformed.length >= 1, null, { timeout: 15000 });
@@ -106,7 +113,14 @@ async function clickAcrossRefresh(page, button, duringPress) {
 
     assert.equal(liveState.conformed[0].name, 'demo-apex-clip.mp4');
     assert.equal(liveState.conformed[0].confidence, 'exact', `Expected exact NCC alignment, got: ${JSON.stringify(liveState.conformed[0])}`);
-    assert.ok(liveState.conformed[0].liveDecisions >= 1, 'Expected manual live mark to migrate into conformed recording');
+    assert.equal(liveState.conformed[0].liveDecisions, 2);
+    const expected = await page.evaluate(id =>
+      reviewApp.liveCompanion.session.snapshot().conformed[0].liveDecisions.find(mark => mark.id === id), remaining[0].id);
+    assert.ok(expected);
+    await undo.last().click();
+    await page.locator('#live-conformed-list .live-card').getByText(/标记 1 条/).waitFor({ timeout: 3000 });
+    assert.deepEqual(await page.evaluate(() =>
+      reviewApp.liveCompanion.session.snapshot().conformed[0].liveDecisions.map(mark => mark.id)), [expected.id]);
 
     // Open conformed recording in offline Clip Review.
     const chosen = page.locator('#live-conformed-list .live-card').filter({ hasText: 'demo-apex-clip.mp4' });
@@ -127,7 +141,7 @@ async function clickAcrossRefresh(page, button, duringPress) {
       return { name: source.identity.name, decisions: source.decisions, windows: app.bindings.get(source.id).windowScores.length };
     });
     assert.equal(imported.name, 'demo-apex-clip.mp4');
-    assert.equal(imported.decisions.filter(d => d.kind === 'retain').length, liveState.conformed[0].liveDecisions);
+    assert.deepEqual(imported.decisions.filter(d => d.kind === 'retain').map(d => d.range), [{ start: expected.start, end: expected.end }]);
     assert.ok(imported.windows > 0);
     await page.locator('#play-pause').click();
     await page.waitForFunction(() => window.reviewApp.player.state.position > 0.2);
@@ -139,7 +153,7 @@ async function clickAcrossRefresh(page, button, duringPress) {
     assert.equal(await page.locator('#live-stage-empty').isVisible(), true);
 
     assert.deepEqual(errors, []);
-    console.log('PASS: live mode demo e2e verified', JSON.stringify(liveState));
+    console.log('PASS: live mode demo e2e verified', JSON.stringify({ beforeUndo: liveState, retainedInReview: imported.decisions.length }));
   } finally {
     await browser.close();
   }

@@ -189,10 +189,19 @@ export function createLiveSession({
       const idx = decisions.findIndex((d) => d.id === id);
       if (idx < 0) return false;
       decisions.splice(idx, 1);
+      conformed = conformed.map(master => {
+        const remaining = master.liveDecisions.filter(mark => mark.id !== id);
+        return remaining.length === master.liveDecisions.length ? master : { ...master, liveDecisions: remaining };
+      });
       emit();
       return true;
     },
+    getConformed(id) {
+      return conformed.find(master => master.id === id);
+    },
     registerConformed(record) {
+      // Alignment took a snapshot before asynchronous media reads. A mark may have been undone since then.
+      const currentIds = new Set(decisions.map(mark => mark.id));
       const item = {
         id: record.id || `conform:${crypto.randomUUID()}`,
         name: record.name,
@@ -202,7 +211,7 @@ export function createLiveSession({
         windowScores: record.windowScores,
         waveform: record.waveform,
         scoreTimeline: record.scoreTimeline || null,
-        liveDecisions: record.liveDecisions || [],
+        liveDecisions: (record.liveDecisions || []).filter(mark => currentIds.has(mark.id)),
         wallStartMs: record.alignment.masterStartEpochMs,
         wallEndMs: record.alignment.masterStartEpochMs + record.duration * 1000,
         createdAt: Date.now(),

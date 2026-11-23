@@ -757,7 +757,8 @@ if ($('live-workspace')) {
           alignment: conformed.alignment,
         });
         sourceId = record.sourceId;
-        for (const dec of conformed.liveDecisions || []) {
+        const currentMaster = liveCompanion.session.getConformed(conformed.id);
+        for (const dec of currentMaster.liveDecisions) {
           try {
             if (dec.kind === 'retain') workspace.addManual(sourceId, { start: dec.start, end: dec.end });
             else if (dec.kind === 'exclude') {

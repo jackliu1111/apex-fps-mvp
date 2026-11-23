@@ -167,3 +167,18 @@ test('live session toWaveformView and conformed scoreTimeline plug directly into
   });
   assert.ok(conformed.scoreTimeline && conformed.scoreTimeline.groupScorePyramid);
 });
+
+test('undo updates already conformed masters and cannot reappear when a pending conform finishes', () => {
+  const session = createLiveSession();
+  session.start({ nowMs: 1000 });
+  const keep = session.addMark({ wallStartMs: 1200, wallEndMs: 2200 });
+  const undoNow = session.addMark({ wallStartMs: 3000, wallEndMs: 4000 });
+  const undoLater = session.excludeRange({ wallStartMs: 4200, wallEndMs: 5000 });
+  const mapped = mapLiveHistoryToMaster({ liveHistory: session.getHistoryForAlignment(), duration: 8, masterStartEpochMs: 1000 });
+  const record = { name: 'test.mkv', duration: 8, alignment: { masterStartEpochMs: 1000 }, liveDecisions: mapped.liveDecisions };
+  session.registerConformed({ ...record, id: 'first' });
+  session.removeDecision(undoNow.id);
+  session.registerConformed({ ...record, id: 'second' });
+  session.removeDecision(undoLater.id);
+  assert.deepEqual(session.snapshot().conformed.map(item => item.liveDecisions.map(d => d.id)), [[keep.id], [keep.id]]);
+});
