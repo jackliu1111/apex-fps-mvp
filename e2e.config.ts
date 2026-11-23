@@ -19,8 +19,6 @@ export default {
         executable: 'python3',
         args: [
           'model_web_ui/browser.prototype/serve.py',
-          '--assets',
-          '/private/tmp/apex-browser-prototype-20261026/assets',
           '--port',
           '{port}',
         ],

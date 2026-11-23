@@ -71,9 +71,11 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       await Promise.all(added.map(prepareOne));
       return added;
     },
-    async importPrecomputed(file, precomputed = {}) {
+    async importPrecomputed(file, precomputed = {}, existingId) {
       if (disposed) throw new Error('分析队列已关闭');
-      const record = {
+      const existing = existingId === undefined ? null : get(existingId);
+      if (existingId !== undefined && !prepared.has(existingId)) throw new Error('录像尚未就绪');
+      const record = existing || {
         id: crypto.randomUUID(),
         file,
         model: precomputed.model || DEFAULT_MODEL,
@@ -85,17 +87,26 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
         windows: 0,
         frontier: -Infinity,
       };
-      records.push(record); emit(record);
+      if (existing) {
+        jobs.get(record.id)?.abort(stopped());
+        record.status = 'preparing'; emit(record);
+      } else {
+        records.push(record); emit(record);
+      }
       const { controller, current } = begin(record);
       preparations++;
       try {
-        const media = await prepare(record, { signal: controller.signal });
-        if (!current() || controller.signal.aborted) { media?.input?.dispose(); return record; }
-        Object.assign(record, media); prepared.add(record.id);
-        await onPrepared(record);
+        if (!existing) {
+          const media = await prepare(record, { signal: controller.signal });
+          if (!current() || controller.signal.aborted) { media?.input?.dispose(); return record; }
+          Object.assign(record, media); prepared.add(record.id);
+          await onPrepared(record);
+        }
         if (!current() || controller.signal.aborted) return record;
         if (typeof precomputed.apply === 'function') await precomputed.apply(record);
+        if (!current() || controller.signal.aborted) return record;
         record.status = 'complete';
+        record.error = null;
         record.processedUntil = record.duration;
         record.frontier = Infinity;
         jobs.delete(record.id);

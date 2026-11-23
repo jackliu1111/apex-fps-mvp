@@ -480,7 +480,7 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
 @media (max-width: 540px) {
   :root { --pad: 16px; }
   .header-inner { padding: 12px 20px 8px; gap: 10px; }
-  .brand { font-size: 15px; }
+  .brand { font-size: 15px; flex-wrap: wrap; }
   .diag-toggle { width: 32px; min-height: 32px; }
   .lang-toggle { min-height: 32px; }
   .session-notice { width: 100%; max-width: none; order: 2; }

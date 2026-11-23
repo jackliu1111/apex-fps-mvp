@@ -15,7 +15,7 @@ import { createLiveCompanionWorkspace } from './live-companion-ui.mjs';
 import { createDiagnosticLog, collectDiagnostics, copyTextToClipboard } from './diagnostics.mjs';
 
 const $ = (id) => document.getElementById(id);
-const bindings = new Map(), identified = new WeakMap(), pendingImports = new Set();
+const bindings = new Map(), identified = new WeakMap(), pendingImports = new Map();
 const queueRows = new Map(), batchRows = new Map();
 const seenCandidates = new Map();
 const presentedRecords = new WeakSet();
@@ -192,6 +192,30 @@ async function startExport(id) {
   note(t('note_export_submitted'));
 }
 
+function trackImport(sourceId, promise) {
+  const pending = promise.finally(() => pendingImports.delete(sourceId));
+  pendingImports.set(sourceId, pending);
+  return pending;
+}
+
+async function importLiveMaster(sourceId, conformed) {
+  let record = bindings.get(sourceId);
+  // Keep existing offline evidence when the live session has no mapped windows.
+  if (!record || conformed.windowScores?.length) {
+    record = await queue.importPrecomputed(conformed.file, conformed, record?.id);
+    if (record.status !== 'complete') throw new Error('录像导入已停止');
+  }
+  const prior = workspace.getSource(sourceId).decisions;
+  const currentMaster = liveCompanion.session.getConformed(conformed.id);
+  if (!currentMaster) throw new Error('实时会话已结束，请重新选择录像');
+  for (const dec of currentMaster.liveDecisions) {
+    if (prior.some(d => [d.range, d.originRange].some(r => r.start === dec.start && r.end === dec.end))) continue;
+    const id = workspace.addManual(sourceId, { start: dec.start, end: dec.end }, { preserveExportChoice: true });
+    if (dec.kind === 'exclude') workspace.exclude(sourceId, id);
+  }
+  record.liveHandoffComplete = true;
+}
+
 async function importFiles(files, options = {}) {
   await ready;
   const importOptions = { model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2 };
@@ -199,17 +223,14 @@ async function importFiles(files, options = {}) {
   const importMessage = t('note_prep_files', { count: files.length });
   note(importMessage);
   await Promise.all([...files].map(async (file) => {
-    let reservedId;
     try {
       const identity = await identifyFile(file);
       identified.set(file, identity);
       if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(t('note_file_exists', { name: file.name })); return; }
-      reservedId = identity.id; pendingImports.add(reservedId);
-      await queue.importFiles([file], importOptions);
+      await trackImport(identity.id, queue.importFiles([file], importOptions));
     } catch (error) {
       failures.push(`${file.name}: ${errorText(error)}`);
     } finally {
-      if (reservedId) pendingImports.delete(reservedId);
       render();
     }
   }));
@@ -746,27 +767,10 @@ if ($('live-workspace')) {
     async onOpenMasterReview(conformed) {
       const identity = await identifyFile(conformed.file);
       identified.set(conformed.file, identity);
-      let sourceId = bindings.has(identity.id) ? identity.id : null;
-      if (!sourceId) {
-        const record = await queue.importPrecomputed(conformed.file, {
-          model: DEFAULT_MODEL,
-          threshold: 0.2,
-          windowScores: conformed.windowScores,
-          waveform: conformed.waveform,
-          scoreTimeline: conformed.scoreTimeline || null,
-          alignment: conformed.alignment,
-        });
-        sourceId = record.sourceId;
-        const currentMaster = liveCompanion.session.getConformed(conformed.id);
-        for (const dec of currentMaster.liveDecisions) {
-          try {
-            if (dec.kind === 'retain') workspace.addManual(sourceId, { start: dec.start, end: dec.end });
-            else if (dec.kind === 'exclude') {
-              const id = workspace.addManual(sourceId, { start: dec.start, end: dec.end });
-              workspace.exclude(sourceId, id);
-            }
-          } catch {}
-        }
+      const sourceId = identity.id;
+      while (pendingImports.has(sourceId)) await pendingImports.get(sourceId);
+      if (!bindings.get(sourceId)?.liveHandoffComplete) {
+        await trackImport(sourceId, importLiveMaster(sourceId, conformed));
       }
       switchWorkspaceMode('offline');
       await openReview(sourceId);

@@ -146,7 +146,45 @@ async function clickAcrossRefresh(page, button, duringPress) {
     await page.locator('#play-pause').click();
     await page.waitForFunction(() => window.reviewApp.player.state.position > 0.2);
 
-    // Return to Live Mode and stop cleanly; empty stage should be restored.
+    // A recording already imported from the offline picker must also receive its first live handoff.
+    await page.locator('#mode-live').click();
+    const existing = await page.evaluate(async () => {
+      const app = window.reviewApp;
+      const master = app.liveCompanion.session.getConformed('another-master');
+      await app.importFiles([master.file]);
+      const source = app.workspace.view().sources.find(item => item.identity.name === master.name);
+      const manual = app.workspace.addManual(source.id, { start: 0, end: 0.2 });
+      app.workspace.choose(source.id, manual, false);
+      const { start, end } = master.liveDecisions[0];
+      app.workspace.publishCandidates(source.id, [{ id: 'matched', start, end }]);
+      app.workspace.choose(source.id, 'auto:matched', false);
+      return { id: source.id, manual, windows: master.windowScores.length };
+    });
+    const second = page.locator('#live-conformed-list .live-card').filter({ hasText: 'second-recording.mp4' });
+    await second.getByRole('button', { name: '去剪辑' }).click();
+    await page.waitForFunction(id => reviewApp.page === 'review' && reviewApp.mode === 'offline' && reviewApp.activeSourceId === id, existing.id);
+    const afterHandoff = () => page.evaluate(({ id, manual }) => {
+      const source = reviewApp.workspace.getSource(id);
+      const record = reviewApp.bindings.get(id);
+      return {
+        queuedCopies: reviewApp.queue.records.filter(item => item.sourceId === id).length,
+        windows: record.windowScores?.length || 0,
+        manualSelected: source.clips.find(clip => clip.id === manual)?.selected,
+        migratedSelected: source.clips.find(clip => clip.manual && clip.id !== manual)?.selected,
+        migrated: source.decisions.filter(d => d.id !== manual).map(d => d.range),
+      };
+    }, existing);
+    assert.deepEqual(await afterHandoff(), {
+      queuedCopies: 1, windows: existing.windows, manualSelected: false, migratedSelected: false,
+      migrated: [{ start: expected.start, end: expected.end }],
+    });
+    const batch = await page.evaluate(({ id, manual }) => {
+      const workspace = reviewApp.workspace;
+      workspace.choose(id, manual, true);
+      return workspace.submitBatch(id).clips;
+    }, existing);
+    assert.ok(batch.some(clip => clip.id === existing.manual));
+    assert.ok(!batch.some(clip => clip.start === expected.start && clip.end === expected.end));
     await page.locator('#mode-live').click();
     await page.locator('#live-btn-stop').click();
     await page.waitForFunction(() => !window.reviewApp.liveCompanion.session.snapshot().active, null, { timeout: 5000 });

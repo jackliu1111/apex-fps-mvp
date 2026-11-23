@@ -286,10 +286,12 @@ export function createBrowserAnalysis({
     return next;
   };
   const rawImportPrecomputed = queue.importPrecomputed;
-  queue.importPrecomputed = (file, precomputed = {}) => rawImportPrecomputed(file, {
+  queue.importPrecomputed = (file, precomputed = {}, existingId) => rawImportPrecomputed(file, {
     model: precomputed.model || DEFAULT_MODEL,
     threshold: precomputed.threshold ?? 0.2,
     apply(record) {
+      record.scores = null;
+      record.scoreFrames = 0;
       record.audioDuration = precomputed.audioDuration ?? record.duration;
       record.audioOffset = precomputed.audioOffset ?? 0;
       record.windowScores = Array.isArray(precomputed.windowScores) ? structuredClone(precomputed.windowScores) : [];
@@ -301,6 +303,6 @@ export function createBrowserAnalysis({
       onWaveform(record, record.waveform);
       record.candidates = candidatesFromScores(record, record.threshold, Infinity);
     },
-  });
+  }, existingId);
   return queue;
 }

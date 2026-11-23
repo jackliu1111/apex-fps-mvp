@@ -5,6 +5,30 @@ import { createAnalysisQueue } from '../../../site/analysis-queue.mjs';
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+test('live handoff reuses a prepared recording and supersedes its in-flight analysis', async () => {
+  const finishOffline = deferred();
+  let preparations = 0;
+  const queue = createAnalysisQueue({
+    prepare: async () => { preparations++; return { duration: 30 }; },
+    analyze: async (record, { publish }) => {
+      await finishOffline.promise;
+      publish([{ key: 'obsolete-offline-result' }]);
+    },
+  });
+  const file = { name: 'capture.mkv' };
+  const [record] = await queue.importFiles([file]);
+  assert.equal(record.status, 'analyzing');
+  await queue.importPrecomputed(file, {
+    apply(target) { target.candidates = [{ key: 'mapped-live-result' }]; },
+  }, record.id);
+  finishOffline.resolve();
+  await queue.whenIdle();
+  assert.equal(preparations, 1);
+  assert.equal(queue.records.length, 1);
+  assert.equal(record.status, 'complete');
+  assert.deepEqual(record.candidates, [{ key: 'mapped-live-result' }]);
+});
+
 test('a slow file preparation does not block another ready recording', async () => {
   const slow = deferred();
   const queue = createAnalysisQueue({
