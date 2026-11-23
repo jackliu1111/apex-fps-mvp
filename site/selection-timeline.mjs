@@ -223,7 +223,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       const widthPct = (group.end - group.start) / span * 100;
       const widthPx = group.endPx - group.leftPx;
       const isMerged = group.members.length > 1;
-      const stableMembers = group.members.filter(member => !member.provisional);
       const first = group.members[0], last = group.members.at(-1);
       const stableMembers = group.members.filter(member => !member.provisional);
       const selectedCount = stableMembers.filter(member => member.selected).length;
