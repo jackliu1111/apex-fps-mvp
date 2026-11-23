@@ -23,19 +23,15 @@ export function createDirectoryWatcher({
   onError = () => {},
   now = () => Date.now(),
 } = {}) {
-  let directoryHandle = null;
+  let session = { handle: null, startedAt: 0, tracked: new Map() };
   let timer = null;
-  let polling = false;
-  let startedAt = 0;
-  const baselineNames = new Set();
   const exportedNames = new Set();
-  const tracked = new Map(); // name -> { state, size, lastModified, stableCount, attempts, file, meta }
 
   const snapshot = () => ({
-    watching: !!directoryHandle,
-    directoryName: directoryHandle?.name || null,
-    startedAt,
-    tracked: [...tracked.entries()].map(([name, info]) => ({
+    watching: !!session.handle,
+    directoryName: session.handle?.name || null,
+    startedAt: session.startedAt,
+    tracked: [...session.tracked.entries()].map(([name, info]) => ({
       name,
       state: info.state,
       size: info.size,
@@ -46,15 +42,15 @@ export function createDirectoryWatcher({
 
   const emit = () => onStatus(snapshot());
 
-  async function scanOnce() {
-    if (!directoryHandle || polling) return;
-    polling = true;
+  async function scanOnce(current) {
+    const { handle: directoryHandle, baseline, startedAt, tracked } = current;
     try {
       const seen = new Set();
       for await (const [name, handle] of directoryHandle.entries()) {
+        if (session !== current) return;
         if (handle.kind !== 'file') continue;
         seen.add(name);
-        if (baselineNames.has(name) || exportedNames.has(name) || !isCandidateVideoName(name)) continue;
+        if (exportedNames.has(name) || !isCandidateVideoName(name)) continue;
 
         let entry = tracked.get(name);
         if (entry && (entry.state === 'ready' || entry.state === 'ignored' || entry.state === 'probing')) continue;
@@ -64,12 +60,22 @@ export function createDirectoryWatcher({
           file = await handle.getFile();
         } catch {
           // Windows exclusive write lock while recording: stay in growing state and retry next poll.
-          if (!entry) {
+          if (!entry && !baseline.has(name)) {
             entry = { state: 'growing', size: -1, lastModified: 0, stableCount: 0, attempts: 0 };
             tracked.set(name, entry);
             emit();
           }
           continue;
+        }
+
+        if (baseline.has(name)) {
+          const initial = baseline.get(name);
+          if (!initial && file.lastModified <= startedAt) {
+            baseline.set(name, { size: file.size, lastModified: file.lastModified });
+            continue;
+          }
+          if (initial && initial.size === file.size && initial.lastModified === file.lastModified) continue;
+          baseline.delete(name);
         }
 
         if (!entry) {
@@ -120,6 +126,7 @@ export function createDirectoryWatcher({
             emit();
             continue;
           }
+          if (session !== current || exportedNames.has(name)) continue;
           entry.state = 'ready';
           entry.file = recheck;
           entry.meta = meta;
@@ -146,38 +153,65 @@ export function createDirectoryWatcher({
         }
       }
     } catch (error) {
-      onError(error);
-    } finally {
-      polling = false;
+      if (session === current) onError(error);
     }
+  }
+
+  function poll() {
+    const current = session;
+    if (!current.handle) return;
+    // Automatic scans and manual refreshes share the snapshot or scan already in progress.
+    current.pending ??= scanOnce(current).finally(() => { current.pending = null; });
+    return current.pending;
+  }
+
+  async function readBaseline(current) {
+    for await (const [name, entry] of current.handle.entries()) {
+      if (session !== current) return;
+      if (entry.kind !== 'file' || exportedNames.has(name) || !isCandidateVideoName(name)) continue;
+      try {
+        const file = await entry.getFile();
+        current.baseline.set(name, { size: file.size, lastModified: file.lastModified });
+      } catch {
+        // A locked recording may become readable only when OBS finishes writing it.
+        current.baseline.set(name, null);
+      }
+    }
+  }
+
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    session = { handle: null, startedAt: session.startedAt, tracked: new Map(session.tracked) };
+    emit();
   }
 
   return {
     async start(handle) {
       if (!handle) throw new Error('请选择录像目录');
-      if (timer) clearInterval(timer);
-      directoryHandle = handle;
-      startedAt = now();
-      baselineNames.clear();
-      tracked.clear();
-      for await (const [name, entry] of handle.entries()) {
-        if (entry.kind === 'file') baselineNames.add(name);
+      clearInterval(timer);
+      const current = { handle, startedAt: now(), tracked: new Map(), baseline: new Map(), pending: null };
+      session = current;
+      try {
+        current.pending = readBaseline(current);
+        await current.pending;
+      } catch (error) {
+        if (session === current) stop();
+        throw error;
       }
-      emit();
-      timer = setInterval(() => { void scanOnce(); }, pollIntervalMs);
+      current.pending = null;
+      if (session === current) {
+        timer = setInterval(poll, pollIntervalMs);
+        emit();
+      }
       return snapshot();
     },
-    stop() {
-      if (timer) clearInterval(timer);
-      timer = null;
-      directoryHandle = null;
-      emit();
-    },
+    stop,
     registerExportedFilename(name) {
       if (name) exportedNames.add(name);
     },
     async pollNow() {
-      await scanOnce();
+      await poll();
       return snapshot();
     },
     get state() {
