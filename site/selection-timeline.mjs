@@ -188,7 +188,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
         prev.endPx = Math.max(prev.endPx, endPx);
         prev.rawEnd = Math.max(prev.rawEnd, item.end);
         prev.provisional = prev.provisional && !!item.provisional;
-        prev.selected = prev.selected || !!item.selected;
         prev.supplemental = prev.supplemental && !!item.supplemental;
       } else {
         groups.push({
@@ -202,7 +201,6 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
           endPx,
           excluded: !!item.excluded,
           provisional: !!item.provisional,
-          selected: !!item.selected,
           supplemental: !!item.supplemental,
         });
       }
@@ -226,10 +224,24 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       const widthPx = group.endPx - group.leftPx;
       const isMerged = group.members.length > 1;
       const first = group.members[0], last = group.members.at(-1);
-      const displayLabel = isMerged ? `${first.label}–${last.label}` : first.label;
+      const stableMembers = group.members.filter(member => !member.provisional);
+      const selectedCount = stableMembers.filter(member => member.selected).length;
+      let exportMark = '';
+      let exportSummary = '';
+      if (isMerged && stableMembers.length) {
+        if (selectedCount === 0) exportMark = '☐';
+        else if (selectedCount === stableMembers.length) exportMark = '☑';
+        else exportMark = `✓${selectedCount}/${stableMembers.length}`;
+        exportSummary = isZh
+          ? ` · 可导出片段中已勾选 ${selectedCount}/${stableMembers.length}`
+          : ` · ${selectedCount} of ${stableMembers.length} eligible clips selected for export`;
+      }
+      const label = isMerged ? `${first.label}–${last.label}` : first.label;
+      const displayLabel = exportMark ? `${exportMark} ${label}` : label;
+      const unchecked = isMerged ? stableMembers.length > 0 && selectedCount === 0 : !first.selected;
       node.style.left = `${leftPct}%`;
       node.style.width = `${widthPct}%`;
-      node.className = [group.excluded ? 'excluded' : group.provisional ? 'provisional' : group.supplemental ? 'supplemental' : '', !group.selected && !group.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
+      node.className = [group.excluded ? 'excluded' : group.provisional ? 'provisional' : group.supplemental ? 'supplemental' : '', unchecked && !group.excluded ? 'unselected' : ''].filter(Boolean).join(' ');
       if (widthPx < 14) node.dataset.compact = 'true';
       else delete node.dataset.compact;
       if (isMerged) node.dataset.merged = 'true';
@@ -245,8 +257,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       if (labelEl.textContent !== displayLabel) labelEl.textContent = displayLabel;
       if (isMerged) {
         node.title = isZh
-          ? `合并显示 ${group.members.length} 段候选（#${first.label}–#${last.label}）· ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · 点击定位展开`
-          : `Merged ${group.members.length} candidates (#${first.label}–#${last.label}) · ${stamp(group.rawStart)} — ${stamp(group.rawEnd)} · Click to zoom`;
+          ? `合并显示 ${group.members.length} 段候选（#${first.label}–#${last.label}）· ${stamp(group.rawStart)} — ${stamp(group.rawEnd)}${exportSummary} · 点击定位展开`
+          : `Merged ${group.members.length} candidates (#${first.label}–#${last.label}) · ${stamp(group.rawStart)} — ${stamp(group.rawEnd)}${exportSummary} · Click to zoom`;
       } else {
         const decision = source.decisions.find((d) => d.id === first.id);
         const adjusted = decision && (decision.originRange.start !== first.start || decision.originRange.end !== first.end);
