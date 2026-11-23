@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 
 (async () => {
@@ -24,22 +25,24 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => Boolean(window.reviewApp));
     await page.evaluate(() => window.reviewApp.ready);
 
-    // Direct ?mode=live opens Live Mode with visible Demo entry points.
+    // Direct ?mode=live opens Live Mode without built-in Demo buttons.
     assert.equal(await page.evaluate(() => window.reviewApp.mode), 'live');
-    assert.equal(await page.locator('#live-btn-demo').isVisible(), true);
-    assert.equal(await page.locator('#live-stage-demo-btn').isVisible(), true);
+    assert.equal(await page.locator('#live-workspace h1').textContent(), '实时模式(demo)');
+    assert.equal(await page.locator('#live-btn-demo').count(), 0);
+    assert.equal(await page.locator('#live-stage-demo-btn').count(), 0);
 
-    // Launch built-in Demo via the empty-stage CTA button.
-    await page.locator('#live-stage-demo-btn').click();
+    // Launch local video simulation with sample clip.
+    const sampleClip = path.resolve(__dirname, '../../../site/demo-apex-clip.mp4');
+    await page.locator('#live-sim-file').setInputFiles(sampleClip);
     try {
       await page.waitForFunction(() => Boolean(window.reviewApp.liveCompanion.session.snapshot().active), null, { timeout: 15000 });
     } catch (err) {
       const notice = await page.locator('#live-notice').textContent().catch(() => '');
-      throw new Error(`Demo did not activate: notice="${notice}" errors=${JSON.stringify(errors)} (${err.message})`);
+      throw new Error(`Simulation did not activate: notice="${notice}" errors=${JSON.stringify(errors)} (${err.message})`);
     }
 
-    assert.equal(await page.locator('#live-sim-title').textContent(), '内置 Demo');
-    assert.equal(await page.locator('#live-stage-mode-tag').textContent(), 'LIVE · Demo');
+    assert.equal(await page.locator('#live-sim-title').textContent(), '模拟模式');
+    assert.equal(await page.locator('#live-stage-mode-tag').textContent(), 'LIVE · 模拟视频');
     assert.equal(await page.locator('#live-stage-empty').isHidden(), true);
 
     // Wait for real AudioWorklet envelope + EfficientSED WASM inference score window.
@@ -81,11 +84,11 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.locator('#live-conformed-list button.primary').first().click();
     await page.waitForFunction(() => window.reviewApp.mode === 'offline' && window.reviewApp.page === 'review', null, { timeout: 10000 });
 
-    // Return to Live Mode and stop cleanly; empty-stage Demo button should be restored.
+    // Return to Live Mode and stop cleanly; empty stage should be restored.
     await page.locator('#mode-live').click();
     await page.locator('#live-btn-stop').click();
     await page.waitForFunction(() => !window.reviewApp.liveCompanion.session.snapshot().active, null, { timeout: 5000 });
-    assert.equal(await page.locator('#live-stage-demo-btn').isVisible(), true);
+    assert.equal(await page.locator('#live-stage-empty').isVisible(), true);
 
     assert.deepEqual(errors, []);
     console.log('PASS: live mode demo e2e verified', JSON.stringify(liveState));

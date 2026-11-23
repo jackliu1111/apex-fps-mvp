@@ -15,9 +15,6 @@ import {
   resolveWaveColor,
 } from './waveform-renderer.mjs';
 
-const LIVE_DEMO_URL = './demo-apex-clip.mp4';
-const LIVE_DEMO_FILENAME = 'demo-apex-clip.mp4';
-
 const formatClock = (ms) => {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
@@ -62,15 +59,10 @@ export function createLiveCompanionWorkspace({
   let simVideoEl = null;
   let simObjectUrl = null;
   let simSourceFile = null;
-  let simIsDemo = false;
   let simGainNode = null;
   let simStartWallMs = 0;
   let simStartMediaSec = 0;
-  let simCompletedPassStartWallMs = null;
-  let cachedDemoFile = null;
-  let demoLoading = false;
-  let demoRunToken = 0;
-  let demoAutoConformTimer = null;
+  let simRunToken = 0;
 
   // Broadcast DVR state: lagSec === 0 -> LIVE rightmost; lagSec > 0 -> timeshifted proxy replay.
   let dvrMode = false;
@@ -86,7 +78,7 @@ export function createLiveCompanionWorkspace({
   const enabledGroups = new Set(DISPLAY_GROUPS.map((g) => g.id));
   let proxyState = { mode: 'smooth', bufferedBytes: 0, maxBytes: 150 * 1024 * 1024, elapsedSec: 0, mimeType: null, filmstripCount: 0, replayUrl: null, bitrateBps: 0, lastChunkGapMs: 0 };
   let watcherState = { watching: false, directoryName: null, tracked: [] };
-  let liveNotice = '点击「体验 Demo」立即试用实时识别与回看，也支持本地视频模拟、捕获屏幕或音频设备。';
+  let liveNotice = '选择「捕获屏幕」、「音频设备」或「本地视频模拟」开始实时识别与回看。';
   let liveTone = 'info';
   let resourceDetailsOpen = false;
   let lastResourceUiAt = 0;
@@ -240,7 +232,7 @@ export function createLiveCompanionWorkspace({
     <div class="live-shell">
       <div class="page-heading">
         <div>
-          <h1>实时模式</h1>
+          <h1>实时模式(demo)</h1>
           <p class="intro">实时监听游戏声音、标出交火片段并支持即时回看，新录像保存后自动关联以便剪辑导出。</p>
         </div>
         <div class="live-metrics-strip">
@@ -253,11 +245,10 @@ export function createLiveCompanionWorkspace({
       <section class="panel">
         <div class="live-toolbar">
           <div class="live-source-controls">
-            <button id="live-btn-demo" class="primary" type="button">▶ 体验 Demo</button>
+            <button id="live-btn-display" class="primary" type="button">捕获屏幕</button>
+            <button id="live-btn-device" class="quiet" type="button">音频设备</button>
             <button id="live-btn-sim" type="button">本地视频模拟</button>
             <input id="live-sim-file" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" hidden>
-            <button id="live-btn-display" type="button">捕获屏幕</button>
-            <button id="live-btn-device" class="quiet" type="button">音频设备</button>
             <button id="live-btn-stop" class="destructive" type="button" disabled>停止</button>
           </div>
           <div class="live-source-controls">
@@ -359,8 +350,7 @@ export function createLiveCompanionWorkspace({
             <img id="live-eco-frame" class="live-eco-frame" alt="回看缩略图" hidden>
             <div class="live-stage-empty" id="live-stage-empty">
               <strong id="live-stage-empty-title">等待开始</strong>
-              <span id="live-stage-empty-desc" class="muted">点击「体验 Demo」立即试用实时枪声识别、即时回看与原片关联，或选择本地视频 / 捕获屏幕。</span>
-              <button id="live-stage-demo-btn" class="primary live-stage-demo-btn" type="button">▶ 运行内置 Apex 实况 Demo</button>
+              <span id="live-stage-empty-desc" class="muted">点击上方「捕获屏幕」、「音频设备」或「本地视频模拟」开始实时枪声识别与即时回看。</span>
             </div>
             <div class="live-stage-overlay">
               <span id="live-stage-mode-tag" class="live-stage-tag">未开始</span>
@@ -432,7 +422,7 @@ export function createLiveCompanionWorkspace({
               </div>
               <button id="live-btn-poll-now" class="quiet" type="button" disabled>刷新目录</button>
             </div>
-            <p id="live-watcher-detail" class="muted live-watcher-detail">未选择录像目录；Demo 或模拟模式下可点击上方「关联此录像」。</p>
+            <p id="live-watcher-detail" class="muted live-watcher-detail">未选择录像目录；模拟模式下可点击上方「关联此录像」。</p>
             <div id="live-conformed-list" class="live-list"></div>
           </section>
 
@@ -749,7 +739,7 @@ export function createLiveCompanionWorkspace({
       badgeText.textContent = 'LIVE';
       playBtn.textContent = '暂停';
       modeTag.textContent = snap.sourceKind === 'simulated'
-        ? (simIsDemo ? 'LIVE · Demo' : 'LIVE · 模拟视频')
+        ? 'LIVE · 模拟视频'
         : snap.sourceKind === 'device' ? 'LIVE · 音频设备' : 'LIVE · 屏幕';
     } else {
       badgeText.textContent = `⏪ ${formatLag(dvrLagSec)} · 回到实时`;
@@ -876,37 +866,20 @@ export function createLiveCompanionWorkspace({
     },
   });
 
-  function setDemoButtonsLoading(loading) {
-    const topBtn = el('live-btn-demo');
-    const stageBtn = el('live-stage-demo-btn');
-    if (topBtn) {
-      topBtn.disabled = loading;
-      topBtn.textContent = loading ? '加载 Demo 中…' : '▶ 体验 Demo';
-    }
-    if (stageBtn) {
-      stageBtn.disabled = loading;
-      stageBtn.textContent = loading ? '加载 Demo 中…' : '▶ 运行内置 Apex 实况 Demo';
-    }
-  }
-
   function resetEmptyStage(mode = 'idle') {
     const titleEl = el('live-stage-empty-title');
     const descEl = el('live-stage-empty-desc');
-    const stageBtn = el('live-stage-demo-btn');
     if (mode === 'device') {
       if (titleEl) titleEl.textContent = '音频设备监听中';
       if (descEl) descEl.textContent = '仅音频输入，无画面；波形与交火识别在下方实时更新。';
-      if (stageBtn) stageBtn.hidden = true;
     } else {
       if (titleEl) titleEl.textContent = '等待开始';
-      if (descEl) descEl.textContent = '点击「体验 Demo」立即试用实时枪声识别、即时回看与原片关联，或选择本地视频 / 捕获屏幕。';
-      if (stageBtn) stageBtn.hidden = false;
+      if (descEl) descEl.textContent = '点击上方「捕获屏幕」、「音频设备」或「本地视频模拟」开始实时枪声识别与即时回看。';
     }
   }
 
   async function stopCapture() {
-    demoRunToken++;
-    if (demoAutoConformTimer) { clearTimeout(demoAutoConformTimer); demoAutoConformTimer = null; }
+    simRunToken++;
     if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
     proxyBuffer.stop();
     session.stop();
@@ -934,8 +907,6 @@ export function createLiveCompanionWorkspace({
       simObjectUrl = null;
     }
     simSourceFile = null;
-    simIsDemo = false;
-    simCompletedPassStartWallMs = null;
     liveVideo.srcObject = null;
     replayVideo.pause();
     replayVideo.removeAttribute('src');
@@ -973,18 +944,15 @@ export function createLiveCompanionWorkspace({
     rafId = requestAnimationFrame(loop);
   }
 
-  async function startSimulatedFromFile(file, { isDemo = false, loop = false } = {}) {
+  async function startSimulatedFromFile(file) {
     await stopCapture();
-    const runToken = demoRunToken;
+    const runToken = simRunToken;
     simSourceFile = file;
-    simIsDemo = !!isDemo;
-    simCompletedPassStartWallMs = null;
     simObjectUrl = URL.createObjectURL(file);
     simVideoEl = document.createElement('video');
     simVideoEl.src = simObjectUrl;
     simVideoEl.crossOrigin = 'anonymous';
     simVideoEl.playsInline = true;
-    simVideoEl.loop = !!loop;
     await new Promise((resolve, reject) => {
       simVideoEl.onloadedmetadata = resolve;
       simVideoEl.onerror = () => reject(new Error('浏览器无法解码该测试视频文件'));
@@ -1021,30 +989,8 @@ export function createLiveCompanionWorkspace({
     simStartWallMs = Date.now();
     simStartMediaSec = simVideoEl.currentTime || 0;
 
-    let lastSimTime = simStartMediaSec;
-    let demoAutoConformed = false;
-    simVideoEl.addEventListener('timeupdate', () => {
-      if (!simVideoEl || runToken !== demoRunToken) return;
-      const curr = simVideoEl.currentTime || 0;
-      if (loop && lastSimTime > 5 && curr < lastSimTime - 2) {
-        const completedPassStartMs = simStartWallMs;
-        simCompletedPassStartWallMs = completedPassStartMs;
-        simStartWallMs = Date.now() - curr * 1000;
-        simStartMediaSec = 0;
-        if (simIsDemo && !demoAutoConformed) {
-          demoAutoConformed = true;
-          demoAutoConformTimer = setTimeout(() => {
-            demoAutoConformTimer = null;
-            if (runToken !== demoRunToken || !session.snapshot().active || simSourceFile !== file) return;
-            const injectedOffsetMs = Number(el('live-sim-offset').value) || 0;
-            void conformFile(file, { coarseStartOverrideMs: completedPassStartMs - injectedOffsetMs });
-          }, 450);
-        }
-      }
-      lastSimTime = curr;
-    });
     simVideoEl.addEventListener('ended', () => {
-      if (!loop && runToken === demoRunToken && session.snapshot().active) {
+      if (runToken === simRunToken && session.snapshot().active) {
         setNotice('本地视频播放已结束；可点击上方「关联此录像」体验对齐，或点击「停止」。', 'info');
       }
     });
@@ -1065,46 +1011,15 @@ export function createLiveCompanionWorkspace({
 
     el('live-stage-empty').hidden = true;
     el('live-sim-banner').hidden = false;
-    el('live-sim-title').textContent = simIsDemo ? '内置 Demo' : '模拟模式';
-    el('live-sim-meta').textContent = simIsDemo
-      ? `${file.name} (${formatSec(simVideoEl.duration)} · 循环演示 · 首轮结束后自动关联原片)`
-      : `${file.name} (${formatSec(simVideoEl.duration)})`;
+    el('live-sim-title').textContent = '模拟模式';
+    el('live-sim-meta').textContent = `${file.name} (${formatSec(simVideoEl.duration)})`;
     el('live-btn-stop').disabled = false;
     syncDvrControlsUI();
-    setNotice(
-      simIsDemo
-        ? '内置 Demo 已启动：实时识别枪声中，向左拖动进度条或波形可回看，首轮结束后自动关联原片。'
-        : '模拟已开始：向左拖动进度条或波形可回看，拖到最右回到实时。',
-      'ok',
-    );
+    setNotice('模拟已开始：向左拖动进度条或波形可回看，拖到最右回到实时。', 'ok');
     onLiveRunningChange(true);
     startRenderLoop();
     renderMetrics();
     renderResourceBar(true);
-  }
-
-  async function startDemo() {
-    if (demoLoading) return;
-    demoLoading = true;
-    const loadToken = ++demoRunToken;
-    setDemoButtonsLoading(true);
-    try {
-      if (!cachedDemoFile) {
-        setNotice(`正在加载内置 Demo（${LIVE_DEMO_FILENAME}）…`, 'info');
-        const res = await fetch(LIVE_DEMO_URL);
-        if (!res.ok) throw new Error(`内置 Demo 加载失败 (HTTP ${res.status})`);
-        const blob = await res.blob();
-        cachedDemoFile = new File([blob], LIVE_DEMO_FILENAME, {
-          type: blob.type || 'video/mp4',
-          lastModified: Date.now(),
-        });
-      }
-      if (loadToken !== demoRunToken) return;
-      await startSimulatedFromFile(cachedDemoFile, { isDemo: true, loop: true });
-    } finally {
-      demoLoading = false;
-      setDemoButtonsLoading(false);
-    }
   }
 
   async function startDisplayCapture() {
@@ -1650,12 +1565,6 @@ export function createLiveCompanionWorkspace({
   }
 
   // Wire UI interactions
-  const runDemo = async () => {
-    try { await startDemo(); }
-    catch (error) { setNotice(error.message || String(error), 'warn'); }
-  };
-  el('live-btn-demo').onclick = runDemo;
-  el('live-stage-demo-btn').onclick = runDemo;
   el('live-btn-sim').onclick = () => el('live-sim-file').click();
   el('live-sim-file').onchange = async (event) => {
     const file = event.target.files?.[0];
@@ -1772,10 +1681,7 @@ export function createLiveCompanionWorkspace({
   el('live-btn-sim-conform').onclick = async () => {
     if (!simSourceFile) return;
     const injectedOffsetMs = Number(el('live-sim-offset').value) || 0;
-    const useCompletedPass = simCompletedPassStartWallMs !== null && (!simVideoEl || simVideoEl.currentTime < 4);
-    const trueStartEpochMs = useCompletedPass
-      ? simCompletedPassStartWallMs
-      : (simStartWallMs - simStartMediaSec * 1000);
+    const trueStartEpochMs = simStartWallMs - simStartMediaSec * 1000;
     const simulatedCoarseStartMs = trueStartEpochMs - injectedOffsetMs;
     await conformFile(simSourceFile, { coarseStartOverrideMs: simulatedCoarseStartMs });
   };
@@ -1812,7 +1718,6 @@ export function createLiveCompanionWorkspace({
     registerExportedFilename(name) {
       watcher.registerExportedFilename(name);
     },
-    startDemo,
     stop: stopCapture,
   };
 }

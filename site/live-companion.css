@@ -170,14 +170,6 @@
   text-align: center;
   z-index: 2;
 }
-.live-stage-demo-btn {
-  margin-top: 4px;
-  min-height: 36px;
-  padding: 6px 18px;
-  border-radius: 999px;
-  font-weight: 600;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
-}
 
 /* Broadcast-style DVR Scrubbing Overlay Bar */
 .live-dvr-bar {
