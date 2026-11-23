@@ -124,6 +124,14 @@ export function createDirectoryWatcher({
         emit();
         try {
           const meta = probeFile ? await probeFile(file) : { duration: null };
+          if (session !== current || exportedNames.has(name)) continue;
+          if (meta?.pendingFinalization) {
+            entry.state = 'growing';
+            entry.stableCount = 0;
+            entry.attempts = 0;
+            emit();
+            continue;
+          }
           const recheck = await handle.getFile();
           if (session !== current || exportedNames.has(name)) continue;
           if (recheck.size !== file.size || recheck.lastModified !== file.lastModified) {

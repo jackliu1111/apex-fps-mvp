@@ -2,6 +2,7 @@ import { createLiveSession } from './live-session.mjs';
 import { createLiveProxyBuffer } from './live-proxy-buffer.mjs';
 import { createLiveResourceMonitor } from './live-resource-monitor.mjs';
 import { createDirectoryWatcher } from './directory-watcher.mjs';
+import { probeRecordingFile } from './recording-probe.mjs';
 import { alignRecordingToLiveSession, extractMasterEnvelopeSlice } from './audio-aligner.mjs';
 import { createMediaReadSource } from './media-read-source.mjs';
 import { DEFAULT_MODEL, getModelSpec } from './model-registry.mjs';
@@ -121,20 +122,6 @@ export function createLiveCompanionWorkspace({
     },
   });
 
-  async function probeMasterFile(file) {
-    const input = new MB.Input({ source: createMediaReadSource({ MB, file, priority: 'analysis' }), formats: MB.ALL_FORMATS });
-    try {
-      const video = await input.getPrimaryVideoTrack();
-      if (!video) throw new Error('无视频轨');
-      const origin = Math.max(0, await video.getFirstTimestamp());
-      const duration = await video.computeDuration() - origin;
-      if (!Number.isFinite(duration) || duration <= 0) throw new Error('无效视频时长');
-      return { duration, origin, width: video.displayWidth, height: video.displayHeight };
-    } finally {
-      input.dispose();
-    }
-  }
-
   async function conformFile(file, { coarseStartOverrideMs = null, meta = null } = {}) {
     const conformStarted = performance.now();
     setNotice(`正在对齐「${file.name}」…`, 'info');
@@ -214,7 +201,7 @@ export function createLiveCompanionWorkspace({
   const watcher = createDirectoryWatcher({
     pollIntervalMs: 2000,
     stablePollsRequired: 2,
-    probeFile: probeMasterFile,
+    probeFile: file => probeRecordingFile(file, MB),
     onStatus(next) {
       watcherState = next;
       if (!document.hidden) renderWatcher();
