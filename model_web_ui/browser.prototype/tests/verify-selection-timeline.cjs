@@ -7,6 +7,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   try {
     await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:8794/');
     await page.waitForFunction(() => window.reviewApp);
+    if (await page.locator('html').getAttribute('lang') !== 'zh-CN') await page.locator('#lang-toggle').click();
     await page.evaluate(async () => {
       await reviewApp.ready;
       const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
@@ -43,6 +44,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       }
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const evidence = () => page.evaluate(() => ({ frames: document.querySelector('#source-filmstrip').innerHTML, wave: document.querySelector('#prediction-wave').toDataURL() }));
     const beforeEvidence = await evidence();
     const left = await page.locator('#selection-left').boundingBox();

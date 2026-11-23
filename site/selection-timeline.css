@@ -957,7 +957,8 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   background: var(--selection-tint);
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.22);
   pointer-events: none;
-  z-index: 3;
+  /* At the selected boundary the handle takes the drag; the playhead cap stays above the axis. */
+  z-index: 5;
 }
 #selection-overlay[data-compact="true"] {
   min-width: 4px;
@@ -1321,7 +1322,8 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   }
 }
 @media (max-width: 640px) {
-  #review-page .review-heading { flex-wrap: wrap; }
+  #review-page .review-heading { flex-direction: column; align-items: stretch; }
+  #review-page #source-select { flex: none; width: 100%; max-width: 100%; }
   #review-page .player-stage { height: 210px; }
   #review-page .player-frame { margin: 10px 10px 0; }
   #review-page .player-controls { flex-wrap: wrap; padding: 8px 0; }

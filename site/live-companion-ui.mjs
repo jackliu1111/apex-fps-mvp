@@ -1503,7 +1503,10 @@ export function createLiveCompanionWorkspace({
         btn.className = 'primary';
         btn.type = 'button';
         btn.textContent = '去剪辑';
-        btn.onclick = () => { void onOpenMasterReview(item); };
+        btn.onclick = async () => {
+          try { await onOpenMasterReview(item); }
+          catch (error) { setNotice(error.message || String(error), 'warn'); }
+        };
         actions.append(btn);
         card.append(body, actions);
         return card;

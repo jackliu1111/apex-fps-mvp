@@ -1,6 +1,7 @@
 """Local static host. No inference, media processing, or upload API."""
 import argparse
 import json
+import socket
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import subprocess
@@ -48,8 +49,13 @@ def report_assets(assets, stream, model_assets=MODEL_ASSETS):
     for group, name in missing:
         print(f'  - {assets / name}（{group}）', file=stream)
     print('  请按 model_web_ui/browser.prototype/README.md「开发阶段重建资产」或 MODEL-LAB.md 重建模型资产，'
-          '或用 --assets 指向完整资产目录；默认 /private/tmp 路径可能被系统清理。', file=stream)
+          '或用 --assets 指向完整资产目录。', file=stream)
     return missing
+
+
+class StaticServer(ThreadingHTTPServer):
+    # A cold workspace loads many ES modules together, including during a reload.
+    request_queue_size = socket.SOMAXCONN
 
 
 class StaticHandler(SimpleHTTPRequestHandler):
@@ -124,7 +130,7 @@ if __name__ == '__main__':
             raise SystemExit(f'Preview server failed to start; inspect {log}')
         print(f'Background static preview PID: {child.pid}\nhttp://127.0.0.1:{args.port}\nLog: {log}')
         raise SystemExit(0)
-    server = ThreadingHTTPServer(('127.0.0.1', args.port), StaticHandler)
+    server = StaticServer(('127.0.0.1', args.port), StaticHandler)
     server.assets = args.assets.resolve()
     server.sample = args.sample
     print(f'Apex Local Cut: http://127.0.0.1:{args.port}' + ('/model-lab.html' if args.model_lab else ''), flush=True)

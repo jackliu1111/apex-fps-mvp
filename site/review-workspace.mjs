@@ -177,7 +177,7 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
       changed();
       return decision.id;
     },
-    addManual(id, range) {
+    addManual(id, range, { preserveExportChoice = false } = {}) {
       const source = requireSource(id);
       const valid = validRange(source, range);
       const existing = source.decisions.find((decision) => sameRange(decision.range, valid));
@@ -190,6 +190,9 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
         return existing.id;
       }
       const decision = { id: `manual:${++sequence}`, kind: 'retain', range: valid, originRange: valid };
+      if (preserveExportChoice && source.selection[choiceKey(valid)] === false) {
+        source.selection[decision.id] = false;
+      }
       source.decisions.push(decision);
       changed();
       return decision.id;
