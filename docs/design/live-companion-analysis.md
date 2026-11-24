@@ -3,6 +3,9 @@
 > 关联决策：[ADR 0008](../adr/0008-live-proxy-and-directory-conform.md)｜领域术语：[CONTEXT.md](../../CONTEXT.md)  
 > 适用范围：`model_web_ui/browser.prototype/` 纯静态离线浏览器架构（Windows 桌面 Chrome/Edge 优先）
 
+> [!WARNING]
+> 按 [ADR 0009](../adr/0009-recording-library-auto-intake.md)（已接受），代理画面、近期回看、局内手动打点与独立工作区相关内容（§2、§3.2）不再适用；目录监听、对齐与升格（§3.3–§3.5）继续作为参考。
+
 ---
 
 ## 1. 设计目标与核心不变量
