@@ -194,6 +194,7 @@ export function createBrowserAnalysis({
       const metrics = record.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, audioSetupMs: performance.now() - started, audioWaitMs: 0, inferenceRoundTripMs: 0, postprocessAndRenderMs: 0, timingVersion: 3 };
       record.analysisStarted = started; record.windows = 0; record.processedUntil = 0; record.frontier = -Infinity;
       record.scores = null; record.scoreFrames = 0; record.frameSeconds = spec.frameSeconds || 0.04; record.windowScores = null;
+      record.alignment = null;
       const groupCount = DISPLAY_GROUPS.length;
       record.scoreTimeline = null;
       record.waveform = createAudioPeaks(record.duration, record.selected);
@@ -297,7 +298,7 @@ export function createBrowserAnalysis({
       record.windowScores = Array.isArray(precomputed.windowScores) ? structuredClone(precomputed.windowScores) : [];
       record.windows = record.windowScores.length;
       record.alignment = precomputed.alignment ? structuredClone(precomputed.alignment) : null;
-      record.modelInfo = precomputed.modelInfo || { model: record.model, scoreType: 'frame', sampleRate: 16000, frameSeconds: 0.04, source: 'live-companion' };
+      record.modelInfo = precomputed.modelInfo || { model: record.model, scoreType: 'frame', sampleRate: 16000, frameSeconds: 0.04, source: 'live-monitor' };
       record.scoreTimeline = precomputed.scoreTimeline || null;
       record.waveform = precomputed.waveform || createAudioPeaks(record.duration, record.selected);
       onWaveform(record, record.waveform);
