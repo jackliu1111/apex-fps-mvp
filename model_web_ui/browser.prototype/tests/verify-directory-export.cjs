@@ -7,6 +7,7 @@ const base = process.env.REVIEW_URL || 'http://127.0.0.1:18806';
     const page = await browser.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(base); await page.waitForFunction(() => window.reviewApp);
+    if ((await page.locator('html').getAttribute('lang')) !== 'zh-CN') await page.locator('#lang-toggle').click();
     await page.evaluate(async () => {
       const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
       await reviewApp.importFiles([await createSyntheticFile({ duration: 1 })]);

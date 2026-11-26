@@ -83,13 +83,17 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.locator('button').evaluateAll(nodes => nodes.some(node => node.textContent.includes('↗'))), false);
 
     // Even an entirely excluded source remains recoverable from the timeline.
-    await page.locator('#overview-markers button').first().click();
+    await page.locator('#overview-markers button:not(.excluded)').first().click();
     await page.locator('#exclude-selection').click();
-    await page.locator('#overview-markers button').first().click();
+    await page.locator('#overview-markers button:not(.excluded)').first().click();
     await page.locator('#exclude-selection').click();
     await page.locator('#show-excluded').uncheck();
     assert.equal(await page.locator('#overview-markers button').count(), 0);
     await page.locator('#show-excluded').check();
+    if (await page.locator('#source-fit').isEnabled()) {
+      await page.locator('#source-fit').click();
+      await page.waitForFunction(() => !document.getElementById('selection-player-axis').dataset.transitioning);
+    }
     assert.equal(await page.locator('#overview-markers .excluded').count(), 2);
     await page.locator('#overview-markers .excluded').first().click();
     await page.locator('#overview-markers .excluded').first().click();

@@ -78,6 +78,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
     // Stub Notification boundary so we can assert zero auto-prompt, explicit opt-in, silent alerts & zero focus steal.
+    // Also install a fallback visibilityState controller for headless Chrome builds where tab switching keeps visibilityState === 'visible'.
     await page.addInitScript(() => {
       let perm = 'default';
       const requests = [];
@@ -85,6 +86,26 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       let focusCalls = 0;
       const origFocus = window.focus.bind(window);
       window.focus = () => { focusCalls++; return origFocus(); };
+
+      let forcedVisibility = null;
+      const origVisDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
+      const origHiddenDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden');
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get() {
+          return forcedVisibility ?? (origVisDesc?.get ? origVisDesc.get.call(document) : 'visible');
+        },
+      });
+      Object.defineProperty(document, 'hidden', {
+        configurable: true,
+        get() {
+          return forcedVisibility ? forcedVisibility === 'hidden' : Boolean(origHiddenDesc?.get?.call(document));
+        },
+      });
+      window.__setForcedVisibility = (state) => {
+        forcedVisibility = state;
+        document.dispatchEvent(new Event('visibilitychange'));
+      };
 
       window.__notifTest = {
         requests,
@@ -314,11 +335,27 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       return window.reviewApp.workspace.addManual(idB, { start: 0.2, end: 1.1 });
     }, fgIds.idB);
 
-    // Open a second real Chrome tab so our workspace tab genuinely enters document.visibilityState === 'hidden'!
+    // Open a second Chrome tab; if headless Chrome keeps background tab 'visible', fall back to dispatching real visibilitychange.
     const otherTab = await context.newPage();
     await otherTab.setContent('<h1>Game Foreground Tab</h1>');
-    await otherTab.bringToFront();
-    await page.waitForFunction(() => document.visibilityState === 'hidden');
+    async function setWorkspaceBackgrounded(hidden) {
+      if (hidden) {
+        await otherTab.bringToFront();
+        const nativeHidden = await page.waitForFunction(() => document.visibilityState === 'hidden', null, { timeout: 600 }).then(() => true).catch(() => false);
+        if (!nativeHidden) {
+          await page.evaluate(() => window.__setForcedVisibility('hidden'));
+        }
+        assert.equal(await page.evaluate(() => document.visibilityState), 'hidden');
+      } else {
+        await page.bringToFront();
+        const nativeVisible = await page.waitForFunction(() => document.visibilityState === 'visible', null, { timeout: 600 }).then(() => true).catch(() => false);
+        if (!nativeVisible) {
+          await page.evaluate(() => window.__setForcedVisibility(null));
+        }
+        assert.equal(await page.evaluate(() => document.visibilityState), 'visible');
+      }
+    }
+    await setWorkspaceBackgrounded(true);
 
     // While genuinely hidden, recording C becomes ready (conformed)
     const idC = await page.evaluate(async () => {
@@ -350,8 +387,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     assert.equal(await page.evaluate(() => window.__notifTest.getFocusCalls()), 0);
 
     // Bring workspace tab back to foreground -> real visibilitychange triggers auto-switch to C + first candidate!
-    await page.bringToFront();
-    await page.waitForFunction(() => document.visibilityState === 'visible');
+    await setWorkspaceBackgrounded(false);
     await page.waitForFunction((target) => window.reviewApp.activeSourceId === target, idC);
 
     const bgReturn = await page.evaluate(({ idB, manualIdB, idC }) => {
@@ -387,8 +423,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       const opfsDir = await opfsRoot.getDirectoryHandle('OBS_Background_Test', { create: true });
       await window.reviewApp.engineBridge.activateWatchDirectory(opfsDir, { requestPermission: false, persist: false });
     });
-    await otherTab.bringToFront();
-    await page.waitForFunction(() => document.visibilityState === 'hidden');
+    await setWorkspaceBackgrounded(true);
 
     const bgFileName = '2026-11-26_15-40_OPFS_Background_Arrival.mp4';
     await page.evaluate(async (fileName) => {
@@ -409,7 +444,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
 
     // Wait briefly in background, then switch back to workspace tab -> immediate poll + normal timer ingests it!
     await new Promise((r) => setTimeout(r, 1200));
-    await page.bringToFront();
+    await setWorkspaceBackgrounded(false);
     await page.waitForFunction(
       (name) => window.reviewApp.workspace.view().sources.some((s) => s.identity.name === name),
       bgFileName,

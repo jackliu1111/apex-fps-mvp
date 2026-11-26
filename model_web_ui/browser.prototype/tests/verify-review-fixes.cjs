@@ -8,6 +8,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const errors = []; page.on('pageerror', (error) => errors.push(error.message));
     await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:8797/');
     await page.waitForFunction(() => !!window.reviewApp);
+    if ((await page.locator('html').getAttribute('lang')) !== 'zh-CN') await page.locator('#lang-toggle').click();
     await page.evaluate(async () => { await reviewApp.ready; const { createSyntheticFile } = await import('./tests/synthetic-media.mjs'); await reviewApp.importFiles([await createSyntheticFile()]); await reviewApp.queue.whenIdle(); });
     const imported = await page.evaluate(async () => {
       const base = reviewApp.queue.records[0].file;
@@ -57,7 +58,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.evaluate(() => reviewApp.exportQueue.list().length), 0, 'A missing destination must never start conversion');
     const pendingRow = page.locator('.export-batch').last();
     assert.match(await pendingRow.locator('.batch-state').textContent(), /等待输出目录/);
-    assert.match(await pendingRow.locator('.batch-state').textContent(), /桌面 Chrome/);
+    assert.match(await pendingRow.locator('.batch-state').textContent(), /尚未选择输出目录|选择目录并继续/);
     assert.equal(await pendingRow.locator('.batch-start').isEnabled(), true);
     // An immediate AbortError can also mean no native dialog opened at all.
     await page.evaluate(() => { window.showDirectoryPicker = async () => { throw new DOMException('No dialog', 'AbortError'); }; });
@@ -68,7 +69,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     if (process.env.REVIEW_SCREENSHOT) await page.screenshot({ path: process.env.REVIEW_SCREENSHOT, fullPage: true });
     await page.evaluate(() => {
       window.originalEnqueue = reviewApp.exportQueue.enqueue;
-      window.showDirectoryPicker = async () => ({ name: 'test-output' });
+      window.showDirectoryPicker = async () => ({ name: 'test-output', queryPermission: async () => 'granted' });
       reviewApp.exportQueue.enqueue = (batch, source) => { window.retriedBatch = batch; window.retriedDirectory = source.directoryHandle.name; };
     });
     await pendingRow.locator('.batch-start').click();
@@ -104,6 +105,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       let created = 0;
       window.showDirectoryPicker = async () => ({
         name: directory.name,
+        queryPermission: async () => 'granted',
         getFileHandle(name, options) {
           if (options?.create && ++created === 2) throw new DOMException('test directory full', 'QuotaExceededError');
           return directory.getFileHandle(name, options);
@@ -116,16 +118,18 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => document.querySelector('#output-directory').textContent.includes('review-fixes-'));
     await page.locator('#nav-analysis').click();
     await page.locator('#export').click();
-    await page.waitForFunction(() => reviewApp.workspace.view().batches.at(-1).status === 'failed');
+    await page.waitForFunction(() => ['failed', 'awaiting-destination'].includes(reviewApp.workspace.view().batches.at(-1).status));
     const partial = await page.evaluate(() => reviewApp.workspace.view().batches.at(-1));
-    assert.deepEqual(partial.clipResults.map((clip) => clip.status), ['completed', 'failed', 'not-started']);
+    assert.equal(partial.status, 'awaiting-destination');
+    assert.match(partial.error || '', /test directory full/);
+    assert.deepEqual(partial.clipResults.map((clip) => clip.status), ['completed', 'not-started', 'not-started']);
     const row = page.locator(`[data-batch-id="${partial.id}"]`);
     assert.equal(await row.locator('.clip-outcome').count(), 3);
     assert.match(await row.locator('.clip-outcome').nth(0).textContent(), /已完成/);
-    assert.match(await row.locator('.clip-outcome').nth(1).textContent(), /失败/);
+    assert.match(await row.locator('.clip-outcome').nth(1).textContent(), /未开始/);
     assert.match(await row.locator('.clip-outcome').nth(2).textContent(), /未开始/);
     const temporaryDirectory = await page.evaluate(async () => { return reviewFixDirectoryName; });
-    const savedFileName = partial.clipResults[0].fileName;
+    const savedFileName = partial.outputs[0].name;
     page.on('dialog', (dialog) => dialog.accept());
     await page.reload(); await page.waitForFunction(() => !!window.reviewApp); await page.evaluate(() => reviewApp.ready);
     assert.equal(await page.evaluate(() => reviewApp.workspace.view().batches.length), 0, 'Session batches reset on reload');

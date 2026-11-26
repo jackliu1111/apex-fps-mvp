@@ -223,7 +223,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.deepEqual(ignoredEvents.prevented, [false, false, false]);
 
     // Seek against the shared wave coordinates, in both whole-source and local views.
-    if (await page.locator('#source-fit').isEnabled()) await page.locator('#source-fit').click();
+    if (await page.locator('#source-fit').isEnabled()) {
+      await page.locator('#source-fit').click();
+      await page.waitForTimeout(300);
+    }
     const waveBefore = await page.evaluate(() => ({
       pixels: document.querySelector('#prediction-wave').toDataURL(),
       waveform: reviewApp.workspace.getSource(reviewApp.activeSourceId).waveform,

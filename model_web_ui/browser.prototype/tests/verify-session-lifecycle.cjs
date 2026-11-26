@@ -100,7 +100,12 @@ function assertAllowedStorageTouches(touches, phase) {
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), false, 'Completed saved files do not warn on leave');
     const savedBytes = await page.evaluate(async name => (await (await testDirectory.getFileHandle(name)).getFile()).size, batch.outputs[0].name);
     assert.equal(savedBytes, batch.outputs[0].bytes);
-    await page.evaluate(() => reviewApp.workspace.addManual(reviewApp.activeSourceId, { start: 15, end: 17 }));
+    await page.evaluate(() => {
+      const id = reviewApp.activeSourceId;
+      const duration = reviewApp.workspace.getSource(id).duration;
+      const range = duration >= 18 ? { start: 15, end: 17 } : { start: Math.max(0.5, duration - 3), end: Math.max(1.5, duration - 1) };
+      reviewApp.workspace.addManual(id, range);
+    });
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), true, 'Unsubmitted manual decisions still warn on leave');
     const preReloadTouches = await page.evaluate(() => window.storageTouches);
     assertAllowedStorageTouches(preReloadTouches, 'pre-reload');

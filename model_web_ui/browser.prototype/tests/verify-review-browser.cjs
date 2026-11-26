@@ -73,9 +73,11 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(batch.outputs[0].saved, true, 'Streamed directly to the selected directory handle');
     assert.ok(batch.outputs[0].measuredDuration > 3.4 && batch.outputs[0].measuredDuration < 3.7);
     assert.equal(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).hasUnexportedChanges), true);
+    await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 60000 });
     await page.evaluate(() => reviewApp.queue.recompute(reviewApp.queue.records[0].id, 0.01));
     assert.equal(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).review.position), 7.5);
     // Playback leaving the clipping workspace pauses only the player; returning starts paused.
+    await page.locator('#nav-analysis').click();
     await page.locator('#play-pause').click();
     await page.waitForFunction(() => reviewApp.player.state.playing);
     await page.locator('#nav-exports').click();

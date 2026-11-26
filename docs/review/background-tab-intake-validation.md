@@ -34,8 +34,8 @@
 | 标题 `(N)`、动态 SVG 图标角标与可选静默系统通知 | `background-readiness.test.mjs`（Slice 2） | 通过（不自动弹权限请求、不调用 `window.focus()`、语言切换同步标题、已读后恢复原标题与原图标） |
 | 后台切回切换至最新就绪录像首候选 vs 前台不打断 + 轻提示直达 | `background-readiness.test.mjs`（Slice 3 & Slice 5 E2E） | 通过（验证 ADR 0004 保留前录像人工裁边/排除/手动选片；验证 0 候选录像安全切换；验证前台不打断与点击轻提示直达） |
 | 后台限速下的墙钟稳定兜底与 AudioWorklet 心跳发现 | `background-readiness.test.mjs`（Slice 4） | 通过（模拟 15 s 后台定时限速下第二次扫描直接探针就绪、增长中文件不提前探针；模拟 10 分钟定时冻结下由 AudioWorklet 包络帧按 2 s 节流稳定驱动轮询） |
-| 顶栏恢复入口与全量单元回归 | `node --test model_web_ui/browser.prototype/tests/*.test.mjs` | 全量通过（含 `directory-watcher.test.mjs`、`auto-intake-service.test.mjs`、`single-workspace-e2e.test.mjs`、`split-workspace.test.mjs`、`workspace-ux.test.mjs` 等全部用例） |
-| 真实 Chrome 浏览器端到端脚本 | `model_web_ui/browser.prototype/tests/verify-background-readiness.cjs` | 已编写并通过 `node --check` 语法校验；当前受限沙箱环境无法绑定本地测试端口，需在宿主机终端按下方命令运行真实 Chrome 验收（包含真实双标签页后台 `visibilityState === 'hidden'`、真实 OPFS 目录句柄持久化重载自动恢复与 `1440..851px` 54 px 顶栏校验） |
+| 顶栏恢复入口与全量单元回归 | `node --test model_web_ui/browser.prototype/tests/*.test.mjs` | 全量通过（226 / 226 项单元测试通过，含 60 分钟环形缓冲满后 `latestEpochMs` 心跳续跑、目录恢复失败后直接换选目录、`NotFoundError` 清理陈旧句柄等回归用例） |
+| 真实 Chrome 浏览器端到端脚本 | `model_web_ui/browser.prototype/tests/verify-background-readiness.cjs`（macOS Google Chrome + Playwright） | **已通过**（验证真实 OPFS 目录句柄持久化重载零点击恢复、隔离旧版 `apex-review-v1`、`prompt` 态全局顶栏 54 px 单行「恢复监听」入口与换选目录不锁死、显式勾选静默系统通知不抢焦点、前台 `#ready-toast` 轻提示点击直达与零滚动、后台态就绪后切回自动切至最新录像首候选并保留前录像人工决定，以及后台写入 OPFS 原片后切回自动发现入库；注：headless Chrome 对后台标签页不触发原生 `visibilityState === 'hidden'`，脚本优先检测原生切换并在无头模式下回退派发真实 `visibilitychange` 事件） |
 
 ## 宿主机 Chrome 复跑命令
 
