@@ -76,7 +76,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.deepEqual(await page.evaluate(() => retriedBatch.clips.map(({ start, end }) => [start, end])), frozen);
     assert.equal(await page.evaluate(() => retriedDirectory), 'test-output');
     await page.evaluate(() => { reviewApp.exportQueue.enqueue = originalEnqueue; });
-    await page.locator('#nav-review').click();
+    await page.locator('#nav-analysis').click();
     await page.evaluate(() => {
       const id = reviewApp.activeSourceId, ws = reviewApp.workspace;
       ws.resetDecisions(id); ws.addManual(id, { start: 0, end: 0.5 });
@@ -114,7 +114,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.locator('#nav-exports').click();
     await page.locator('#choose-directory').click();
     await page.waitForFunction(() => document.querySelector('#output-directory').textContent.includes('review-fixes-'));
-    await page.locator('#nav-review').click();
+    await page.locator('#nav-analysis').click();
     await page.locator('#export').click();
     await page.waitForFunction(() => reviewApp.workspace.view().batches.at(-1).status === 'failed');
     const partial = await page.evaluate(() => reviewApp.workspace.view().batches.at(-1));

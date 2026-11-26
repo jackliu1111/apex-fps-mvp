@@ -293,7 +293,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     }
 
     // 4. Open review & verify #player-overview-distribution + 5-group layered #prediction-wave rendering
-    await driver.clickSelector('#queue [data-action="review"]');
+    await driver.clickSelector('#queue .file');
     await driver.waitFor(() => window.reviewApp?.player.state.status === 'paused', 20000);
     await driver.waitFor(() => {
       const w = document.getElementById('prediction-wave');

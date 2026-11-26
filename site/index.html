@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="tactical-theme.css">
   <link rel="stylesheet" href="selection-timeline.css">
-  <link rel="stylesheet" href="live-companion.css">
 </head>
 <body>
   <a class="skip-link" href="#main" id="skip-link" data-i18n="skip_link">Skip to workspace</a>
@@ -17,10 +16,6 @@
       <div class="brand" aria-label="Apex Local Cut">
         <span class="brand-badge" aria-hidden="true"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 26 15 5h3l-6 12h7l-4 9H4Zm17-14 7 14h-8l4-8-3-6Z" fill="currentColor"/></svg></span>
         <span>Apex Local Cut</span>
-        <div class="mode-switcher" role="group" aria-label="Workspace mode">
-          <button id="mode-offline" type="button" aria-pressed="true" data-i18n="mode_offline">Local</button>
-          <button id="mode-live" type="button" aria-pressed="false"><span id="mode-live-dot" class="mode-dot" data-live="false" aria-hidden="true"></span><span data-i18n="mode_live">Live (demo)</span></button>
-        </div>
       </div>
       <nav id="offline-nav" class="navigation" aria-label="Workspace" data-i18n-aria="nav_aria">
         <a href="landing.html" class="nav-portal-link" data-i18n="nav_portal">✦ Portal</a>
@@ -83,7 +78,6 @@
   </header>
   <main id="main" tabindex="-1">
     <p id="status" class="workspace-status" role="status" aria-live="polite" data-i18n="status_ready">Workspace ready</p>
-    <div id="live-workspace" hidden></div>
     <div id="clipping-workspace" class="clipping-workspace" data-layout="empty" data-sidebar-collapsed="false" data-drawer-open="false" data-drag-over="false">
     <div id="library-drawer-backdrop" class="library-drawer-backdrop" aria-hidden="true"></div>
     <div id="workspace-drop-overlay" class="workspace-drop-overlay" aria-hidden="true">
