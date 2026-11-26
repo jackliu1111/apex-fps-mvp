@@ -312,10 +312,9 @@ test('Alt+ArrowUp / Alt+ArrowDown navigates sidebar recordings cleanly, respects
   );
 
   // Whole-workspace file drop guard
-  assert.equal(canAcceptWorkspaceDrop({ workspaceMode: 'offline', page: 'clipping', hasFiles: true }), true);
-  assert.equal(canAcceptWorkspaceDrop({ workspaceMode: 'offline', page: 'clipping', hasFiles: false }), false);
-  assert.equal(canAcceptWorkspaceDrop({ workspaceMode: 'offline', page: 'exports', hasFiles: true }), false);
-  assert.equal(canAcceptWorkspaceDrop({ workspaceMode: 'live', page: 'clipping', hasFiles: true }), false);
+  assert.equal(canAcceptWorkspaceDrop({ page: 'clipping', hasFiles: true }), true);
+  assert.equal(canAcceptWorkspaceDrop({ page: 'clipping', hasFiles: false }), false);
+  assert.equal(canAcceptWorkspaceDrop({ page: 'exports', hasFiles: true }), false);
 });
 
 function createFakeDocument() {

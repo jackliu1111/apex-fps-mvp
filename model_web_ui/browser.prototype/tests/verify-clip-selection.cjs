@@ -17,7 +17,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await reviewApp.importFiles([await createSyntheticFile()]);
     });
     await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 120000 });
-    await page.locator('#queue [data-action=review]').first().click();
+    await page.locator('#queue .file').first().click();
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     await page.evaluate(() => reviewApp.workspace.publishCandidates(reviewApp.activeSourceId, [{ id: 'one', start: 2, end: 5 }, { id: 'two', start: 8, end: 10 }]));
     await page.locator('#overview-markers button').first().click();

@@ -105,13 +105,12 @@ test('dispatchReviewPrimaryAction routes analyze/stop/reanalyze cleanly to analy
   ]);
 });
 
-test('resolveClippingLayout chooses split workspace whenever library is non-empty, empty state when 0 items, and preserves exports/live/libraryPreview', () => {
-  assert.equal(resolveClippingLayout({ page: 'clipping', workspaceMode: 'offline', itemCount: 0 }), 'empty');
-  assert.equal(resolveClippingLayout({ page: 'clipping', workspaceMode: 'offline', itemCount: 1 }), 'split');
-  assert.equal(resolveClippingLayout({ page: 'clipping', workspaceMode: 'offline', itemCount: 5 }), 'split');
-  assert.equal(resolveClippingLayout({ page: 'exports', workspaceMode: 'offline', itemCount: 5 }), 'exports');
-  assert.equal(resolveClippingLayout({ page: 'clipping', workspaceMode: 'live', itemCount: 5 }), 'live');
-  assert.equal(resolveClippingLayout({ page: 'clipping', workspaceMode: 'offline', itemCount: 5, forceStandaloneLibrary: true }), 'standalone-library');
+test('resolveClippingLayout chooses split workspace whenever library is non-empty, empty state when 0 items, and preserves exports/libraryPreview', () => {
+  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 0 }), 'empty');
+  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 1 }), 'split');
+  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 5 }), 'split');
+  assert.equal(resolveClippingLayout({ page: 'exports', itemCount: 5 }), 'exports');
+  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 5, forceStandaloneLibrary: true }), 'standalone-library');
 });
 
 test('reconcileSplitSelection maintains selection stability across progress/candidate updates, new imports, and runtime->source promotion without unnecessary player reloads', () => {

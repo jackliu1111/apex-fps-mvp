@@ -28,7 +28,6 @@ import { createExportQueue } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
 import { DEFAULT_EXPORT_SETTINGS, sourceExportSettings, exportSettings } from './export-policy.mjs';
 import { t, getLang, onLanguageChange } from './i18n.js';
-import { createLiveCompanionWorkspace } from './live-companion-ui.mjs';
 import { createWorkspaceEngineBridge } from './workspace-engine-bridge.mjs';
 import { createGlobalTopbarControls } from './global-topbar-controls.mjs';
 import { createWatchDirStore } from './watch-dir-store.mjs';
@@ -49,7 +48,7 @@ const startingExports = new Set();
 const recordedErrors = new Map();
 const diagnosticLog = createDiagnosticLog();
 diagnosticLog.attachGlobalListeners(window);
-let workspaceMode = 'offline', liveCompanion = null, libraryPreviewHarness = null, workspacePreviewHarness = null;
+let libraryPreviewHarness = null, workspacePreviewHarness = null;
 let currentPage = 'clipping', activeSourceId = null, activeRecordId = null;
 let playerSourceId = null, playerLoadedFile = null, pendingLoadSourceId = null, pendingLoadFile = null;
 let loadingSource = false, loadToken = 0;
@@ -238,7 +237,6 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
     if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position });
   }
   engineBridge?.notifyPlayerState(next);
-  liveCompanion?.notifyExternalPlayback(!!(next.playing && !next.muted && next.volume > 0));
   renderPlayer();
 } });
 
@@ -248,7 +246,6 @@ exportQueue = createExportQueue({
     MB,
     onOutputFileCreated(name) {
       engineBridge?.registerExportedFilename(name);
-      liveCompanion?.registerExportedFilename?.(name);
     },
   }),
   onChange({ id, status, outputs, error, progress, clipResults, destination }) {
@@ -261,7 +258,6 @@ exportQueue = createExportQueue({
   onOutput(_batchId, output) {
     if (output?.name) {
       engineBridge?.registerExportedFilename(output.name);
-      liveCompanion?.registerExportedFilename?.(output.name);
     }
   },
 });
@@ -350,24 +346,6 @@ function trackImport(sourceId, promise) {
   const pending = promise.finally(() => pendingImports.delete(sourceId));
   pendingImports.set(sourceId, pending);
   return pending;
-}
-
-async function importLiveMaster(sourceId, conformed) {
-  let record = bindings.get(sourceId);
-  // Keep existing offline evidence when the live session has no mapped windows.
-  if (!record || conformed.windowScores?.length) {
-    record = await queue.importPrecomputed(conformed.file, conformed, record?.id);
-    if (record.status !== 'complete') throw new Error('录像导入已停止');
-  }
-  const prior = workspace.getSource(sourceId).decisions;
-  const currentMaster = liveCompanion.session.getConformed(conformed.id);
-  if (!currentMaster) throw new Error('实时会话已结束，请重新选择录像');
-  for (const dec of currentMaster.liveDecisions) {
-    if (prior.some(d => [d.range, d.originRange].some(r => r.start === dec.start && r.end === dec.end))) continue;
-    const id = workspace.addManual(sourceId, { start: dec.start, end: dec.end }, { preserveExportChoice: true });
-    if (dec.kind === 'exclude') workspace.exclude(sourceId, id);
-  }
-  record.liveHandoffComplete = true;
 }
 
 async function importFiles(files, options = {}) {
@@ -494,7 +472,7 @@ function renderReadyToast() {
   const toastNode = $('ready-toast');
   if (!toastNode) return;
   const toast = backgroundReadiness.activeToast;
-  if (!toast || workspaceMode === 'live' || libraryPreview) {
+  if (!toast || libraryPreview) {
     toastNode.hidden = true;
     toastNode.dataset.sourceId = '';
     return;
@@ -894,15 +872,6 @@ function renderExports() {
     }
   }
 }
-function switchWorkspaceMode(mode) {
-  if (mode !== 'offline' && mode !== 'live') return;
-  if (mode === 'live') {
-    player.pause();
-    selectionTimeline?.suspend();
-  }
-  workspaceMode = mode;
-  render();
-}
 function renderOnboarding(snapshot) {
   const onboarding = $('empty-onboarding');
   if (!onboarding) return;
@@ -1004,27 +973,12 @@ function renderWorkspaceUxChrome(snapshot, layout) {
 function render() {
   isRendering = true;
   try {
-    const isLive = workspaceMode === 'live';
-    if ($('mode-offline')) $('mode-offline').setAttribute('aria-pressed', String(!isLive));
-    if ($('mode-live')) $('mode-live').setAttribute('aria-pressed', String(isLive));
-    if ($('offline-nav')) $('offline-nav').hidden = isLive;
-    if ($('live-workspace')) $('live-workspace').hidden = !isLive;
-    globalTopbarControls?.render(getEffectiveSessionState(), { hidden: isLive || libraryPreview });
+    globalTopbarControls?.render(getEffectiveSessionState(), { hidden: libraryPreview });
     const clippingWorkspace = $('clipping-workspace');
-    if (isLive) {
-      uxController.handleLayoutChange('live');
-      if (clippingWorkspace) clippingWorkspace.hidden = true;
-      $('analysis-page').hidden = true;
-      $('review-page').hidden = true;
-      $('exports-section').hidden = true;
-      $('status').hidden = true;
-      return;
-    }
 
     const baseSnapshot = libraryPreview ? null : buildLibrarySnapshot();
     const layout = resolveClippingLayout({
       page: currentPage,
-      workspaceMode,
       itemCount: baseSnapshot ? baseSnapshot.items.length : 0,
       forceStandaloneLibrary: libraryPreview,
     });
@@ -1163,7 +1117,7 @@ function setWorkspaceDragOver(active) {
 }
 document.addEventListener('dragenter', (event) => {
   if (!isFileDrag(event)) return;
-  if (!canAcceptWorkspaceDrop({ workspaceMode, page: currentPage, hasFiles: true })) return;
+  if (!canAcceptWorkspaceDrop({ page: currentPage, hasFiles: true })) return;
   event.preventDefault();
   workspaceDragDepth += 1;
   setWorkspaceDragOver(true);
@@ -1171,7 +1125,7 @@ document.addEventListener('dragenter', (event) => {
 document.addEventListener('dragover', (event) => {
   if (!isFileDrag(event)) return;
   event.preventDefault();
-  const canImport = canAcceptWorkspaceDrop({ workspaceMode, page: currentPage, hasFiles: true });
+  const canImport = canAcceptWorkspaceDrop({ page: currentPage, hasFiles: true });
   if (event.dataTransfer) event.dataTransfer.dropEffect = canImport ? 'copy' : 'none';
   setWorkspaceDragOver(canImport);
 });
@@ -1188,7 +1142,7 @@ document.addEventListener('drop', (event) => {
   event.preventDefault();
   workspaceDragDepth = 0;
   setWorkspaceDragOver(false);
-  if (!canAcceptWorkspaceDrop({ workspaceMode, page: currentPage, hasFiles: true })) return;
+  if (!canAcceptWorkspaceDrop({ page: currentPage, hasFiles: true })) return;
   const files = Array.from(event.dataTransfer?.files || []);
   if (files.length) safely(() => importFiles(files));
 });
@@ -1304,7 +1258,6 @@ for (const key of ['start', 'end']) {
 window.addEventListener('keydown', (event) => {
   const layout = resolveClippingLayout({
     page: currentPage,
-    workspaceMode,
     itemCount: latestLibrarySnapshot?.items.length ?? 0,
     forceStandaloneLibrary: libraryPreview,
   });
@@ -1338,7 +1291,7 @@ window.addEventListener('keydown', (event) => {
 });
 
 selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(),
-  isActive: () => workspaceMode === 'offline' && currentPage === 'clipping' && Boolean(source()) && !loadingSource,
+  isActive: () => currentPage === 'clipping' && Boolean(source()) && !loadingSource,
   playPause: () => { if (!$('play-pause').disabled) $('play-pause').click(); },
   playRange: () => { if (!$('play-selection').disabled) $('play-selection').click(); },
   toggleMute: () => player.toggleMute(),
@@ -1376,34 +1329,6 @@ window.addEventListener('beforeunload', event => {
 });
 window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
 const ready = Promise.resolve();
-if ($('mode-offline')) $('mode-offline').onclick = () => switchWorkspaceMode('offline');
-if ($('mode-live')) $('mode-live').onclick = () => switchWorkspaceMode('live');
-if ($('live-workspace')) {
-  liveCompanion = createLiveCompanionWorkspace({
-    MB,
-    container: $('live-workspace'),
-    onLiveRunningChange(running) {
-      if ($('mode-live-dot')) $('mode-live-dot').dataset.live = String(!!running);
-      if (running) queue.pause();
-      else queue.resume();
-    },
-    async onOpenMasterReview(conformed) {
-      const identity = await identifyFile(conformed.file);
-      identified.set(conformed.file, identity);
-      const sourceId = identity.id;
-      while (pendingImports.has(sourceId)) await pendingImports.get(sourceId);
-      if (!bindings.get(sourceId)?.liveHandoffComplete) {
-        await trackImport(sourceId, importLiveMaster(sourceId, conformed));
-      }
-      switchWorkspaceMode('offline');
-      await openReview(sourceId);
-      const alignTag = conformed.alignment?.confidence === 'exact'
-        ? `精确对齐 (${conformed.alignment.offsetMs >= 0 ? '+' : ''}${conformed.alignment.offsetMs}ms)`
-        : '粗略对齐（建议微调或重新分析）';
-      note(`已打开录像：${conformed.name} · ${alignTag}`);
-    },
-  });
-}
 function buildDiagnosticState() {
   const sources = view.sources.map((saved) => {
     const record = bindings.get(saved.id);
@@ -1444,11 +1369,7 @@ function buildDiagnosticState() {
     error: batch.error || null,
   }));
   const bridgeState = engineBridge?.getState?.() || null;
-  const liveSnap = liveCompanion?.session?.snapshot?.() || null;
-  const watcherState = liveCompanion?.watcher?.state || null;
-  const resourceSnapshot = liveCompanion?.resourceMonitor?.getSnapshot?.() || null;
   return {
-    mode: workspaceMode,
     page: reportedPage(),
     language: getLang(),
     workspace: {
@@ -1461,23 +1382,8 @@ function buildDiagnosticState() {
         muted: playerState.muted,
       },
     },
-    liveCompanion: liveSnap ? {
-      active: liveSnap.active || Boolean(bridgeState?.liveMonitor?.active),
-      watchingDirectory: Boolean(watcherState?.watching || bridgeState?.watchDirectory?.watching),
-      gated: Boolean(liveSnap.gated || bridgeState?.liveMonitor?.gateActive),
-      candidateCount: liveSnap.candidates?.length || 0,
-      decisionCount: liveSnap.decisions?.length || 0,
-      conformedCount: (liveSnap.conformed?.length || 0) + (bridgeState?.watchDirectory?.intakeCount || 0),
-      resourceSnapshot,
-    } : bridgeState ? {
-      active: Boolean(bridgeState.liveMonitor.active),
-      watchingDirectory: Boolean(bridgeState.watchDirectory.watching),
-      gated: Boolean(bridgeState.liveMonitor.gateActive),
-      candidateCount: 0,
-      decisionCount: 0,
-      conformedCount: bridgeState.watchDirectory.intakeCount || 0,
-      resourceSnapshot: null,
-    } : null,
+    liveMonitor: bridgeState?.liveMonitor || null,
+    autoIntake: bridgeState?.watchDirectory || null,
   };
 }
 
@@ -1567,8 +1473,6 @@ window.reviewApp = {
   openReview,
   showAnalysis,
   render,
-  switchWorkspaceMode,
-  liveCompanion,
   libraryView,
   uxController,
   markRecordingNew: (id, opts) => uxController.markRecordingNew(id, { activeSourceId, ...opts }),
@@ -1595,7 +1499,6 @@ window.reviewApp = {
   get sidebarCollapsed() { return uxController.sidebarCollapsed; },
   get drawerOpen() { return uxController.drawerOpen; },
   get page() { return reportedPage(); },
-  get mode() { return workspaceMode; },
 };
 
 if (workspacePreview) {
@@ -1606,6 +1509,4 @@ if (workspacePreview) {
   }).catch((error) => note(errorText(error), 'error'));
 } else if (preview) {
   void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
-} else if (!libraryPreview && new URLSearchParams(location.search).get('mode') === 'live') {
-  switchWorkspaceMode('live');
 }

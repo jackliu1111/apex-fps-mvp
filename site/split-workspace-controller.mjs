@@ -58,11 +58,9 @@ export async function dispatchReviewPrimaryAction({ item, record, queue, autoInt
 
 export function resolveClippingLayout({
   page = 'clipping',
-  workspaceMode = 'offline',
   itemCount = 0,
   forceStandaloneLibrary = false,
 } = {}) {
-  if (workspaceMode === 'live') return 'live';
   if (page === 'exports') return 'exports';
   if (forceStandaloneLibrary) return 'standalone-library';
   return itemCount > 0 ? 'split' : 'empty';
@@ -430,9 +428,8 @@ export function resolveDrawerEscape({
 }
 
 export function canAcceptWorkspaceDrop({
-  workspaceMode = 'offline',
   page = 'clipping',
   hasFiles = false,
 } = {}) {
-  return Boolean(hasFiles) && workspaceMode === 'offline' && page === 'clipping';
+  return Boolean(hasFiles) && page === 'clipping';
 }
