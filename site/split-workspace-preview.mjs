@@ -93,6 +93,7 @@ function buildRecordingsForScenario(scenario) {
         { id: 'co-5', start: 770, end: 794 },
       ],
       savedExports: 1,
+      isNew: true,
       mapLabel: "World's Edge · Coarse Conform",
     },
     {
@@ -125,6 +126,7 @@ function buildRecordingsForScenario(scenario) {
       processedUntil: 0,
       candidates: [],
       savedExports: 0,
+      isNew: true,
       mapLabel: 'Broken Moon · Unanalyzed',
     },
     {
@@ -200,14 +202,16 @@ export function renderWorkspacePreviewCanvas(source, record, doc = globalThis.do
 
 export async function mountSplitWorkspacePreview(app, {
   scenario = resolveWorkspacePreviewScenario(),
+  search = globalThis.location?.search || '',
   doc = globalThis.document,
   onNote = () => {},
 } = {}) {
+  const params = new URLSearchParams(search);
   const seed = createWorkspacePreviewSeeds(scenario);
   const mockRecords = new Map();
+  let extraCounter = 0;
 
-  for (let i = 0; i < seed.recordings.length; i++) {
-    const rec = seed.recordings[i];
+  function addPreviewRecording(rec, seedIndex, { markNew = false } = {}) {
     const basename = extractBasename(rec.name);
     const id = app.workspace.addSource({
       id: rec.id,
@@ -222,7 +226,7 @@ export async function mountSplitWorkspacePreview(app, {
     if (rec.processedUntil > 0) {
       app.workspace.updateWaveform(
         id,
-        makeMockWaveform(rec.duration, rec.processedUntil, rec.candidates, i * 17),
+        makeMockWaveform(rec.duration, rec.processedUntil, rec.candidates, seedIndex * 17),
       );
     }
     app.workspace.updateAnalysis(id, {
@@ -261,6 +265,40 @@ export async function mountSplitWorkspacePreview(app, {
     };
     mockRecords.set(id, mockRecord);
     app.bindings.set(id, mockRecord);
+    if (markNew) {
+      app.markRecordingNew?.(id);
+    }
+    return id;
+  }
+
+  for (let i = 0; i < seed.recordings.length; i++) {
+    addPreviewRecording(seed.recordings[i], i, { markNew: false });
+  }
+
+  function simulateNewRecording() {
+    extraCounter += 1;
+    const minute = Math.min(59, 15 + extraCounter * 3);
+    const id = addPreviewRecording({
+      id: `ws-preview-dropped-${extraCounter}`,
+      name: `2026-11-26_15-${String(minute).padStart(2, '0')}-00_KingsCanyon_NewDrop_${extraCounter}.mp4`,
+      lastModified: todayAt(15, minute) + extraCounter * 1000,
+      duration: 740,
+      size: 1.1 * 1024 ** 3,
+      rawStatus: 'completed',
+      queueStatus: 'complete',
+      alignment: { confidence: 'exact', offsetMs: -18 },
+      processedUntil: 740,
+      candidates: [
+        { id: `nd-${extraCounter}-1`, start: 108, end: 129 },
+        { id: `nd-${extraCounter}-2`, start: 342, end: 365 },
+        { id: `nd-${extraCounter}-3`, start: 590, end: 614 },
+      ],
+      savedExports: 0,
+      mapLabel: `Kings Canyon · New Drop #${extraCounter}`,
+    }, seed.recordings.length + extraCounter, { markNew: true });
+    app.render?.();
+    onNote(`[preview] added new recording without switching: ${extractBasename(app.workspace.getSource(id)?.identity?.name || '')}`, 'info');
+    return id;
   }
 
   function runPreviewAction(sourceId, actionKind) {
@@ -292,6 +330,36 @@ export async function mountSplitWorkspacePreview(app, {
     return false;
   }
 
+  const mockOnboardingState = {
+    watchDirectory: { status: 'unset', name: null },
+    liveMonitor: { status: 'off' },
+  };
+  const mockFolders = ['Apex Captures', 'OBS Recordings', 'ShadowPlay Clips'];
+  let mockFolderIndex = -1;
+  if (typeof app.setOnboardingHandlers === 'function') {
+    app.setOnboardingHandlers({
+      onChooseWatchDir() {
+        mockFolderIndex = (mockFolderIndex + 1) % mockFolders.length;
+        mockOnboardingState.watchDirectory = { status: 'watching', name: mockFolders[mockFolderIndex] };
+        app.setOnboardingState?.({
+          watchDirectory: { ...mockOnboardingState.watchDirectory },
+          liveMonitor: { ...mockOnboardingState.liveMonitor },
+        });
+        onNote(`[preview] watchDirectory -> ${mockOnboardingState.watchDirectory.name}`, 'info');
+      },
+      onToggleMonitoring() {
+        mockOnboardingState.liveMonitor = {
+          status: mockOnboardingState.liveMonitor.status === 'listening' ? 'off' : 'listening',
+        };
+        app.setOnboardingState?.({
+          watchDirectory: { ...mockOnboardingState.watchDirectory },
+          liveMonitor: { ...mockOnboardingState.liveMonitor },
+        });
+        onNote(`[preview] liveMonitor -> ${mockOnboardingState.liveMonitor.status}`, 'info');
+      },
+    });
+  }
+
   const main = doc?.querySelector?.('#main');
   let bar = null;
   let unsubscribeLang = () => {};
@@ -316,10 +384,16 @@ export async function mountSplitWorkspacePreview(app, {
     };
     label.append(labelText, select);
 
+    const simulateNewBtn = doc.createElement('button');
+    simulateNewBtn.id = 'workspace-preview-simulate-new';
+    simulateNewBtn.type = 'button';
+    simulateNewBtn.hidden = seed.recordings.length === 0;
+    simulateNewBtn.onclick = () => { simulateNewRecording(); };
+
     const reset = doc.createElement('button');
     reset.type = 'button';
     reset.onclick = () => { globalThis.location?.reload?.(); };
-    controls.append(label, reset);
+    controls.append(label, simulateNewBtn, reset);
 
     const noteText = doc.createElement('p');
     bar.append(controls, noteText);
@@ -332,6 +406,7 @@ export async function mountSplitWorkspacePreview(app, {
       for (const opt of select.options || []) {
         opt.textContent = t(WORKSPACE_PREVIEW_SCENARIOS[opt.value]);
       }
+      simulateNewBtn.textContent = t('workspace_preview_add_new');
       reset.textContent = t('library_preview_reset');
       noteText.textContent = t('workspace_preview_note');
     };
@@ -340,8 +415,22 @@ export async function mountSplitWorkspacePreview(app, {
     bar.dataset.ready = 'true';
   }
 
+  if (params.get('sidebar') === 'collapsed') {
+    app.setSidebarCollapsed?.(true);
+  } else if (params.get('sidebar') === 'expanded') {
+    app.setSidebarCollapsed?.(false);
+  }
+
   if (seed.recordings.length > 0) {
     await app.openReview(seed.recordings[0].id);
+    for (const rec of seed.recordings) {
+      if (rec.isNew && rec.id !== app.activeSourceId) {
+        app.markRecordingNew?.(rec.id);
+      }
+    }
+    if (params.get('drawer') === 'open') {
+      app.openLibraryDrawer?.();
+    }
   } else if (typeof app.render === 'function') {
     app.render();
   }
@@ -350,6 +439,7 @@ export async function mountSplitWorkspacePreview(app, {
     scenario: seed.scenario,
     mockRecords,
     runPreviewAction,
+    simulateNewRecording,
     renderCanvas: (source, record) => renderWorkspacePreviewCanvas(source, record, doc),
     dispose() {
       unsubscribeLang();
