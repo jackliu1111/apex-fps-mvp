@@ -4,6 +4,7 @@ import { alignRecordingToLiveSession, extractMasterEnvelopeSlice } from './audio
 import { createMediaReadSource } from './media-read-source.mjs';
 import { identifyFile } from './media-identity.mjs';
 import { DEFAULT_MODEL } from './model-registry.mjs';
+import { chooseAudioTracks } from './browser-analysis.mjs';
 
 export const AUTO_INTAKE_STATES = Object.freeze({
   IDLE: 'idle',
@@ -30,24 +31,6 @@ function hasLiveHistoryCoverage(liveHistory) {
   const envLen = liveHistory.envRms?.length || 0;
   const winLen = liveHistory.scoreWindows?.length || 0;
   return envLen > 0 && winLen > 0;
-}
-
-async function selectAlignmentAudioTrack(input) {
-  const tracks = typeof input.getAudioTracks === 'function' ? await input.getAudioTracks() : [];
-  const primary = typeof input.getPrimaryAudioTrack === 'function' ? await input.getPrimaryAudioTrack() : (tracks[0] || null);
-  if (!tracks.length) {
-    return primary ? { track: primary, trackIndex: 0 } : null;
-  }
-  const primaryIndex = Math.max(0, tracks.findIndex((track) => track === primary || (primary && track.id === primary.id)));
-  const order = [primaryIndex, ...tracks.map((_, index) => index).filter((index) => index !== primaryIndex)];
-  for (const index of order) {
-    const track = tracks[index];
-    if (typeof track.canDecode !== 'function') return { track, trackIndex: index };
-    try {
-      if (await track.canDecode()) return { track, trackIndex: index };
-    } catch { /* fall through to next track */ }
-  }
-  return primary ? { track: primary, trackIndex: primaryIndex } : null;
 }
 
 /**
@@ -143,9 +126,13 @@ export function createAutoIntakeService({
         ? meta.duration
         : (await video.computeDuration() - origin);
       if (!Number.isFinite(duration) || duration <= 0) throw new Error('无效视频时长');
-      const audioChoice = await selectAlignmentAudioTrack(input);
-      if (!audioChoice?.track) throw new Error('录像缺少可用音轨');
-      const audioTrack = audioChoice.track;
+      const tracks = typeof input.getAudioTracks === 'function' ? await input.getAudioTracks() : [];
+      const fallbackPrimary = !tracks.length && typeof input.getPrimaryAudioTrack === 'function'
+        ? await input.getPrimaryAudioTrack()
+        : null;
+      const trackList = tracks.length ? tracks : (fallbackPrimary ? [fallbackPrimary] : []);
+      const { selected: trackIndex } = await chooseAudioTracks(input, trackList);
+      const audioTrack = trackList[trackIndex];
       const audioOrigin = typeof audioTrack.getFirstTimestamp === 'function'
         ? Math.max(0, await audioTrack.getFirstTimestamp())
         : origin;
@@ -157,7 +144,7 @@ export function createAutoIntakeService({
         origin,
         duration,
         audioTrack,
-        trackIndex: audioChoice.trackIndex,
+        trackIndex,
         audioDuration,
       };
       return openedMedia;

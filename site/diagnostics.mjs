@@ -39,12 +39,6 @@ const AUDIO_ENCODE_PROBES = [
   { key: 'opus', codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 128_000 },
 ];
 
-const MEDIA_RECORDER_MIME_PROBES = [
-  'video/webm;codecs=vp9,opus',
-  'video/webm;codecs=vp8,opus',
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-];
-
 function round1(value) {
   return Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
 }
@@ -256,19 +250,6 @@ export async function probeWebCodecs(env = globalThis) {
   return { videoDecode, videoEncode, audioEncode };
 }
 
-export function probeMediaRecorder(env = globalThis) {
-  const MR = env?.MediaRecorder;
-  if (!MR || typeof MR.isTypeSupported !== 'function') {
-    return { supported: false, mimeTypes: {} };
-  }
-  const mimeTypes = {};
-  for (const mime of MEDIA_RECORDER_MIME_PROBES) {
-    try { mimeTypes[mime] = Boolean(MR.isTypeSupported(mime)); }
-    catch { mimeTypes[mime] = false; }
-  }
-  return { supported: true, mimeTypes };
-}
-
 function summarizeWorkspace(state) {
   if (!state) return null;
   const sources = Array.isArray(state.sources) ? state.sources.map((src) => ({
@@ -377,7 +358,6 @@ export async function collectDiagnostics({
   ]);
 
   const gpu = probeGpuInfo(doc);
-  const mediaRecorder = probeMediaRecorder(env);
   const wasmSimd = probeWasmSimd(env?.WebAssembly);
 
   const mem = perf?.memory;
@@ -447,17 +427,13 @@ export async function collectDiagnostics({
         getDisplayMedia: typeof nav?.mediaDevices?.getDisplayMedia === 'function',
         getUserMedia: typeof nav?.mediaDevices?.getUserMedia === 'function',
         audioWorklet: typeof env?.AudioWorkletNode === 'function',
-        mediaRecorder: mediaRecorder.supported,
       },
       clipboardWriteText: typeof nav?.clipboard?.writeText === 'function',
       totalMemoryApi: typeof perf?.measureUserAgentSpecificMemory === 'function',
     },
     gpu,
     audio,
-    codecs: {
-      ...codecs,
-      mediaRecorder: mediaRecorder.mimeTypes,
-    },
+    codecs,
     memory,
     workspace: summarizeWorkspace(state.workspace),
     liveMonitor: summarizeLiveMonitor(state.liveMonitor),

@@ -76,8 +76,8 @@
             <span class="topbar-pill-dot" aria-hidden="true"></span>
             <span class="topbar-pill-label" data-i18n="library_watch_label">Watch Folder</span>
             <span id="topbar-watch-value" class="topbar-pill-value" data-i18n="library_watch_unset">Not set</span>
-            <span id="topbar-watch-restore-cta" class="topbar-watch-restore-cta" hidden data-i18n="topbar_watch_restore_cta">Restore Watch</span>
           </button>
+          <button id="topbar-watch-restore-cta" class="topbar-watch-restore-cta" type="button" hidden data-i18n="topbar_watch_restore_cta">Restore Watch</button>
         </div>
       </div>
       <div class="session-notice" data-i18n="session_notice">Re-import videos after refresh or close</div>
@@ -118,20 +118,6 @@
               <button id="library-drawer-close" class="quiet library-drawer-close" type="button" title="Close recording library" aria-label="Close recording library" data-i18n-title="drawer_close_title" data-i18n-aria="drawer_close_title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </div>
             <div class="row queue-heading-actions">
-              <div id="library-topbar-slots" class="library-topbar-slots">
-                <div class="library-slot library-live-slot" data-slot="live-monitor" data-live-status="off">
-                  <span class="library-slot-dot" aria-hidden="true"></span>
-                  <span class="library-slot-label" data-i18n="library_live_label">Live Monitor</span>
-                  <span class="library-slot-value" data-i18n="library_live_status_off">Off</span>
-                  <button class="quiet library-slot-btn" type="button" data-action="toggle-live-monitor" disabled data-i18n="library_live_start">Start</button>
-                </div>
-                <div class="library-slot library-watch-slot" data-slot="watch-directory" data-watch-status="unset">
-                  <span class="library-slot-dot" aria-hidden="true"></span>
-                  <span class="library-slot-label" data-i18n="library_watch_label">Watch Folder</span>
-                  <span class="library-slot-value" data-i18n="library_watch_unset">Not set</span>
-                  <button class="quiet library-slot-btn" type="button" data-action="choose-watch-directory" disabled data-i18n="library_watch_choose">Choose</button>
-                </div>
-              </div>
               <button id="import-files" class="primary" disabled title="Import Videos" data-i18n-title="import_files"><span aria-hidden="true">＋</span> <span class="import-files-label" data-i18n="import_files">Import Videos</span></button>
             </div>
             <input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden>

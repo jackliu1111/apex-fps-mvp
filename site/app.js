@@ -6,6 +6,7 @@ import {
   resolveReviewPrimaryAction,
   resolveClippingLayout,
   reconcileSplitSelection,
+  createSplitPlayerSync,
   createWorkspaceUxController,
   resolveRecordingShortcutTarget,
   resolveDrawerEscape,
@@ -50,8 +51,6 @@ const diagnosticLog = createDiagnosticLog();
 diagnosticLog.attachGlobalListeners(window);
 let libraryPreviewHarness = null, workspacePreviewHarness = null;
 let currentPage = 'clipping', activeSourceId = null, activeRecordId = null;
-let playerSourceId = null, playerLoadedFile = null, pendingLoadSourceId = null, pendingLoadFile = null;
-let loadingSource = false, loadToken = 0;
 let directoryHandle = null, exportQueue, selectionTimeline, engineBridge = null, globalTopbarControls = null;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
 let latestLibrarySnapshot = null;
@@ -220,6 +219,19 @@ function resetPlayerIdle(event) {
     }, 2500);
   }
 }
+const playerSync = createSplitPlayerSync({
+  getRecord: (id) => bindings.get(id) || null,
+  getPosition: (id) => workspace.getSource(id).review.position,
+  pausePlayer: () => player.pause(),
+  loadPlayer: (params) => player.load(params),
+  disposePlayer: () => player.dispose(),
+  clearCanvas: () => {
+    const canvas = $('source-canvas');
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+  },
+  onStateChange: () => renderPlayer(),
+  onError: (error) => note(errorText(error)),
+});
 const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next) {
   playerState = next;
   const frame = $('player-frame');
@@ -232,9 +244,10 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
       resetPlayerIdle();
     }
   }
-  if (!loadingSource && playerSourceId && playerSourceId === activeSourceId) {
-    const saved = workspace.getSource(playerSourceId).review.position;
-    if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position });
+  const loadedId = playerSync.loadedSourceId;
+  if (!playerSync.isLoading && loadedId && loadedId === activeSourceId) {
+    const saved = workspace.getSource(loadedId).review.position;
+    if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(loadedId, { position: next.position });
   }
   engineBridge?.notifyPlayerState(next);
   renderPlayer();
@@ -411,48 +424,6 @@ function buildLibrarySnapshot(selectedId = activeSourceId) {
   });
 }
 
-async function loadActiveSource(targetId, { forceDispose = false } = {}) {
-  const record = targetId ? bindings.get(targetId) : null;
-  const token = ++loadToken;
-  if (!record || !record.file) {
-    playerSourceId = null;
-    playerLoadedFile = null;
-    pendingLoadSourceId = null;
-    pendingLoadFile = null;
-    loadingSource = false;
-    $('source-canvas').getContext('2d').clearRect(0, 0, $('source-canvas').width, $('source-canvas').height);
-    if (forceDispose || !record?.isPreviewMock) {
-      try { await player.dispose(); } catch (_) {}
-    }
-    if (token === loadToken) renderPlayer();
-    return;
-  }
-  player.pause();
-  playerSourceId = null;
-  playerLoadedFile = null;
-  pendingLoadSourceId = targetId;
-  pendingLoadFile = record.file;
-  loadingSource = true;
-  $('source-canvas').getContext('2d').clearRect(0, 0, $('source-canvas').width, $('source-canvas').height);
-  renderPlayer();
-  try {
-    const saved = workspace.getSource(targetId);
-    await player.load({ file: record.file, origin: record.origin, duration: record.duration, position: saved.review.position });
-    if (token !== loadToken) return;
-    playerSourceId = targetId;
-    playerLoadedFile = record.file;
-  } catch (error) {
-    if (token === loadToken) note(errorText(error));
-  } finally {
-    if (token === loadToken) {
-      pendingLoadSourceId = null;
-      pendingLoadFile = null;
-      loadingSource = false;
-      renderPlayer();
-    }
-  }
-}
-
 function notifyRecordingReady(sourceId, record = null) {
   if (!sourceId || !view.sources.some((item) => item.id === sourceId)) return;
   const saved = workspace.getSource(sourceId);
@@ -512,49 +483,54 @@ async function openReview(id, { focusFirstCandidate = false } = {}) {
   const wasExports = currentPage === 'exports';
   currentPage = 'clipping';
 
-  const effectiveLoadedId = loadingSource ? pendingLoadSourceId : playerSourceId;
-  const effectiveLoadedFile = loadingSource ? pendingLoadFile : playerLoadedFile;
+  const loaded = playerSync.effectiveLoaded();
   const rec = reconcileSplitSelection({
     items: snapshot.items,
     activeSourceId,
     activeRecordId,
     requestedSourceId: id,
-    loadedSourceId: effectiveLoadedId,
-    loadedFile: effectiveLoadedFile,
+    loadedSourceId: loaded.sourceId,
+    loadedFile: loaded.file,
     getFileForId: (sourceId) => bindings.get(sourceId)?.file || null,
   });
 
   const switched = rec.activeSourceId !== activeSourceId;
-  activeSourceId = rec.activeSourceId;
-  activeRecordId = rec.activeRecordId;
-  uxController.onRecordingOpened(activeSourceId);
-  backgroundReadiness.onRecordingOpened(activeSourceId);
-
   let targetFirstClip = null;
-  if (activeSourceId && view.sources.some((item) => item.id === activeSourceId)) {
-    const savedTarget = workspace.getSource(activeSourceId);
-    seenCandidates.set(activeSourceId, savedTarget.clips.filter((clip) => !clip.provisional && !clip.excluded).length);
-    if (focusFirstCandidate) {
-      targetFirstClip = pickFirstReviewableCandidate(savedTarget);
-      if (targetFirstClip) {
-        workspace.setReview(activeSourceId, {
-          selectedClipId: targetFirstClip.id,
-          ...selectionWindow(savedTarget.duration, targetFirstClip),
-          position: targetFirstClip.start,
-        });
+
+  playerSync.withDeferredSync(() => {
+    activeSourceId = rec.activeSourceId;
+    activeRecordId = rec.activeRecordId;
+    uxController.onRecordingOpened(activeSourceId);
+    backgroundReadiness.onRecordingOpened(activeSourceId);
+
+    if (activeSourceId && view.sources.some((item) => item.id === activeSourceId)) {
+      const savedTarget = workspace.getSource(activeSourceId);
+      seenCandidates.set(activeSourceId, savedTarget.clips.filter((clip) => !clip.provisional && !clip.excluded).length);
+      if (focusFirstCandidate) {
+        targetFirstClip = pickFirstReviewableCandidate(savedTarget);
+        if (targetFirstClip) {
+          workspace.setReview(activeSourceId, {
+            selectedClipId: targetFirstClip.id,
+            ...selectionWindow(savedTarget.duration, targetFirstClip),
+            position: targetFirstClip.start,
+          });
+        }
       }
     }
-  }
-  if (switched && !wasExports) {
-    player.pause();
-  }
-  render();
-  if (rec.shouldReloadPlayer) {
-    await loadActiveSource(activeSourceId);
-  } else if (rec.shouldDisposePlayer) {
-    await loadActiveSource(activeSourceId, { forceDispose: true });
+    if (switched && !wasExports) {
+      player.pause();
+    }
+    render();
+  });
+
+  const syncPromise = playerSync.syncSelection(rec);
+  if (syncPromise) {
+    await syncPromise;
   } else {
-    if (focusFirstCandidate && targetFirstClip && bindings.get(activeSourceId)?.file) {
+    if (playerSync.isLoading && playerSync.activeLoadPromise) {
+      await playerSync.activeLoadPromise;
+    }
+    if (focusFirstCandidate && targetFirstClip && activeSourceId === rec.activeSourceId && bindings.get(activeSourceId)?.file) {
       await player.seek(targetFirstClip.start);
     }
     renderPlayer();
@@ -562,23 +538,13 @@ async function openReview(id, { focusFirstCandidate = false } = {}) {
 }
 
 function showAnalysis() {
-  const wasExports = currentPage === 'exports';
   currentPage = 'clipping';
   render();
-  if (wasExports && activeSourceId && !loadingSource) {
-    const record = bindings.get(activeSourceId);
-    if (record?.file && (playerSourceId !== activeSourceId || playerLoadedFile !== record.file)) {
-      void loadActiveSource(activeSourceId);
-    }
-  }
 }
 
 function showExports() {
   player.pause();
-  loadToken++;
-  loadingSource = false;
-  pendingLoadSourceId = null;
-  pendingLoadFile = null;
+  playerSync.invalidate();
   currentPage = 'exports';
   selectionTimeline?.suspend();
   render();
@@ -592,7 +558,14 @@ function invokeChooseWatchDir() {
   if (typeof onboardingHandlers.onChooseWatchDir === 'function') {
     return onboardingHandlers.onChooseWatchDir();
   }
-  return engineBridge.activateWatchDirectory();
+  return engineBridge.chooseWatchDirectory();
+}
+
+function invokeRestoreWatchDir() {
+  if (typeof onboardingHandlers.onChooseWatchDir === 'function') {
+    return onboardingHandlers.onChooseWatchDir();
+  }
+  return engineBridge.restoreWatchDirectory();
 }
 
 function invokeToggleMonitoring() {
@@ -612,7 +585,8 @@ globalTopbarControls = createGlobalTopbarControls({
   onRefreshDevices: () => engineBridge.refreshAudioDevices(),
   onToggleGateBypass: (allow) => { engineBridge.setAllowGateBypass(allow); },
   onToggleReadyNotifications: (enabled) => safely(() => readyNotifier.setNotificationsEnabled(enabled)),
-  onActivateWatchDir: () => safely(invokeChooseWatchDir),
+  onChooseWatchDir: () => safely(invokeChooseWatchDir),
+  onRestoreWatchDir: () => safely(invokeRestoreWatchDir),
 });
 
 const libraryView = createRecordingLibraryView({
@@ -626,8 +600,6 @@ const libraryView = createRecordingLibraryView({
   createEmptyGraphic: createFrameSignal,
   onReview: (id) => safely(() => openReview(id)),
   onSelect: (id) => safely(() => openReview(id)),
-  onToggleLiveMonitor: () => safely(invokeToggleMonitoring),
-  onChooseWatchDirectory: () => safely(invokeChooseWatchDir),
   onRowTransition: (row, kind) => taskFeedback(row, kind),
 });
 
@@ -661,7 +633,9 @@ function renderPlayer() {
   if (!saved) return;
   const record = bindings.get(saved.id);
   const bound = Boolean(record?.file);
-  $('play-pause').disabled = !bound || loadingSource || playerState.status === 'loading' || playerState.status === 'error';
+  const isLoading = playerSync.isLoading;
+  const loadedId = playerSync.loadedSourceId;
+  $('play-pause').disabled = !bound || isLoading || playerState.status === 'loading' || playerState.status === 'error';
   $('play-pause').textContent = playerState.playing ? t('pause') : t('play');
   const clip = selectedClip();
   $('play-selection').disabled = $('play-pause').disabled || !clip || clip.provisional || !(clip.end > clip.start);
@@ -675,14 +649,14 @@ function renderPlayer() {
   $('player-mute').dataset.silent = String(muted || volume === 0);
   $('player-mute').title = muted ? t('unmute_title') : t('mute_title');
   $('player-mute').setAttribute('aria-label', $('player-mute').title);
-  const position = playerSourceId === saved.id ? playerState.position : saved.review.position;
-  $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && playerSourceId === saved.id ? ` · ${t('frame_text')} ${time(playerState.actual)}` : ''}`;
+  const position = loadedId === saved.id ? playerState.position : saved.review.position;
+  $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && loadedId === saved.id ? ` · ${t('frame_text')} ${time(playerState.actual)}` : ''}`;
   const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
   $('prev-candidate').disabled = !stable.some((item) => item.start < position - 0.01);
   $('next-candidate').disabled = !stable.some((item) => item.start > position + 0.01) && saved.analysis.status !== 'analyzing';
   const fsBtn = $('player-fullscreen');
   if (fsBtn) {
-    fsBtn.disabled = !bound || loadingSource || playerState.status === 'error';
+    fsBtn.disabled = !bound || isLoading || playerState.status === 'error';
     const isFull = document.fullscreenElement === $('player-frame') || document.webkitFullscreenElement === $('player-frame');
     fsBtn.title = isFull ? t('exit_fullscreen_title') : t('fullscreen_title');
     fsBtn.setAttribute('aria-label', fsBtn.title);
@@ -691,7 +665,7 @@ function renderPlayer() {
     renderWorkspacePreviewCanvas(saved, record);
     $('player-status').textContent = '';
   } else {
-    $('player-status').textContent = !bound ? t('player_select_hint') : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? (getLang() === 'zh' ? '正在准备该位置…' : 'Preparing position...') : playerState.status === 'error' ? playerState.error : '';
+    $('player-status').textContent = !bound ? t('player_select_hint') : isLoading || ['loading', 'seeking'].includes(playerState.status) ? (getLang() === 'zh' ? '正在准备该位置…' : 'Preparing position...') : playerState.status === 'error' ? playerState.error : '';
   }
   renderReviewPreview(saved, bound);
 }
@@ -1014,14 +988,13 @@ function render() {
     if (layout === 'standalone-library') {
       latestLibrarySnapshot = libraryPreviewHarness ? libraryPreviewHarness.rerender() : null;
     } else if (layout === 'split') {
-      const effectiveLoadedId = loadingSource ? pendingLoadSourceId : playerSourceId;
-      const effectiveLoadedFile = loadingSource ? pendingLoadFile : playerLoadedFile;
+      const loaded = playerSync.effectiveLoaded();
       const rec = reconcileSplitSelection({
         items: baseSnapshot.items,
         activeSourceId,
         activeRecordId,
-        loadedSourceId: effectiveLoadedId,
-        loadedFile: effectiveLoadedFile,
+        loadedSourceId: loaded.sourceId,
+        loadedFile: loaded.file,
         getFileForId: (sourceId) => bindings.get(sourceId)?.file || null,
       });
       activeSourceId = rec.activeSourceId;
@@ -1032,32 +1005,32 @@ function render() {
       if (rec.changed && activeSourceId && view.sources.some((item) => item.id === activeSourceId) && !seenCandidates.has(activeSourceId)) {
         seenCandidates.set(activeSourceId, workspace.getSource(activeSourceId).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
       }
-      uxController.pruneNewIds([
+      const validIds = [
         ...baseSnapshot.items.map((item) => item.id),
         ...pendingImports.keys(),
         ...(engineBridge?.getPendingIntakeIds() || []),
-      ]);
+      ];
+      uxController.pruneNewIds(validIds);
+      readyNotifier.prune(validIds);
       latestLibrarySnapshot = buildLibrarySnapshot(activeSourceId);
       const activeItem = latestLibrarySnapshot.items.find((item) => item.id === activeSourceId) || rec.activeItem;
       libraryView.render(latestLibrarySnapshot);
       renderReview(activeItem);
-      if (rec.shouldReloadPlayer) {
-        void loadActiveSource(activeSourceId);
-      } else if (rec.shouldDisposePlayer) {
-        void loadActiveSource(activeSourceId, { forceDispose: true });
-      }
+      void playerSync.syncSelection(rec);
     } else if (layout === 'empty') {
       latestLibrarySnapshot = baseSnapshot;
-      const hadLoaded = playerSourceId !== null || loadingSource;
+      const hadLoaded = playerSync.loadedSourceId !== null || playerSync.isLoading;
       activeSourceId = null;
       activeRecordId = null;
-      uxController.pruneNewIds([
+      const validIds = [
         ...pendingImports.keys(),
         ...(engineBridge?.getPendingIntakeIds() || []),
-      ]);
+      ];
+      uxController.pruneNewIds(validIds);
+      readyNotifier.prune(validIds);
       libraryView.render(baseSnapshot);
       renderOnboarding(baseSnapshot);
-      if (hadLoaded) void loadActiveSource(null, { forceDispose: true });
+      if (hadLoaded) void playerSync.loadSource(null, { forceDispose: true });
     } else if (layout === 'exports') {
       latestLibrarySnapshot = baseSnapshot;
       renderExports();
@@ -1219,7 +1192,7 @@ async function seek(value) {
 }
 function stepCandidate(direction) {
   const saved = source(); if (!saved) return;
-  const position = playerSourceId === saved.id ? playerState.position : saved.review.position;
+  const position = playerSync.loadedSourceId === saved.id ? playerState.position : saved.review.position;
   const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
   const clip = direction < 0
     ? [...stable].reverse().find((item) => item.start < position - 0.01)
@@ -1291,12 +1264,12 @@ window.addEventListener('keydown', (event) => {
 });
 
 selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(),
-  isActive: () => currentPage === 'clipping' && Boolean(source()) && !loadingSource,
+  isActive: () => currentPage === 'clipping' && Boolean(source()) && !playerSync.isLoading,
   playPause: () => { if (!$('play-pause').disabled) $('play-pause').click(); },
   playRange: () => { if (!$('play-selection').disabled) $('play-selection').click(); },
   toggleMute: () => player.toggleMute(),
   toggleFullscreen: () => { if (!$('player-fullscreen').disabled) $('player-fullscreen').click(); },
-  isPlayerBusy: () => loadingSource || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
+  isPlayerBusy: () => playerSync.isLoading || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
 const fitSelectedClip = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
 if ($('quick-fit-clip')) $('quick-fit-clip').onclick = fitSelectedClip;
 $('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); };

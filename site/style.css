@@ -338,7 +338,11 @@ strong { font-weight: 600; }
 .topbar-watch-restore-cta {
   display: inline-flex;
   align-items: center;
+  height: 22px;
+  min-height: 0;
+  margin-right: 4px;
   padding: 1px 7px;
+  border: none;
   border-radius: var(--radius-pill);
   background: #d97706;
   color: #ffffff;
@@ -347,9 +351,19 @@ strong { font-weight: 600; }
   line-height: 1.45;
   white-space: nowrap;
   flex: none;
+  cursor: pointer;
+}
+.topbar-watch-restore-cta[hidden] {
+  display: none;
+}
+.topbar-watch-restore-cta:hover:not(:disabled) {
+  background: #b45309;
+  border-color: transparent;
 }
 .topbar-watch-pill[data-watch-status="needs-permission"] .topbar-pill-main {
-  padding-right: 4px;
+  padding-right: 6px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 .topbar-notify-section {
   padding-top: 8px;

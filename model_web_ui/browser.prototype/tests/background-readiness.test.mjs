@@ -275,6 +275,133 @@ test('Slice 1: startup auto-restore silently starts watching on granted permissi
   assert.deepEqual(promptHandle.requests.at(-1), { mode: 'read' });
 });
 
+test('Slice 1 regression: denied/failed restore still allows switching Watch Folder via topbar button & onboarding, and NotFoundError clears stale handle cleanly', async (t) => {
+  const fakeIdb = createFakeIndexedDB();
+  const store = createWatchDirStore({ indexedDB: fakeIdb });
+
+  // 1) Denied persisted handle leaves status in needs-permission after restore fails
+  const deniedHandle = createFakeWatchHandle('Old OBS Folder', {
+    permission: 'prompt',
+    onRequestPermission: async () => 'denied',
+  });
+  const freshHandle = createFakeWatchHandle('New OBS Folder', { permission: 'granted' });
+  await store.save(deniedHandle);
+
+  let pickerCalls = 0;
+  const sessionA = createMinimalBridge({
+    watchDirStore: store,
+    showDirectoryPicker: async () => {
+      pickerCalls++;
+      return freshHandle;
+    },
+  });
+  t.after(() => sessionA.dispose());
+
+  const startupA = await restorePersistedWatchDirectory({ store, engineBridge: sessionA.bridge });
+  assert.equal(startupA.outcome, 'needs-permission');
+  assert.equal(sessionA.bridge.watchDirState.status, 'needs-permission');
+
+  // Wire global topbar controls with separate choose vs restore handlers (matching app.js)
+  const byId = new Map();
+  const makeBtn = (tag, id) => {
+    const node = {
+      tagName: tag.toUpperCase(),
+      id,
+      textContent: '',
+      title: '',
+      hidden: false,
+      disabled: false,
+      dataset: {},
+      attributes: {},
+      onclick: null,
+      setAttribute(k, v) { this.attributes[k] = String(v); },
+      getAttribute(k) { return Object.hasOwn(this.attributes, k) ? this.attributes[k] : null; },
+      click() { if (!this.disabled && typeof this.onclick === 'function') this.onclick({ target: this, stopPropagation() {} }); },
+    };
+    byId.set(id, node);
+    return node;
+  };
+  makeBtn('div', 'topbar-watch-dir');
+  makeBtn('button', 'topbar-watch-btn');
+  makeBtn('span', 'topbar-watch-value');
+  makeBtn('button', 'topbar-watch-restore-cta');
+
+  let restoreClicks = 0;
+  let chooseClicks = 0;
+  const controls = createGlobalTopbarControls({
+    doc: {
+      getElementById: (id) => byId.get(id) || null,
+      addEventListener() {},
+      removeEventListener() {},
+    },
+    onChooseWatchDir: () => { chooseClicks++; },
+    onRestoreWatchDir: () => { restoreClicks++; },
+  });
+  t.after(() => controls.dispose());
+  controls.render(sessionA.bridge.getState());
+
+  // Clicking #topbar-watch-restore-cta triggers restore; clicking #topbar-watch-btn triggers choose!
+  byId.get('topbar-watch-restore-cta').click();
+  assert.equal(restoreClicks, 1, 'Restore CTA must route to restoreWatchDirectory');
+  assert.equal(chooseClicks, 0);
+
+  byId.get('topbar-watch-btn').click();
+  assert.equal(chooseClicks, 1, 'Main watch button must route to chooseWatchDirectory even during needs-permission');
+  assert.equal(restoreClicks, 1);
+
+  // Restore fails when permission is denied
+  await assert.rejects(() => sessionA.bridge.restoreWatchDirectory());
+  assert.equal(sessionA.bridge.watchDirState.status, 'needs-permission');
+
+  // Choosing a new folder via chooseWatchDirectory (used by #topbar-watch-btn and #onboarding-choose-watch-dir)
+  // MUST break out of needs-permission, start watching the new folder, and persist the new handle!
+  await sessionA.bridge.chooseWatchDirectory();
+  assert.equal(pickerCalls, 1);
+  assert.equal(sessionA.bridge.watchDirState.status, 'watching');
+  assert.equal(sessionA.bridge.watchDirState.needsRestore, false);
+  assert.equal(sessionA.bridge.watchDirState.name, 'New OBS Folder');
+  assert.equal(await store.load(), freshHandle);
+
+  // 2) Deleted/unmounted folder throwing NotFoundError during restoreWatchDirectory clears stale handle & pending flag
+  const deletedHandle = createFakeWatchHandle('Deleted Drive Folder', {
+    permission: 'prompt',
+    onRequestPermission: async () => {
+      throw new DOMException('Directory not found', 'NotFoundError');
+    },
+  });
+  await store.save(deletedHandle);
+  const sessionB = createMinimalBridge({ watchDirStore: store });
+  t.after(() => sessionB.dispose());
+
+  await restorePersistedWatchDirectory({ store, engineBridge: sessionB.bridge });
+  assert.equal(sessionB.bridge.watchDirState.status, 'needs-permission');
+
+  await assert.rejects(() => sessionB.bridge.restoreWatchDirectory(), (err) => err?.name === 'NotFoundError');
+  assert.equal(sessionB.bridge.watchDirState.status, 'unset', 'NotFoundError must clear needs-permission loop');
+  assert.equal(sessionB.bridge.watchDirState.needsRestore, false);
+  assert.equal(sessionB.bridge.watchDirState.name, null);
+  assert.equal(await store.load(), null, 'NotFoundError must purge stale handle from watch-dir store');
+
+  // 3) Deleted/unmounted folder throwing NotFoundError during startup silent auto-restore also clears stale handle cleanly
+  const vanishedGrantedHandle = {
+    name: 'Unmounted USB',
+    kind: 'directory',
+    async queryPermission() { return 'granted'; },
+    async *entries() {
+      throw new DOMException('A requested file or directory could not be found', 'NotFoundError');
+    },
+  };
+  await store.save(vanishedGrantedHandle);
+  const sessionC = createMinimalBridge({ watchDirStore: store });
+  t.after(() => sessionC.dispose());
+
+  const startupC = await restorePersistedWatchDirectory({ store, engineBridge: sessionC.bridge });
+  assert.equal(startupC.outcome, 'empty', 'Startup NotFoundError must not leave needs-permission loop');
+  assert.equal(sessionC.bridge.watchDirState.status, 'unset');
+  assert.equal(sessionC.bridge.watchDirState.needsRestore, false);
+  assert.equal(await store.load(), null, 'Startup NotFoundError must purge stale persisted handle');
+});
+
 function createFakeNotifierEnv({ initialIconHref = 'data:image/svg+xml,base-icon', permission = 'default', onRequestPermission = null } = {}) {
   const iconLink = initialIconHref !== null ? {
     tagName: 'LINK',
@@ -824,6 +951,112 @@ test('Slice 4: liveMonitor AudioWorklet envelope heartbeat drives unthrottled wa
   worklet.emitEnvelope();
   await new Promise((r) => setTimeout(r, 10));
   assert.equal(pollExecutions, baselineEntriesCalls + 2);
+});
+
+test('Slice 4 regression: AudioWorklet heartbeat continues polling after 60-min ring buffer saturates at maxBuckets', async (t) => {
+  let clock = 1_700_000_000_000;
+  const watchFiles = new Map();
+  const watchDir = createFakeWatchHandle('OBS Captures', { permission: 'granted', files: watchFiles });
+  let pollExecutions = 0;
+  const originalEntries = watchDir.entries.bind(watchDir);
+  watchDir.entries = async function* () {
+    pollExecutions++;
+    yield* originalEntries();
+  };
+
+  const workletNodes = [];
+  const fakeMediaDevices = {
+    async getDisplayMedia() {
+      const audioTrack = { kind: 'audio', label: 'System Audio', addEventListener() {}, removeEventListener() {}, stop() {} };
+      return {
+        getTracks() { return [audioTrack]; },
+        getVideoTracks() { return []; },
+        getAudioTracks() { return [audioTrack]; },
+        removeTrack() {},
+      };
+    },
+    async enumerateDevices() { return []; },
+  };
+  class FakeAudioContext {
+    constructor() { this.destination = {}; this.audioWorklet = { addModule: async () => {} }; }
+    async resume() {}
+    createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+    createGain() { return { gain: { value: 1 }, connect() {}, disconnect() {} }; }
+    async close() {}
+  }
+  class FakeWorkletNode {
+    constructor() {
+      this.port = { onmessage: null, postMessage() {} };
+      workletNodes.push(this);
+    }
+    connect() {}
+    disconnect() {}
+    emitBuckets(bucketCount) {
+      this.port.onmessage?.({
+        data: {
+          type: 'envelope',
+          buckets: new Float32Array(bucketCount * 2).fill(0.25),
+          silentSeconds: 0,
+        },
+      });
+    }
+  }
+
+  const fakeMB = { ALL_FORMATS: [], BlobSource: class {}, Input: class { dispose() {} } };
+  const queue = createBrowserAnalysis({
+    MB: fakeMB,
+    fetch: async () => ({ ok: true, status: 200, json: async () => ({ classes: ['Gunshot, gunfire', 'Machine gun'] }) }),
+  });
+
+  // Use a 1-second rolling ring cap (50 buckets) to reach saturation deterministically.
+  const bridge = createWorkspaceEngineBridge({
+    MB: fakeMB,
+    queue,
+    now: () => clock,
+    isSecureContext: () => true,
+    heartbeatPollIntervalMs: 2000,
+    liveMonitorOptions: {
+      maxHistorySeconds: 1,
+      mediaDevices: fakeMediaDevices,
+      AudioContext: FakeAudioContext,
+      AudioWorkletNode: FakeWorkletNode,
+      now: () => clock,
+    },
+    autoIntakeOptions: {
+      pollIntervalMs: 600_000,
+      stablePollsRequired: 2,
+      stableDurationMs: 4000,
+    },
+  });
+  t.after(async () => {
+    await bridge.dispose();
+    await queue.dispose();
+  });
+
+  await bridge.activateWatchDirectory(watchDir);
+  await bridge.startLiveMonitor();
+  const worklet = workletNodes[0];
+
+  // Fill ring buffer past its 50-bucket cap so envelopeBucketCount stays pinned at 50.
+  clock += 2000;
+  worklet.emitBuckets(60);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(bridge.liveMonitor.getState().envelopeBucketCount, 50);
+  const pollsAtCap = pollExecutions;
+
+  // Subsequent AudioWorklet frames leave envelopeBucketCount pinned at 50,
+  // yet heartbeat polling MUST keep advancing past saturation!
+  clock += 2000;
+  worklet.emitBuckets(4);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(bridge.liveMonitor.getState().envelopeBucketCount, 50);
+  assert.equal(pollExecutions, pollsAtCap + 1, 'Heartbeat must keep polling after ring-buffer cap is reached');
+
+  clock += 2000;
+  worklet.emitBuckets(4);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(bridge.liveMonitor.getState().envelopeBucketCount, 50);
+  assert.equal(pollExecutions, pollsAtCap + 2, 'Heartbeat must continue polling indefinitely at cap');
 });
 
 test('Slice 5: global topbar exposes one-click Restore Watch CTA and opt-in ready notification checkbox inside live popover', async () => {

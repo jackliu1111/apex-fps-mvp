@@ -84,6 +84,7 @@ export function createWorkspaceEngineBridge({
 
   let lastLiveStatus = 'off';
   let lastSilenceWarning = false;
+  let lastEnvelopeEpochMs = 0;
   let lastEnvelopeBucketCount = 0;
   let lastHeartbeatPollMs = 0;
 
@@ -217,8 +218,6 @@ export function createWorkspaceEngineBridge({
       status = 'needs-permission';
     } else if (watchDirStatusOverride === 'error' || raw.status === AUTO_INTAKE_STATES.ERROR) {
       status = 'error';
-    } else if (name && raw.watching) {
-      status = 'watching';
     }
     return Object.freeze({
       status,
@@ -256,8 +255,14 @@ export function createWorkspaceEngineBridge({
     } else if (raw.silenceWarning && !lastSilenceWarning && mapped === 'listening') {
       onNotice(msg('note_live_silence_warning', 'No game audio detected for 10+ seconds. Check shared audio or input device.'), 'info');
     }
+    const latestEpochMs = Number(raw.latestEpochMs) || 0;
     const bucketCount = Number(raw.envelopeBucketCount) || 0;
-    const envelopeAdvanced = bucketCount > lastEnvelopeBucketCount;
+    const hasAudioHistory = raw.envelopeBucketCount === undefined ? latestEpochMs > 0 : bucketCount > 0;
+    const envelopeAdvanced = hasAudioHistory && (
+      latestEpochMs > lastEnvelopeEpochMs
+      || bucketCount > lastEnvelopeBucketCount
+    );
+    lastEnvelopeEpochMs = latestEpochMs;
     lastEnvelopeBucketCount = bucketCount;
     lastLiveStatus = mapped;
     lastSilenceWarning = Boolean(raw.silenceWarning);
@@ -414,7 +419,7 @@ export function createWorkspaceEngineBridge({
       return stopWatchingDirectory();
     }
     const base = extractBasename(dirHandle.name || '');
-    const wasRestorePending = watchDirRestorePending;
+    const isRestoringSameHandle = watchDirRestorePending && watchDirHandle === dirHandle;
     watchDirHandle = dirHandle;
     watchDirName = base || null;
     watchDirError = null;
@@ -433,10 +438,11 @@ export function createWorkspaceEngineBridge({
     } catch (err) {
       watchDirError = err?.message || String(err);
       if (!autoIntake.getState().watching) {
-        if (wasRestorePending && watchDirHandle === dirHandle) {
+        if (isRestoringSameHandle) {
           watchDirRestorePending = true;
           watchDirStatusOverride = 'needs-permission';
         } else {
+          watchDirRestorePending = false;
           watchDirStatusOverride = 'error';
         }
       }
@@ -459,12 +465,34 @@ export function createWorkspaceEngineBridge({
     return snapshot().watchDirectory;
   }
 
+  async function clearStaleWatchDirectory() {
+    autoIntake.stopWatching();
+    watchDirHandle = null;
+    watchDirName = null;
+    watchDirRestorePending = false;
+    watchDirStatusOverride = null;
+    watchDirError = null;
+    if (watchDirStore && typeof watchDirStore.clear === 'function') {
+      await watchDirStore.clear();
+    }
+    emit();
+    onWatchDirectoryChange({ handle: null, state: snapshot().watchDirectory });
+    return snapshot().watchDirectory;
+  }
+
   async function restoreWatchDirectory() {
     if (disposed) return snapshot().watchDirectory;
     if (!watchDirHandle) {
       return chooseWatchDirectory();
     }
-    return setWatchDirectoryHandle(watchDirHandle, { requestPermission: true });
+    try {
+      return await setWatchDirectoryHandle(watchDirHandle, { requestPermission: true });
+    } catch (err) {
+      if (err?.name === 'NotFoundError') {
+        await clearStaleWatchDirectory();
+      }
+      throw err;
+    }
   }
 
   async function chooseWatchDirectory() {

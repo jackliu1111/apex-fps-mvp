@@ -400,74 +400,103 @@ export function createLiveMonitorEngine({
       }));
   }
 
+  async function cleanupLocalAudioPipeline({ ctx = null, node = null, source = null, silentGain = null } = {}) {
+    if (node) {
+      if (node.port) node.port.onmessage = null;
+      try { node.disconnect(); } catch { /* ignore */ }
+    }
+    if (source) {
+      try { source.disconnect(); } catch { /* ignore */ }
+    }
+    if (silentGain) {
+      try { silentGain.disconnect(); } catch { /* ignore */ }
+    }
+    if (ctx) {
+      try { await ctx.close?.(); } catch { /* ignore */ }
+    }
+  }
+
   async function attachAudioPipeline(stream, token) {
     if (!AudioContextCtor || !AudioWorkletNodeCtor) {
       throw new Error('当前环境不支持 Web Audio / AudioWorklet');
     }
     const spec = modelRegistry.get(modelId);
     const ctx = new AudioContextCtor();
-    audioCtx = ctx;
-    await ctx.resume?.();
-    if (token !== runToken || disposed) {
-      await teardownCapture();
-      return false;
-    }
-    await ctx.audioWorklet.addModule(workletUrl);
-    if (token !== runToken || disposed) {
-      await teardownCapture();
-      return false;
-    }
-    const node = new AudioWorkletNodeCtor(ctx, 'live-audio-processor', {
-      processorOptions: {
-        targetRate: spec.sampleRate,
-        windowSeconds: spec.windowSeconds,
-        hopSeconds,
-      },
-    });
-    node.port.onmessage = ({ data }) => {
-      if (!data || token !== runToken || disposed || !isActiveStatus(status) || gateActive) return;
-      if (data.type === 'envelope') {
-        history.pushEnvelope(data.buckets, now());
-        silentSeconds = Number(data.silentSeconds) || 0;
-        silenceWarning = silentSeconds >= silenceWarningSeconds;
-        emit();
-      } else if (data.type === 'window') {
-        const hist = history.summary();
-        const wallEndMs = Math.max(hist.latestEpochMs, now());
-        const rawStartMs = wallEndMs - spec.windowSeconds * 1000;
-        const wallStartMs = hist.startEpochMs > 0 ? Math.max(hist.startEpochMs, rawStartMs) : rawStartMs;
-        const task = {
-          id: null,
-          token,
-          waveform: data.waveform,
-          wallStartMs,
-          wallEndMs,
-        };
-        if (workerBusy) {
-          if (pendingWindow !== null) {
-            droppedWindowCount++;
-            pendingWindow = task;
-            emit();
-          } else {
-            pendingWindow = task;
-          }
-        } else {
-          void dispatchInference(task);
-        }
+    let node = null;
+    let source = null;
+    let silentGain = null;
+    try {
+      await ctx.resume?.();
+      if (token !== runToken || disposed) {
+        await cleanupLocalAudioPipeline({ ctx });
+        return false;
       }
-    };
-    const source = ctx.createMediaStreamSource(stream);
-    const silentGain = ctx.createGain();
-    silentGain.gain.value = 0;
+      await ctx.audioWorklet.addModule(workletUrl);
+      if (token !== runToken || disposed) {
+        await cleanupLocalAudioPipeline({ ctx });
+        return false;
+      }
+      node = new AudioWorkletNodeCtor(ctx, 'live-audio-processor', {
+        processorOptions: {
+          targetRate: spec.sampleRate,
+          windowSeconds: spec.windowSeconds,
+          hopSeconds,
+        },
+      });
+      node.port.onmessage = ({ data }) => {
+        if (!data || token !== runToken || disposed || !isActiveStatus(status) || gateActive) return;
+        if (data.type === 'envelope') {
+          history.pushEnvelope(data.buckets, now());
+          silentSeconds = Number(data.silentSeconds) || 0;
+          silenceWarning = silentSeconds >= silenceWarningSeconds;
+          emit();
+        } else if (data.type === 'window') {
+          const hist = history.summary();
+          const wallEndMs = Math.max(hist.latestEpochMs, now());
+          const rawStartMs = wallEndMs - spec.windowSeconds * 1000;
+          const wallStartMs = hist.startEpochMs > 0 ? Math.max(hist.startEpochMs, rawStartMs) : rawStartMs;
+          const task = {
+            id: null,
+            token,
+            waveform: data.waveform,
+            wallStartMs,
+            wallEndMs,
+          };
+          if (workerBusy) {
+            if (pendingWindow !== null) {
+              droppedWindowCount++;
+              pendingWindow = task;
+              emit();
+            } else {
+              pendingWindow = task;
+            }
+          } else {
+            void dispatchInference(task);
+          }
+        }
+      };
+      source = ctx.createMediaStreamSource(stream);
+      silentGain = ctx.createGain();
+      silentGain.gain.value = 0;
 
-    source.connect(node);
-    node.connect(silentGain);
-    silentGain.connect(ctx.destination);
+      source.connect(node);
+      node.connect(silentGain);
+      silentGain.connect(ctx.destination);
 
-    sourceNode = source;
-    workletNode = node;
-    silentGainNode = silentGain;
-    return true;
+      if (token !== runToken || disposed) {
+        await cleanupLocalAudioPipeline({ ctx, node, source, silentGain });
+        return false;
+      }
+
+      audioCtx = ctx;
+      sourceNode = source;
+      workletNode = node;
+      silentGainNode = silentGain;
+      return true;
+    } catch (err) {
+      await cleanupLocalAudioPipeline({ ctx, node, source, silentGain });
+      throw err;
+    }
   }
 
   function shouldGate() {
@@ -586,18 +615,19 @@ export function createLiveMonitorEngine({
         stopStreamTracks(stream);
         return snapshot();
       }
-      mediaStream = stream;
+      const attached = await attachAudioPipeline(stream, token);
+      if (!attached || token !== runToken || disposed) {
+        stopStreamTracks(stream);
+        return snapshot();
+      }
 
+      mediaStream = stream;
       const primaryAudio = stream.getAudioTracks()[0] || null;
       audioLabel = primaryAudio?.label || null;
       if (requestedKind === AUDIO_SOURCE_KINDS.DEVICE) {
         deviceId = primaryAudio?.getSettings?.()?.deviceId || requestedDeviceId || null;
       }
-
       bindAudioTrackEnded(stream, token);
-
-      const attached = await attachAudioPipeline(stream, token);
-      if (!attached || token !== runToken || disposed) return snapshot();
 
       history.begin(now());
       if (shouldGate()) {
@@ -615,7 +645,7 @@ export function createLiveMonitorEngine({
       emit();
       return snapshot();
     } catch (err) {
-      if (stream) stopStreamTracks(stream);
+      if (stream && mediaStream !== stream) stopStreamTracks(stream);
       if (token === runToken && !disposed) {
         await teardownCapture();
         status = LIVE_MONITOR_STATES.ERROR;

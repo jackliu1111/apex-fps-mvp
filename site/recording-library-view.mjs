@@ -3,6 +3,11 @@
 // Zero dependencies on audio capture, folder watching, alignment, or media engines.
 
 import { t as defaultTranslate } from './i18n.js';
+import {
+  formatLiveStatusLabel,
+  formatLiveActionLabel,
+  formatWatchValueLabel,
+} from './session-status-labels.mjs';
 
 function createNode(doc, tag, className, text) {
   const node = doc.createElement(tag);
@@ -49,34 +54,6 @@ function formatIdentityMeta(item, { showSize, translate }) {
   }
   if (showSize && item.sizeText) parts.push(item.sizeText);
   return parts.join(' · ');
-}
-
-function formatLiveStatus(status, translate) {
-  const keyMap = {
-    off: 'library_live_status_off',
-    starting: 'library_live_status_starting',
-    listening: 'library_live_status_listening',
-    'paused-loopback': 'library_live_status_paused_loopback',
-    disconnected: 'library_live_status_disconnected',
-    error: 'library_live_status_error',
-    unavailable: 'library_live_status_unavailable',
-  };
-  return translate(keyMap[status] || 'library_live_status_off');
-}
-
-function formatLiveButton(liveMonitor, translate) {
-  if (liveMonitor.status === 'disconnected' || liveMonitor.status === 'error') {
-    return translate('library_live_restart');
-  }
-  return liveMonitor.active ? translate('library_live_stop') : translate('library_live_start');
-}
-
-function formatWatchValue(watchDirectory, translate) {
-  if (!watchDirectory.name) return translate('library_watch_unset');
-  if (watchDirectory.status === 'needs-permission') {
-    return translate('library_watch_needs_permission', { name: watchDirectory.name });
-  }
-  return watchDirectory.name;
 }
 
 function formatWatchButton(watchDirectory, translate) {
@@ -177,14 +154,14 @@ export function createRecordingLibraryView({
 
     topbarRefs.liveSlot.dataset.liveStatus = live.status;
     setText(topbarRefs.liveLabel, translate('library_live_label'));
-    setText(topbarRefs.liveValue, formatLiveStatus(live.status, translate));
-    setText(topbarRefs.liveBtn, formatLiveButton(live, translate));
+    setText(topbarRefs.liveValue, formatLiveStatusLabel(live.status, translate));
+    setText(topbarRefs.liveBtn, formatLiveActionLabel(live, translate));
     topbarRefs.liveBtn.disabled = !live.canToggle;
     topbarRefs.liveBtn.setAttribute('aria-pressed', String(Boolean(live.active)));
 
     topbarRefs.watchSlot.dataset.watchStatus = watch.status;
     setText(topbarRefs.watchLabel, translate('library_watch_label'));
-    const watchText = formatWatchValue(watch, translate);
+    const watchText = formatWatchValueLabel(watch, translate);
     setText(topbarRefs.watchValue, watchText);
     topbarRefs.watchValue.title = watch.name || '';
     setText(topbarRefs.watchBtn, formatWatchButton(watch, translate));

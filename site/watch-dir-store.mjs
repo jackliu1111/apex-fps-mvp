@@ -144,7 +144,12 @@ export async function restorePersistedWatchDirectory({ store, engineBridge } = {
   if (typeof handle.queryPermission === 'function') {
     try {
       permission = await handle.queryPermission({ mode: 'read' });
-    } catch {
+    } catch (error) {
+      if (error?.name === 'NotFoundError') {
+        await store.clear?.();
+        const state = engineBridge.stopWatchingDirectory?.() ?? engineBridge.watchDirState;
+        return { outcome: 'empty', handle: null, error, state };
+      }
       permission = 'prompt';
     }
   }
@@ -157,6 +162,11 @@ export async function restorePersistedWatchDirectory({ store, engineBridge } = {
       });
       return { outcome: 'restored', handle, state };
     } catch (error) {
+      if (error?.name === 'NotFoundError') {
+        await store.clear?.();
+        const state = engineBridge.stopWatchingDirectory?.() ?? engineBridge.watchDirState;
+        return { outcome: 'empty', handle: null, error, state };
+      }
       const state = engineBridge.setWatchDirectoryRestoreNeeded(handle);
       return { outcome: 'needs-permission', handle, error, state };
     }

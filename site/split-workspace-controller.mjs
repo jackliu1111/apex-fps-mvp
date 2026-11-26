@@ -1,6 +1,8 @@
 // Pure controller helpers for the split-pane Local Clipping Workspace (ADR 0010).
 // Zero DOM dependencies and zero imports from media/capture/queue implementations.
 
+import { readBoolPref, writeBoolPref } from './pref-storage.mjs';
+
 export function resolveReviewPrimaryAction(item) {
   if (!item || typeof item.status !== 'string') return null;
   if (item.status === 'unanalyzed') {
@@ -119,38 +121,163 @@ export function reconcileSplitSelection({
   });
 }
 
+export function createSplitPlayerSync({
+  getRecord = () => null,
+  getPosition = () => 0,
+  pausePlayer = () => {},
+  loadPlayer = async () => {},
+  disposePlayer = async () => {},
+  clearCanvas = () => {},
+  onStateChange = () => {},
+  onError = () => {},
+} = {}) {
+  let loadedSourceId = null;
+  let loadedFile = null;
+  let pendingLoadSourceId = null;
+  let pendingLoadFile = null;
+  let loadingSource = false;
+  let loadToken = 0;
+  let deferDepth = 0;
+  let activeLoadPromise = null;
+
+  function effectiveLoaded() {
+    return {
+      sourceId: loadingSource ? pendingLoadSourceId : loadedSourceId,
+      file: loadingSource ? pendingLoadFile : loadedFile,
+    };
+  }
+
+  function loadSource(targetId, { forceDispose = false } = {}) {
+    const record = targetId ? getRecord(targetId) : null;
+    const targetFile = record?.file || null;
+
+    if (
+      !forceDispose
+      && targetFile
+      && loadingSource
+      && pendingLoadSourceId === targetId
+      && pendingLoadFile === targetFile
+      && activeLoadPromise
+    ) {
+      return activeLoadPromise;
+    }
+
+    if (
+      !forceDispose
+      && targetFile
+      && !loadingSource
+      && loadedSourceId === targetId
+      && loadedFile === targetFile
+    ) {
+      return Promise.resolve();
+    }
+
+    const token = ++loadToken;
+    if (!record || !targetFile) {
+      loadedSourceId = null;
+      loadedFile = null;
+      pendingLoadSourceId = null;
+      pendingLoadFile = null;
+      loadingSource = false;
+      activeLoadPromise = null;
+      clearCanvas();
+      const disposeRun = (async () => {
+        if (forceDispose || !record?.isPreviewMock) {
+          try { await disposePlayer(); } catch { /* ignore */ }
+        }
+        if (token === loadToken) onStateChange();
+      })();
+      return disposeRun;
+    }
+
+    pausePlayer();
+    loadedSourceId = null;
+    loadedFile = null;
+    pendingLoadSourceId = targetId;
+    pendingLoadFile = targetFile;
+    loadingSource = true;
+    clearCanvas();
+    onStateChange();
+
+    const run = (async () => {
+      try {
+        const position = getPosition(targetId);
+        await loadPlayer({
+          file: targetFile,
+          origin: record.origin,
+          duration: record.duration,
+          position,
+        });
+        if (token !== loadToken) return;
+        loadedSourceId = targetId;
+        loadedFile = targetFile;
+      } catch (error) {
+        if (token === loadToken) onError(error);
+      } finally {
+        if (token === loadToken) {
+          pendingLoadSourceId = null;
+          pendingLoadFile = null;
+          loadingSource = false;
+          activeLoadPromise = null;
+          onStateChange();
+        }
+      }
+    })();
+    activeLoadPromise = run;
+    return run;
+  }
+
+  function syncSelection(rec, { defer = false } = {}) {
+    if (!rec || defer || deferDepth > 0) return null;
+    if (rec.shouldReloadPlayer) {
+      return loadSource(rec.activeSourceId);
+    }
+    if (rec.shouldDisposePlayer) {
+      return loadSource(rec.activeSourceId, { forceDispose: true });
+    }
+    return null;
+  }
+
+  function withDeferredSync(fn) {
+    deferDepth += 1;
+    try {
+      return fn();
+    } finally {
+      deferDepth = Math.max(0, deferDepth - 1);
+    }
+  }
+
+  function invalidate() {
+    loadToken += 1;
+    loadingSource = false;
+    pendingLoadSourceId = null;
+    pendingLoadFile = null;
+    activeLoadPromise = null;
+  }
+
+  return {
+    get loadedSourceId() { return loadedSourceId; },
+    get loadedFile() { return loadedFile; },
+    get isLoading() { return loadingSource; },
+    get isSyncDeferred() { return deferDepth > 0; },
+    get activeLoadPromise() { return activeLoadPromise; },
+    effectiveLoaded,
+    loadSource,
+    syncSelection,
+    withDeferredSync,
+    invalidate,
+  };
+}
+
 export const LIBRARY_SIDEBAR_COLLAPSED_KEY = 'apex_local_cut_library_collapsed';
 export const NARROW_WORKSPACE_BREAKPOINT_PX = 900;
 
-function resolveStorage(storage) {
-  if (storage !== undefined) return storage;
-  try {
-    return globalThis.localStorage ?? null;
-  } catch (_) {
-    return null;
-  }
-}
-
 export function loadSidebarCollapsed(storage) {
-  const store = resolveStorage(storage);
-  if (!store || typeof store.getItem !== 'function') return false;
-  try {
-    const raw = store.getItem(LIBRARY_SIDEBAR_COLLAPSED_KEY);
-    return raw === '1' || raw === 'true';
-  } catch (_) {
-    return false;
-  }
+  return readBoolPref(LIBRARY_SIDEBAR_COLLAPSED_KEY, storage);
 }
 
 export function saveSidebarCollapsed(collapsed, storage) {
-  const store = resolveStorage(storage);
-  if (!store || typeof store.setItem !== 'function') return false;
-  try {
-    store.setItem(LIBRARY_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
-    return true;
-  } catch (_) {
-    return false;
-  }
+  return writeBoolPref(LIBRARY_SIDEBAR_COLLAPSED_KEY, Boolean(collapsed), storage);
 }
 
 export function isNarrowWorkspaceViewport(viewportWidth) {

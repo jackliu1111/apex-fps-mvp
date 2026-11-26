@@ -2,6 +2,8 @@
 // Updates document.title prefix "(N) <baseTitle>", dynamic SVG <link rel="icon"> badge,
 // and optional user-opted browser Notification without ever stealing window focus.
 
+import { readBoolPref, writeBoolPref } from './pref-storage.mjs';
+
 export const READY_NOTIFY_PREF_KEY = 'apex_local_cut_ready_notifications';
 
 export function buildFaviconSvgDataUrl(count = 0) {
@@ -22,35 +24,12 @@ export function buildFaviconSvgDataUrl(count = 0) {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-function resolveStorage(storage) {
-  if (storage !== undefined) return storage;
-  try {
-    return globalThis.localStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function loadNotifyPref(storage) {
-  const store = resolveStorage(storage);
-  if (!store || typeof store.getItem !== 'function') return false;
-  try {
-    const raw = store.getItem(READY_NOTIFY_PREF_KEY);
-    return raw === '1' || raw === 'true';
-  } catch {
-    return false;
-  }
+  return readBoolPref(READY_NOTIFY_PREF_KEY, storage);
 }
 
 function saveNotifyPref(enabled, storage) {
-  const store = resolveStorage(storage);
-  if (!store || typeof store.setItem !== 'function') return false;
-  try {
-    store.setItem(READY_NOTIFY_PREF_KEY, enabled ? '1' : '0');
-    return true;
-  } catch {
-    return false;
-  }
+  return writeBoolPref(READY_NOTIFY_PREF_KEY, Boolean(enabled), storage);
 }
 
 function stripTitleCountPrefix(title) {

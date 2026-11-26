@@ -4,37 +4,14 @@
 // keeping .header-inner strictly single-row (54px) on desktop viewports.
 
 import { t as defaultTranslate } from './i18n.js';
+import {
+  formatLiveStatusLabel,
+  formatLiveActionLabel,
+  formatWatchValueLabel,
+} from './session-status-labels.mjs';
 
 function setText(node, text) {
   if (node && node.textContent !== text) node.textContent = text;
-}
-
-function formatLiveStatusLabel(status, translate) {
-  const keyMap = {
-    off: 'library_live_status_off',
-    starting: 'library_live_status_starting',
-    listening: 'library_live_status_listening',
-    'paused-loopback': 'library_live_status_paused_loopback',
-    disconnected: 'library_live_status_disconnected',
-    error: 'library_live_status_error',
-    unavailable: 'library_live_status_unavailable',
-  };
-  return translate(keyMap[status] || 'library_live_status_off');
-}
-
-function formatLiveActionLabel(live, translate) {
-  if (live.status === 'disconnected' || live.status === 'error') {
-    return translate('library_live_restart');
-  }
-  return live.active ? translate('library_live_stop') : translate('library_live_start');
-}
-
-function formatWatchValueLabel(watch, translate, hasRestoreCta) {
-  if (!watch.name) return translate('library_watch_unset');
-  if (watch.status === 'needs-permission' && !hasRestoreCta) {
-    return translate('library_watch_needs_permission', { name: watch.name });
-  }
-  return watch.name;
 }
 
 export function createGlobalTopbarControls({
@@ -47,6 +24,8 @@ export function createGlobalTopbarControls({
   onToggleGateBypass = () => {},
   onToggleReadyNotifications = () => {},
   onActivateWatchDir = () => {},
+  onChooseWatchDir = null,
+  onRestoreWatchDir = null,
   onPopoverToggle = () => {},
 } = {}) {
   const byId = (id) => doc?.getElementById?.(id) || null;
@@ -152,7 +131,15 @@ export function createGlobalTopbarControls({
   if (watchBtn) {
     watchBtn.onclick = (event) => {
       event?.stopPropagation?.();
-      onActivateWatchDir();
+      if (typeof onChooseWatchDir === 'function') onChooseWatchDir();
+      else onActivateWatchDir();
+    };
+  }
+  if (watchRestoreCta) {
+    watchRestoreCta.onclick = (event) => {
+      event?.stopPropagation?.();
+      if (typeof onRestoreWatchDir === 'function') onRestoreWatchDir();
+      else onActivateWatchDir();
     };
   }
 
@@ -309,22 +296,24 @@ export function createGlobalTopbarControls({
       watchWrap.dataset.watchStatus = watch.status || 'unset';
     }
     const needsRestore = watch.status === 'needs-permission' && Boolean(watch.name);
-    const watchDisplay = formatWatchValueLabel(watch, translate, Boolean(watchRestoreCta));
+    const watchDisplay = formatWatchValueLabel(watch, translate, { inlineNeedsPermission: !watchRestoreCta });
     if (watchValue) {
       setText(watchValue, watchDisplay);
       watchValue.title = watch.name || '';
     }
     if (watchRestoreCta) {
       watchRestoreCta.hidden = !needsRestore;
+      watchRestoreCta.disabled = watch.canChoose === false;
       setText(watchRestoreCta, translate('topbar_watch_restore_cta'));
+      watchRestoreCta.title = needsRestore
+        ? translate('topbar_watch_restore_title', { name: watch.name })
+        : '';
     }
     if (watchBtn) {
       watchBtn.disabled = watch.canChoose === false;
-      const watchTitle = needsRestore
-        ? translate('topbar_watch_restore_title', { name: watch.name })
-        : watch.name
-          ? translate('topbar_watch_active_title', { name: watch.name })
-          : translate('topbar_watch_choose_title');
+      const watchTitle = watch.name
+        ? translate('topbar_watch_active_title', { name: watch.name })
+        : translate('topbar_watch_choose_title');
       watchBtn.title = watch.error ? `${watchTitle} · ${watch.error}` : watchTitle;
     }
   }
@@ -343,6 +332,7 @@ export function createGlobalTopbarControls({
     if (gateBypass) gateBypass.onchange = null;
     if (readyNotify) readyNotify.onchange = null;
     if (watchBtn) watchBtn.onclick = null;
+    if (watchRestoreCta) watchRestoreCta.onclick = null;
   }
 
   return {
