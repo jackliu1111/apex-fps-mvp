@@ -94,6 +94,29 @@ export function getModelSpec(modelId, registry = defaultModelRegistry) {
   return registry.get(modelId);
 }
 
+/** Return a plain structured-clonable model spec safe to post across a Worker boundary. */
+export function serializeSpec(spec) {
+  return {
+    id: spec.id,
+    manifestUrl: spec.manifestUrl,
+    onnxUrl: spec.onnxUrl,
+    frontendUrl: spec.frontendUrl ?? null,
+    frontendType: spec.frontendType || 'efficientsed',
+    sampleRate: spec.sampleRate,
+    windowSeconds: spec.windowSeconds,
+    strideSeconds: spec.strideSeconds,
+    frameSeconds: spec.frameSeconds,
+    framesPerWindow: spec.framesPerWindow,
+    hopFrames: spec.hopFrames,
+    scoreType: spec.scoreType,
+    inputName: spec.inputName,
+    inputShape: Array.isArray(spec.inputShape) ? [...spec.inputShape] : [],
+    ...(spec.outputName ? { outputName: spec.outputName } : {}),
+    ...(Array.isArray(spec.outputShape) ? { outputShape: [...spec.outputShape] } : {}),
+    ...(Array.isArray(spec.gunshotClasses) ? { gunshotClasses: [...spec.gunshotClasses] } : {}),
+  };
+}
+
 /** Resolve absolute asset URLs for a registered model, honoring safe relative manifest.modelFile. */
 export function resolveModelAssets(spec, manifest = null, baseUrl = 'http://localhost/') {
   const manifestUrl = new URL(spec.manifestUrl, baseUrl);
