@@ -9,6 +9,7 @@ import {
   dispatchReviewPrimaryAction,
   resolveClippingLayout,
   reconcileSplitSelection,
+  createSplitPlayerSync,
 } from '../../../site/split-workspace-controller.mjs';
 import { projectRecordingLibrary } from '../../../site/recording-library-projection.mjs';
 import { createRecordingLibraryView } from '../../../site/recording-library-view.mjs';
@@ -45,6 +46,74 @@ test('resolveReviewPrimaryAction maps the 4 merged statuses to the single review
 
   assert.equal(resolveReviewPrimaryAction({ id: 's4', status: 'ready' }), null);
   assert.equal(resolveReviewPrimaryAction(null), null);
+});
+
+test('projectRecordingLibrary preserves canAnalyze/canStop/canReanalyze flags so detached recordless sources disable review primary action', () => {
+  const snapshot = projectRecordingLibrary({
+    sources: [
+      {
+        id: 'src-detached-unanalyzed',
+        identity: { name: 'Detached_Unanalyzed.mp4', size: 100, lastModified: 1000 },
+        duration: 60,
+        analysis: { status: 'unanalyzed', processedUntil: 0, error: null },
+        clips: [],
+      },
+      {
+        id: 'src-detached-analyzing',
+        identity: { name: 'Detached_Analyzing.mp4', size: 100, lastModified: 2000 },
+        duration: 60,
+        analysis: { status: 'analyzing', processedUntil: 20, error: null },
+        clips: [],
+      },
+      {
+        id: 'src-detached-coarse',
+        identity: { name: 'Detached_Coarse.mp4', size: 100, lastModified: 3000 },
+        duration: 60,
+        analysis: { status: 'completed', processedUntil: 60, error: null },
+        alignment: { confidence: 'coarse' },
+        clips: [],
+      },
+      {
+        id: 'src-live-unanalyzed',
+        identity: { name: 'Live_Unanalyzed.mp4', size: 100, lastModified: 4000 },
+        duration: 60,
+        analysis: { status: 'unanalyzed', processedUntil: 0, error: null },
+        clips: [],
+      },
+    ],
+    records: [
+      {
+        id: 'rec-live',
+        sourceId: 'src-live-unanalyzed',
+        status: 'unanalyzed',
+        duration: 60,
+        processedUntil: 0,
+        file: { name: 'Live_Unanalyzed.mp4', size: 100, lastModified: 4000 },
+      },
+    ],
+  });
+
+  const byId = new Map(snapshot.items.map((item) => [item.id, item]));
+
+  const detachedUnanalyzed = byId.get('src-detached-unanalyzed');
+  assert.equal(detachedUnanalyzed.canAnalyze, false);
+  assert.equal(detachedUnanalyzed.canStop, false);
+  assert.equal(detachedUnanalyzed.canReanalyze, false);
+  assert.equal(resolveReviewPrimaryAction(detachedUnanalyzed).disabled, true);
+
+  const detachedAnalyzing = byId.get('src-detached-analyzing');
+  assert.equal(detachedAnalyzing.canStop, false);
+  assert.equal(resolveReviewPrimaryAction(detachedAnalyzing).disabled, true);
+
+  const detachedCoarse = byId.get('src-detached-coarse');
+  assert.equal(detachedCoarse.canReanalyze, false);
+  assert.equal(resolveReviewPrimaryAction(detachedCoarse).disabled, true);
+
+  const liveUnanalyzed = byId.get('src-live-unanalyzed');
+  assert.equal(liveUnanalyzed.canAnalyze, true);
+  assert.equal(liveUnanalyzed.canStop, true);
+  assert.equal(liveUnanalyzed.canReanalyze, true);
+  assert.equal(resolveReviewPrimaryAction(liveUnanalyzed).disabled, false);
 });
 
 test('dispatchReviewPrimaryAction routes analyze/stop/reanalyze cleanly to analysis queue and clears coarse alignment on reanalyze', async () => {
@@ -229,6 +298,146 @@ test('reconcileSplitSelection maintains selection stability across progress/cand
   assert.equal(step8.activeSourceId, null);
   assert.equal(step8.shouldReloadPlayer, false);
   assert.equal(step8.shouldDisposePlayer, true);
+});
+
+test('createSplitPlayerSync loads player exactly once on recording switch even with re-entrant renders, respects focusFirstCandidate position, and coalesces duplicate loads', async () => {
+  const fileA = { name: 'match-a.mp4' };
+  const fileB = { name: 'match-b.mp4' };
+  const records = new Map([
+    ['src-a', { file: fileA, origin: 0, duration: 60 }],
+    ['src-b', { file: fileB, origin: 0.5, duration: 90 }],
+    ['src-detached', { file: null, origin: 0, duration: 45 }],
+  ]);
+  const positions = new Map([
+    ['src-a', 4],
+    ['src-b', 0],
+    ['src-detached', 0],
+  ]);
+
+  const loadCalls = [];
+  const disposeCalls = [];
+  const pauseCalls = [];
+  const pendingLoads = new Map();
+
+  const playerSync = createSplitPlayerSync({
+    getRecord: (id) => records.get(id) || null,
+    getPosition: (id) => positions.get(id) ?? 0,
+    pausePlayer: () => { pauseCalls.push('pause'); },
+    loadPlayer: async ({ file, origin, duration, position }) => {
+      loadCalls.push({ file, origin, duration, position });
+      const deferred = Promise.withResolvers();
+      pendingLoads.set(file, deferred);
+      await deferred.promise;
+    },
+    disposePlayer: async () => {
+      disposeCalls.push('dispose');
+    },
+  });
+
+  const items = [
+    { id: 'src-b', recordId: 'rec-b', status: 'ready' },
+    { id: 'src-a', recordId: 'rec-a', status: 'ready' },
+    { id: 'src-detached', recordId: null, status: 'ready' },
+  ];
+
+  let activeSourceId = null;
+  let activeRecordId = null;
+  const simulateRender = () => {
+    const loaded = playerSync.effectiveLoaded();
+    const rec = reconcileSplitSelection({
+      items,
+      activeSourceId,
+      activeRecordId,
+      loadedSourceId: loaded.sourceId,
+      loadedFile: loaded.file,
+      getFileForId: (id) => records.get(id)?.file || null,
+    });
+    activeSourceId = rec.activeSourceId;
+    activeRecordId = rec.activeRecordId;
+    playerSync.syncSelection(rec);
+    return rec;
+  };
+
+  // 1) Initial load of src-a
+  activeSourceId = 'src-a';
+  activeRecordId = 'rec-a';
+  simulateRender();
+  assert.equal(loadCalls.length, 1);
+  assert.equal(loadCalls[0].file, fileA);
+  assert.equal(loadCalls[0].position, 4);
+  pendingLoads.get(fileA).resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(playerSync.loadedSourceId, 'src-a');
+  assert.equal(playerSync.isLoading, false);
+
+  // 2) Switch to src-b with focusFirstCandidate while multiple re-entrant renders fire mid-transition
+  const switchLoaded = playerSync.effectiveLoaded();
+  const switchRec = reconcileSplitSelection({
+    items,
+    activeSourceId,
+    activeRecordId,
+    requestedSourceId: 'src-b',
+    loadedSourceId: switchLoaded.sourceId,
+    loadedFile: switchLoaded.file,
+    getFileForId: (id) => records.get(id)?.file || null,
+  });
+
+  playerSync.withDeferredSync(() => {
+    activeSourceId = switchRec.activeSourceId;
+    activeRecordId = switchRec.activeRecordId;
+    // Simulate uxController.onRecordingOpened -> re-entrant render BEFORE focusFirstCandidate sets position!
+    simulateRender();
+    positions.set('src-b', 22.5);
+    // Simulate workspace.setReview -> re-entrant render
+    simulateRender();
+    // Simulate explicit render() at end of openReview prep
+    simulateRender();
+  });
+
+  // Zero premature loads happened during deferred transition!
+  assert.equal(loadCalls.length, 1, 'Re-entrant renders during openReview must not prematurely load player');
+
+  // Now sync ONCE after deferred block
+  const loadBPromise = playerSync.syncSelection(switchRec);
+  assert.equal(loadCalls.length, 2, 'Switching recording must trigger player.load() exactly once');
+  assert.equal(loadCalls[1].file, fileB);
+  assert.equal(loadCalls[1].position, 22.5, 'Single player.load() must use updated focusFirstCandidate position');
+
+  // Re-render while src-b is still loading (e.g. progress update or double-click) -> ZERO extra loads!
+  simulateRender();
+  const coalescedPromise = playerSync.loadSource('src-b');
+  assert.equal(coalescedPromise, loadBPromise);
+  assert.equal(loadCalls.length, 2, 'In-flight load for same source/file must coalesce without double-loading');
+
+  pendingLoads.get(fileB).resolve();
+  await loadBPromise;
+  assert.equal(playerSync.loadedSourceId, 'src-b');
+  assert.equal(playerSync.isLoading, false);
+
+  // Subsequent render after load finishes -> ZERO extra loads!
+  simulateRender();
+  assert.equal(loadCalls.length, 2);
+
+  // 3) Switching to detached source (no file) disposes player exactly once
+  const detachedLoaded = playerSync.effectiveLoaded();
+  const detachedRec = reconcileSplitSelection({
+    items,
+    activeSourceId,
+    activeRecordId,
+    requestedSourceId: 'src-detached',
+    loadedSourceId: detachedLoaded.sourceId,
+    loadedFile: detachedLoaded.file,
+    getFileForId: (id) => records.get(id)?.file || null,
+  });
+  playerSync.withDeferredSync(() => {
+    activeSourceId = detachedRec.activeSourceId;
+    activeRecordId = detachedRec.activeRecordId;
+    simulateRender();
+  });
+  await playerSync.syncSelection(detachedRec);
+  assert.equal(disposeCalls.length, 1);
+  assert.equal(playerSync.loadedSourceId, null);
 });
 
 function createFakeDocument() {

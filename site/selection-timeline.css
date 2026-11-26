@@ -157,8 +157,7 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   display: flex;
   flex-direction: column;
 }
-.clipping-workspace[data-layout="split"] > #analysis-page > .page-heading,
-.clipping-workspace[data-layout="split"] > #analysis-page #library-topbar-slots {
+.clipping-workspace[data-layout="split"] > #analysis-page > .page-heading {
   display: none;
 }
 .clipping-workspace[data-layout="split"] > #analysis-page .analysis-layout {

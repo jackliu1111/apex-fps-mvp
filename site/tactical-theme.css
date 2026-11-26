@@ -251,9 +251,6 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
 .empty-onboarding {
   display: none;
 }
-.clipping-workspace[data-layout="empty"] #library-topbar-slots {
-  display: none;
-}
 body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) main {
   padding: 12px 32px 14px;
 }

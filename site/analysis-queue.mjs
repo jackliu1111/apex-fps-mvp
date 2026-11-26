@@ -72,7 +72,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
   const queue = {
     records, get,
     async importFiles(files, options = {}) {
-      if (disposed) throw new Error('分析队列已关闭');
+      if (disposed) throw new Error('录像分析已关闭');
       const autoAnalyze = options.autoAnalyze !== false;
       const added = [...files].map((file) => ({ id: crypto.randomUUID(), file, model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2, status: 'preparing', error: null, candidates: [], processedUntil: 0, windows: 0, frontier: -Infinity }));
       records.push(...added); added.forEach(emit);
@@ -80,7 +80,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       return added;
     },
     async importPrecomputed(file, precomputed = {}, existingId) {
-      if (disposed) throw new Error('分析队列已关闭');
+      if (disposed) throw new Error('录像分析已关闭');
       const existing = existingId === undefined ? null : get(existingId);
       if (existingId !== undefined && !prepared.has(existingId)) throw new Error('录像尚未就绪');
       const record = existing || {

@@ -291,9 +291,23 @@ export function mountLibraryPreview({
     return snapshot;
   };
 
+  let createdTopbarContainer = false;
+  let topbarContainer = doc.getElementById('library-topbar-slots');
+  if (!topbarContainer) {
+    const actionsRow = doc.querySelector?.('#analysis-page .queue-heading-actions');
+    if (actionsRow) {
+      topbarContainer = doc.createElement('div');
+      topbarContainer.id = 'library-topbar-slots';
+      topbarContainer.className = 'library-topbar-slots';
+      if (typeof actionsRow.prepend === 'function') actionsRow.prepend(topbarContainer);
+      else actionsRow.append?.(topbarContainer);
+      createdTopbarContainer = true;
+    }
+  }
+
   view = createRecordingLibraryView({
     listContainer: doc.getElementById('queue'),
-    topbarContainer: doc.getElementById('library-topbar-slots'),
+    topbarContainer,
     countNode: doc.getElementById('queue-count'),
     summaryNode: doc.getElementById('queue-summary'),
     pageNode: doc.getElementById('analysis-page'),
@@ -370,6 +384,7 @@ export function mountLibraryPreview({
     dispose() {
       unsubscribeLang();
       view.dispose();
+      if (createdTopbarContainer) topbarContainer?.remove?.();
       bar.remove();
     },
   };

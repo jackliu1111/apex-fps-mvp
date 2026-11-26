@@ -73,6 +73,9 @@ test('site/ has zero remaining dead references to legacy live-companion, proxy, 
     /#back-analysis\b|id="back-analysis"/,
     /#source-select\b|id="source-select"/,
     /\bliveDecisions\b/,
+    /分析队列/,
+    /\bprobeMediaRecorder\b/,
+    /\bMediaRecorder\b/,
   ];
 
   const files = collectSiteTextFiles();
@@ -102,6 +105,7 @@ test('index.html exposes a single Local Clipping Workspace with strictly 2 works
   // Global topbar session controls remain mounted in the single workspace
   assert.match(html, /id="global-session-controls"/);
   assert.match(html, /id="clipping-workspace"/);
+  assert.equal(/id="library-topbar-slots"/.test(html), false, 'superseded static #library-topbar-slots must be removed from index.html');
 
   // Every data-i18n / data-i18n-title / data-i18n-aria key resolves in both en and zh
   const attrPattern = /\bdata-i18n(?:-(?:title|aria))?="([^"]+)"/g;

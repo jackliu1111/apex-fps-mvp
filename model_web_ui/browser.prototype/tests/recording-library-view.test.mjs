@@ -749,6 +749,51 @@ test('mountLibraryPreview drives interactive pure-view mock callbacks without re
   harness.dispose();
 });
 
+test('mountLibraryPreview dynamically mounts #library-topbar-slots when index.html omits static slot markup and removes it on dispose', () => {
+  const doc = createFakeDocument();
+  const main = doc.createElement('main');
+  main.id = 'main';
+  main.prepend = (...nodes) => {
+    for (const node of [...nodes].reverse()) {
+      node.parentNode = main;
+      main.children.unshift(node);
+    }
+  };
+  const pageNode = doc.createElement('div');
+  const actionsRow = doc.createElement('div');
+  actionsRow.className = 'row queue-heading-actions';
+  actionsRow.prepend = (...nodes) => {
+    for (const node of [...nodes].reverse()) {
+      node.parentNode = actionsRow;
+      actionsRow.children.unshift(node);
+    }
+  };
+  const queue = doc.createElement('div');
+  const countNode = doc.createElement('span');
+  const summaryNode = doc.createElement('span');
+  const byId = {
+    'analysis-page': pageNode,
+    queue,
+    'queue-count': countNode,
+    'queue-summary': summaryNode,
+  };
+  doc.getElementById = (id) => byId[id] || null;
+  doc.querySelector = (sel) => {
+    if (sel === '#main') return main;
+    if (sel === '#analysis-page .queue-heading-actions') return actionsRow;
+    return null;
+  };
+
+  const harness = mountLibraryPreview({ scenario: 'mixed', doc });
+  const mountedTopbar = actionsRow.children.find((child) => child.id === 'library-topbar-slots');
+  assert.ok(mountedTopbar, 'standalone libraryPreview must dynamically create #library-topbar-slots');
+  assert.ok(mountedTopbar.querySelector('[data-action="toggle-live-monitor"]'));
+  assert.ok(mountedTopbar.querySelector('[data-action="choose-watch-directory"]'));
+
+  harness.dispose();
+  assert.equal(actionsRow.children.some((child) => child.id === 'library-topbar-slots'), false, 'dispose must remove dynamically mounted preview topbar');
+});
+
 test('onRowTransition fires after rows are mounted in listContainer for added and completed transitions', () => {
   const doc = createFakeDocument();
   const listContainer = doc.createElement('div');

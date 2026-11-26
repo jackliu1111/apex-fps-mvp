@@ -167,9 +167,6 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
         return { supported: cfg.codec === 'mp4a.40.2' || cfg.codec === 'opus' };
       },
     },
-    MediaRecorder: {
-      isTypeSupported: (mime) => mime.includes('webm'),
-    },
   };
 
   const log = createDiagnosticLog();
@@ -257,6 +254,8 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
   assert.equal(report.codecs.videoEncode.h264_1080p60.supported, true);
   assert.equal(report.codecs.videoEncode.vp9_720p30.supported, false);
   assert.equal(report.codecs.audioEncode.aac.supported, true);
+  assert.equal('mediaRecorder' in report.securityAndCapabilities.mediaCapture, false, 'obsolete MediaRecorder capability must be removed');
+  assert.equal('mediaRecorder' in report.codecs, false, 'obsolete MediaRecorder mime probe must be removed');
   assert.equal(report.memory.jsHeapUsedMB, 64);
   assert.equal(report.memory.storageUsageMB, 50);
   assert.equal(report.workspace.sourceCount, 1);

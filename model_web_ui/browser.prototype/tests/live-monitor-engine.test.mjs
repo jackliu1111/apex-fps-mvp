@@ -935,3 +935,92 @@ test('worker error and crash recover cleanly without stalling subsequent inferen
 
   await engine.dispose();
 });
+
+test('superseded start/switchAudioSource resolving late during resume or addModule cleans up only its own resources without killing newer active capture', async () => {
+  const resumeDeferred = Promise.withResolvers();
+  const addModuleDeferred = Promise.withResolvers();
+
+  const track1 = createFakeTrack({ kind: 'audio', label: 'Stale Resume Device', deviceId: 'dev-1' });
+  const track2 = createFakeTrack({ kind: 'audio', label: 'Stale Worklet Device', deviceId: 'dev-2' });
+  const track3 = createFakeTrack({ kind: 'audio', label: 'Active Winner Device', deviceId: 'dev-3' });
+  const streams = {
+    'dev-1': createFakeStream({ audioTracks: [track1] }),
+    'dev-2': createFakeStream({ audioTracks: [track2] }),
+    'dev-3': createFakeStream({ audioTracks: [track3] }),
+  };
+
+  const baseHarness = createFakeHarness({
+    userStreamFactory: (c) => streams[c.audio?.deviceId?.exact],
+  });
+
+  let ctxIdx = 0;
+  class ControlledAudioContext extends baseHarness.AudioContext {
+    constructor() {
+      super();
+      const idx = ctxIdx++;
+      if (idx === 0) {
+        this.resume = async () => {
+          await resumeDeferred.promise;
+          this.resumed = true;
+          this.state = 'running';
+        };
+      } else if (idx === 1) {
+        this.audioWorklet = {
+          addModule: async (url) => {
+            await addModuleDeferred.promise;
+            this.addedModules.push(String(url));
+          },
+        };
+      }
+    }
+  }
+
+  const engine = createLiveMonitorEngine({
+    ...baseHarness,
+    AudioContext: ControlledAudioContext,
+  });
+
+  // 1) Start run 1 (stalls inside ctx.resume())
+  const run1 = engine.start({ sourceKind: 'device', deviceId: 'dev-1' });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(baseHarness.audioContexts.length, 1);
+
+  // 2) Supersede with run 2 (stalls inside ctx.audioWorklet.addModule())
+  const run2 = engine.switchAudioSource({ sourceKind: 'device', deviceId: 'dev-2' });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(baseHarness.audioContexts.length, 2);
+
+  // 3) Supersede again with run 3 (completes cleanly and becomes active)
+  const run3State = await engine.switchAudioSource({ sourceKind: 'device', deviceId: 'dev-3' });
+  assert.equal(run3State.status, LIVE_MONITOR_STATES.LISTENING);
+  assert.equal(run3State.deviceId, 'dev-3');
+  assert.equal(run3State.audioLabel, 'Active Winner Device');
+  assert.equal(baseHarness.audioContexts.length, 3);
+  assert.equal(baseHarness.workletNodes.length, 1);
+
+  // 4) Now let stale run 1 (resume) and stale run 2 (addModule) resolve late!
+  resumeDeferred.resolve();
+  addModuleDeferred.resolve();
+  await Promise.all([run1, run2]);
+
+  // Stale contexts and tracks MUST be cleaned up, while run 3's active capture MUST remain alive.
+  const [ctx1, ctx2, ctx3] = baseHarness.audioContexts;
+  const activeWorklet = baseHarness.workletNodes[0];
+
+  assert.equal(ctx1.closed, true, 'stale run 1 AudioContext must be closed');
+  assert.equal(ctx2.closed, true, 'stale run 2 AudioContext must be closed');
+  assert.equal(track1.stoppedCount, 1, 'stale run 1 stream track must be stopped');
+  assert.equal(track2.stoppedCount, 1, 'stale run 2 stream track must be stopped');
+
+  assert.equal(ctx3.closed, false, 'active run 3 AudioContext must stay open');
+  assert.equal(track3.stoppedCount, 0, 'active run 3 stream track must stay live');
+  assert.equal(activeWorklet.disconnected, false, 'active run 3 worklet must stay connected');
+  assert.equal(engine.getState().status, LIVE_MONITOR_STATES.LISTENING);
+  assert.equal(engine.getState().deviceId, 'dev-3');
+
+  // Verify active run 3 still ingests worklet envelopes normally after stale runs settled.
+  activeWorklet.emitFromWorklet({ type: 'envelope', buckets: new Float32Array([0.75, 0.5]), silentSeconds: 0 });
+  assert.equal(engine.getState().envelopeBucketCount, 1);
+
+  await engine.dispose();
+});

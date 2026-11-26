@@ -206,9 +206,9 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     assert.equal(await page.locator('#topbar-watch-restore-cta').textContent(), '恢复监听');
     await assertHeaderInvariant(page, widths, 'restore-cta-zh');
 
-    // Click topbar watch button -> one-click restore succeeds without opening directory picker
+    // Click Restore Watch CTA -> one-click restore succeeds without opening directory picker
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.locator('#topbar-watch-btn').click();
+    await page.locator('#topbar-watch-restore-cta').click();
     await page.waitForFunction(() => window.reviewApp.watchDirState.status === 'watching');
     assert.equal(await page.locator('#topbar-watch-restore-cta').isHidden(), true);
     assert.equal(await page.evaluate(() => window.__restoreCheck.getPickerCalled()), 0);
