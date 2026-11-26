@@ -807,3 +807,85 @@ body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) .workspace-foot
   #exports-section .export-batch { padding: 16px; }
   #exports-section button { min-height: 44px; }
 }
+
+/* Foreground Ready Notification Toast (Ticket #62, ADR 0010 Decision 5) */
+.ready-toast {
+  position: fixed;
+  top: 64px;
+  right: 24px;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(400px, calc(100vw - 32px));
+  padding: 10px 12px 10px 14px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(24, 24, 27, 0.12), 0 2px 6px rgba(24, 24, 27, 0.05);
+  color: var(--text);
+}
+.ready-toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--signal-lime);
+  flex: none;
+}
+.ready-toast[data-coarse="true"] {
+  border-color: #fde68a;
+  background: rgba(255, 251, 235, 0.97);
+}
+.ready-toast[data-coarse="true"] .ready-toast-dot {
+  background: #d97706;
+}
+.ready-toast-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+.ready-toast-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ready-toast-meta {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ready-toast-open {
+  min-height: 28px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+}
+.ready-toast-dismiss {
+  width: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  line-height: 1;
+  flex: none;
+}
+@media (max-width: 540px) {
+  .ready-toast {
+    top: auto;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+}

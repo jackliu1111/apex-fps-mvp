@@ -67,6 +67,7 @@ export function createAutoIntakeService({
   threshold = 0.2,
   pollIntervalMs = 2000,
   stablePollsRequired = 2,
+  stableDurationMs = pollIntervalMs * stablePollsRequired,
   now = () => Date.now(),
   onIntake = () => {},
   onError = () => {},
@@ -382,6 +383,7 @@ export function createAutoIntakeService({
   const watcher = createDirectoryWatcher({
     pollIntervalMs,
     stablePollsRequired,
+    stableDurationMs,
     probeFile: probeFile || ((file) => probeRecordingFile(file, MB)),
     now,
     onStatus(next) {

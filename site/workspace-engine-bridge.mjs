@@ -15,6 +15,7 @@ import {
 import { extractBasename } from './recording-library-projection.mjs';
 import { dispatchReviewPrimaryAction } from './split-workspace-controller.mjs';
 import { identifyFile } from './media-identity.mjs';
+import { restorePersistedWatchDirectory as restorePersistedWatchDir } from './watch-dir-store.mjs';
 
 export function mapLiveEngineStatus(engineStatus) {
   if (engineStatus === LIVE_MONITOR_STATES.IDLE || !engineStatus) return 'off';
@@ -49,6 +50,8 @@ export function createWorkspaceEngineBridge({
   autoIntake: providedAutoIntake = null,
   liveMonitorOptions = {},
   autoIntakeOptions = {},
+  watchDirStore = null,
+  heartbeatPollIntervalMs = autoIntakeOptions.pollIntervalMs ?? 2000,
   now = () => Date.now(),
   isSecureContext = () => Boolean(globalThis.window?.isSecureContext ?? globalThis.isSecureContext),
   showDirectoryPicker = null,
@@ -81,6 +84,8 @@ export function createWorkspaceEngineBridge({
 
   let lastLiveStatus = 'off';
   let lastSilenceWarning = false;
+  let lastEnvelopeBucketCount = 0;
+  let lastHeartbeatPollMs = 0;
 
   const msg = (key, fallback, params = {}) => {
     if (typeof translate === 'function') return translate(key, params);
@@ -251,18 +256,42 @@ export function createWorkspaceEngineBridge({
     } else if (raw.silenceWarning && !lastSilenceWarning && mapped === 'listening') {
       onNotice(msg('note_live_silence_warning', 'No game audio detected for 10+ seconds. Check shared audio or input device.'), 'info');
     }
+    const bucketCount = Number(raw.envelopeBucketCount) || 0;
+    const envelopeAdvanced = bucketCount > lastEnvelopeBucketCount;
+    lastEnvelopeBucketCount = bucketCount;
     lastLiveStatus = mapped;
     lastSilenceWarning = Boolean(raw.silenceWarning);
     emit();
+
+    // AudioWorklet runs on the unthrottled audio thread, so envelope frames provide a
+    // reliable background heartbeat for watch-directory polling when Chrome throttles setInterval.
+    if (
+      envelopeAdvanced
+      && Number.isFinite(heartbeatPollIntervalMs)
+      && heartbeatPollIntervalMs > 0
+      && (mapped === 'listening' || mapped === 'paused-loopback')
+      && autoIntake.getState().watching
+    ) {
+      const currentMs = now();
+      if (lastHeartbeatPollMs === 0) {
+        lastHeartbeatPollMs = currentMs;
+      } else if (currentMs - lastHeartbeatPollMs >= heartbeatPollIntervalMs) {
+        lastHeartbeatPollMs = currentMs;
+        void autoIntake.pollNow().catch(() => {});
+      }
+    }
   });
 
   const unsubIntake = autoIntake.subscribe((raw) => {
     if (raw.watching) {
+      if (lastHeartbeatPollMs === 0) lastHeartbeatPollMs = now();
       watchDirRestorePending = false;
       watchDirStatusOverride = null;
       watchDirError = raw.error || null;
       const base = extractBasename(raw.directoryName || '');
       if (base) watchDirName = base;
+    } else {
+      lastHeartbeatPollMs = 0;
     }
     emit();
   });
@@ -379,12 +408,13 @@ export function createWorkspaceEngineBridge({
     return liveMonitor.setPlaybackGate(unmuted, reason);
   }
 
-  async function setWatchDirectoryHandle(dirHandle, { requestPermission = false } = {}) {
+  async function setWatchDirectoryHandle(dirHandle, { requestPermission = false, persist = true } = {}) {
     if (disposed) return snapshot().watchDirectory;
     if (!dirHandle) {
       return stopWatchingDirectory();
     }
     const base = extractBasename(dirHandle.name || '');
+    const wasRestorePending = watchDirRestorePending;
     watchDirHandle = dirHandle;
     watchDirName = base || null;
     watchDirError = null;
@@ -394,13 +424,21 @@ export function createWorkspaceEngineBridge({
       watchDirRestorePending = false;
       watchDirStatusOverride = null;
       watchDirError = null;
+      if (persist && watchDirStore && typeof watchDirStore.save === 'function') {
+        await watchDirStore.save(dirHandle);
+      }
       emit();
       onWatchDirectoryChange({ handle: dirHandle, state: snapshot().watchDirectory });
       return snapshot().watchDirectory;
     } catch (err) {
       watchDirError = err?.message || String(err);
       if (!autoIntake.getState().watching) {
-        watchDirStatusOverride = 'error';
+        if (wasRestorePending && watchDirHandle === dirHandle) {
+          watchDirRestorePending = true;
+          watchDirStatusOverride = 'needs-permission';
+        } else {
+          watchDirStatusOverride = 'error';
+        }
       }
       emit();
       throw err;
@@ -465,7 +503,10 @@ export function createWorkspaceEngineBridge({
     return state;
   }
 
-  async function activateWatchDirectory() {
+  async function activateWatchDirectory(dirHandle = null, options = {}) {
+    if (dirHandle) {
+      return setWatchDirectoryHandle(dirHandle, options);
+    }
     if (watchDirRestorePending && watchDirHandle) {
       return restoreWatchDirectory();
     }
@@ -480,6 +521,9 @@ export function createWorkspaceEngineBridge({
     watchDirRestorePending = false;
     watchDirStatusOverride = null;
     watchDirError = null;
+    if (watchDirStore && typeof watchDirStore.clear === 'function') {
+      void watchDirStore.clear();
+    }
     emit();
     onWatchDirectoryChange({ handle: null, state: snapshot().watchDirectory });
     return snapshot().watchDirectory;
@@ -518,7 +562,20 @@ export function createWorkspaceEngineBridge({
     if (ownsLiveMonitor) await liveMonitor.dispose();
   }
 
-  return {
+  async function restorePersistedWatchDirectory(storeOverride = watchDirStore) {
+    if (disposed || !storeOverride) {
+      return { outcome: 'empty', handle: null, state: snapshot().watchDirectory };
+    }
+    const result = await restorePersistedWatchDir({ store: storeOverride, engineBridge: api });
+    if (result.outcome === 'restored' && result.state?.name) {
+      onNotice(msg('note_watch_dir_restored', `Watch Folder restored automatically: ${result.state.name}`, { name: result.state.name }), 'quiet');
+    } else if (result.outcome === 'needs-permission' && result.state?.name) {
+      onNotice(msg('note_watch_dir_restore_needed', `Click "Restore Watch" in the top bar to resume watching: ${result.state.name}`, { name: result.state.name }), 'quiet');
+    }
+    return result;
+  }
+
+  const api = {
     liveMonitor,
     autoIntake,
     getState: snapshot,
@@ -538,10 +595,12 @@ export function createWorkspaceEngineBridge({
     setWatchDirectoryHandle,
     setWatchDirectoryRestoreNeeded,
     restoreWatchDirectory,
+    restorePersistedWatchDirectory,
     stopWatchingDirectory,
     pollWatchDirectory,
     registerExportedFilename,
     dispatchPrimaryAction,
     dispose,
   };
+  return api;
 }
