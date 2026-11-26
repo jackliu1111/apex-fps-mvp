@@ -30,7 +30,7 @@ export function resolveReviewPrimaryAction(item) {
   return null;
 }
 
-export async function dispatchReviewPrimaryAction({ item, record, queue, action = null } = {}) {
+export async function dispatchReviewPrimaryAction({ item, record, queue, autoIntake = null, action = null } = {}) {
   const resolved = action || resolveReviewPrimaryAction(item);
   if (!resolved) return { dispatched: false, kind: null };
   if (resolved.disabled || !record || !queue) {
@@ -42,11 +42,15 @@ export async function dispatchReviewPrimaryAction({ item, record, queue, action 
   }
   if (resolved.kind === 'reanalyze') {
     record.alignment = null;
-    const ok = await queue.retry(record.id);
+    const ok = typeof autoIntake?.reanalyze === 'function'
+      ? await autoIntake.reanalyze(record.id)
+      : await queue.retry(record.id);
     return { dispatched: ok !== false, kind: 'reanalyze' };
   }
   if (resolved.kind === 'analyze') {
-    const ok = await queue.retry(record.id);
+    const ok = typeof autoIntake?.startAnalysis === 'function'
+      ? await autoIntake.startAnalysis(record.id)
+      : await queue.retry(record.id);
     return { dispatched: ok !== false, kind: 'analyze' };
   }
   return { dispatched: false, kind: null };

@@ -58,13 +58,16 @@ function formatLiveStatus(status, translate) {
     listening: 'library_live_status_listening',
     'paused-loopback': 'library_live_status_paused_loopback',
     disconnected: 'library_live_status_disconnected',
+    error: 'library_live_status_error',
     unavailable: 'library_live_status_unavailable',
   };
   return translate(keyMap[status] || 'library_live_status_off');
 }
 
 function formatLiveButton(liveMonitor, translate) {
-  if (liveMonitor.status === 'disconnected') return translate('library_live_restart');
+  if (liveMonitor.status === 'disconnected' || liveMonitor.status === 'error') {
+    return translate('library_live_restart');
+  }
   return liveMonitor.active ? translate('library_live_stop') : translate('library_live_start');
 }
 

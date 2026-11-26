@@ -14,6 +14,7 @@ const VALID_LIVE_STATUSES = new Set([
   'listening',
   'paused-loopback',
   'disconnected',
+  'error',
   'unavailable',
 ]);
 

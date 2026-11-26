@@ -337,9 +337,16 @@ body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) .workspace-foot
   border-color: #bbf7d0;
   background: #f6fef9;
 }
-.onboarding-step[data-watch-status="needs-permission"] {
+.onboarding-step[data-watch-status="needs-permission"],
+.onboarding-step[data-live-status="paused-loopback"] {
   border-color: #fde68a;
   background: #fffbeb;
+}
+.onboarding-step[data-watch-status="error"],
+.onboarding-step[data-live-status="disconnected"],
+.onboarding-step[data-live-status="error"] {
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 .onboarding-step-head {
   display: flex;
