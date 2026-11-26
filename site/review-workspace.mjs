@@ -97,7 +97,7 @@ export function createReviewWorkspace({ onChange = () => {} } = {}) {
     updateAnalysis(id, patch) {
       const source = requireSource(id);
       if (Object.keys(patch).some((key) => !['status', 'processedUntil', 'error'].includes(key))) throw new Error('分析状态字段无效');
-      if (patch.status && !['preparing', 'queued', 'analyzing', 'completed', 'stopped', 'failed', 'interrupted'].includes(patch.status)) throw new Error('分析状态无效');
+      if (patch.status && !['unanalyzed', 'preparing', 'queued', 'analyzing', 'completed', 'stopped', 'failed', 'interrupted'].includes(patch.status)) throw new Error('分析状态无效');
       if (patch.processedUntil !== undefined && (!Number.isFinite(patch.processedUntil) || patch.processedUntil < 0 || patch.processedUntil > source.duration)) throw new Error('分析进度须在录像内');
       Object.assign(source.analysis, copy(patch));
       changed();

@@ -26,6 +26,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       let record;
       while (!disposed && !paused && (record = records.find((item) => item.status === 'queued'))) {
         const { controller, current } = begin(record);
+        if (record.alignment != null) record.alignment = null;
         record.status = 'analyzing'; emit(record);
         try {
           await analyze(record, {
@@ -37,7 +38,10 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
             },
             progress(update) { if (!controller.signal.aborted && current()) { Object.assign(record, update); emit(record); } },
           });
-          if (current()) record.status = controller.signal.aborted ? 'stopped' : 'complete';
+          if (current()) {
+            if (!controller.signal.aborted && record.alignment != null) record.alignment = null;
+            record.status = controller.signal.aborted ? 'stopped' : 'complete';
+          }
         } catch (error) {
           if (current()) { record.status = controller.signal.aborted ? 'stopped' : 'failed'; record.error = controller.signal.aborted ? null : error.message || String(error); }
         }
@@ -45,7 +49,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       }
     } finally { running = false; settle(); }
   }
-  async function prepareOne(record) {
+  async function prepareOne(record, { autoAnalyze = true } = {}) {
     const { controller, current } = begin(record);
     preparations++;
     try {
@@ -54,7 +58,10 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       Object.assign(record, media); prepared.add(record.id);
       await onPrepared(record);
       if (!current() || controller.signal.aborted) return;
-      jobs.delete(record.id); record.status = 'queued'; emit(record); void pump();
+      jobs.delete(record.id);
+      record.status = autoAnalyze ? 'queued' : 'unanalyzed';
+      emit(record);
+      if (autoAnalyze) void pump();
     } catch (error) {
       if (current()) { record.status = controller.signal.aborted ? 'stopped' : 'failed'; record.error = controller.signal.aborted ? null : error.message || String(error); emit(record); }
     } finally {
@@ -66,9 +73,10 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
     records, get,
     async importFiles(files, options = {}) {
       if (disposed) throw new Error('分析队列已关闭');
+      const autoAnalyze = options.autoAnalyze !== false;
       const added = [...files].map((file) => ({ id: crypto.randomUUID(), file, model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2, status: 'preparing', error: null, candidates: [], processedUntil: 0, windows: 0, frontier: -Infinity }));
       records.push(...added); added.forEach(emit);
-      await Promise.all(added.map(prepareOne));
+      await Promise.all(added.map((record) => prepareOne(record, { autoAnalyze })));
       return added;
     },
     async importPrecomputed(file, precomputed = {}, existingId) {
@@ -130,12 +138,19 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       jobs.get(id)?.abort(stopped());
       record.status = 'stopped'; emit(record); settle(); return true;
     },
+    async start(id, options = {}) {
+      const record = get(id);
+      if (!record || disposed || record.status !== 'unanalyzed') return false;
+      return queue.retry(id, options);
+    },
     async retry(id, options = {}) {
       const record = get(id);
-      if (!record || disposed || !['stopped', 'failed', 'complete'].includes(record.status)) return false;
+      if (!record || disposed || !['unanalyzed', 'stopped', 'failed', 'complete'].includes(record.status)) return false;
       generations.set(id, (generations.get(id) || 0) + 1);
       jobs.get(id)?.abort(stopped()); jobs.delete(id);
       record.model = options.model || record.model; record.threshold = options.threshold ?? record.threshold; record.error = null;
+      record.processedUntil = 0; record.windows = 0; record.frontier = -Infinity;
+      if (record.alignment != null) record.alignment = null;
       record.status = 'preparing'; emit(record); await prepareOne(record);
       return true;
     },
