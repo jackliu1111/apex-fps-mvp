@@ -31,6 +31,12 @@ import { t, getLang, onLanguageChange } from './i18n.js';
 import { createLiveCompanionWorkspace } from './live-companion-ui.mjs';
 import { createWorkspaceEngineBridge } from './workspace-engine-bridge.mjs';
 import { createGlobalTopbarControls } from './global-topbar-controls.mjs';
+import { createWatchDirStore } from './watch-dir-store.mjs';
+import { createReadyNotifier } from './ready-notifier.mjs';
+import {
+  createBackgroundReadinessController,
+  pickFirstReviewableCandidate,
+} from './background-readiness-controller.mjs';
 import { createDiagnosticLog, collectDiagnostics, copyTextToClipboard } from './diagnostics.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -66,6 +72,46 @@ const uxController = createWorkspaceUxController({
     if (!isRendering) render();
   },
 });
+const watchDirStore = createWatchDirStore();
+const formatCandidateCountLabel = (count) => (
+  count === 1 ? t('library_candidates_one') : t('library_candidates_count', { count })
+);
+const readyNotifier = createReadyNotifier({
+  doc: document,
+  getBaseTitle: () => t('page_title'),
+  formatNotification({ name, candidateCount, isCoarse }) {
+    const candidates = formatCandidateCountLabel(candidateCount);
+    return {
+      title: t('ready_notification_title'),
+      body: t(isCoarse ? 'ready_notification_body_coarse' : 'ready_notification_body', {
+        name: extractBasename(name || ''),
+        candidates,
+      }),
+    };
+  },
+  onNotificationClick({ sourceId }) {
+    if (sourceId) safely(() => openReview(sourceId, { focusFirstCandidate: true }));
+  },
+  onChange() {
+    if (!isRendering) render();
+  },
+});
+const backgroundReadiness = createBackgroundReadinessController({
+  getVisibilityState: () => document.visibilityState,
+  getActiveSourceId: () => activeSourceId,
+  getCurrentPage: () => currentPage,
+  hasRecording: (id) => view.sources.some((item) => item.id === id) || bindings.has(id),
+  readyNotifier,
+  uxController,
+  openRecording: (id, opts) => openReview(id, opts),
+  onPollWatchDirectory: () => engineBridge?.pollWatchDirectory(),
+  onToastChange() {
+    renderReadyToast();
+  },
+  onBackgroundSwitch({ name }) {
+    if (name) note(t('note_visibility_switched', { name }), 'info');
+  },
+});
 
 function setOnboardingHandlers(handlers = {}) {
   if ('onChooseWatchDir' in handlers) onboardingHandlers.onChooseWatchDir = handlers.onChooseWatchDir || null;
@@ -91,6 +137,10 @@ function getEffectiveSessionState() {
     watchDirectory: onboardingStateOverride.watchDirectory
       ? { ...base.watchDirectory, ...onboardingStateOverride.watchDirectory }
       : base.watchDirectory,
+    readyNotifications: {
+      enabled: readyNotifier.notificationsEnabled,
+      permission: readyNotifier.notificationPermission,
+    },
   };
 }
 
@@ -138,15 +188,20 @@ const queue = createBrowserAnalysis({ MB,
       diagnosticLog.record('analysis', record.error, { status: record.status, model: record.model });
     }
     let workspaceUpdated = false;
+    let becameReady = false;
     if (record.sourceId) {
       const next = { status: record.status === 'complete' ? 'completed' : record.status, processedUntil: Math.min(record.duration, Math.max(0, record.processedUntil || 0)), error: record.error || null };
       const prior = workspace.getSource(record.sourceId).analysis;
+      becameReady = prior.status !== 'completed' && next.status === 'completed';
       if (Object.keys(next).some((key) => next[key] !== prior[key])) {
         workspace.updateAnalysis(record.sourceId, next);
         workspaceUpdated = true;
       }
     }
     if (!workspaceUpdated) render();
+    if (becameReady && record.sourceId) {
+      notifyRecordingReady(record.sourceId, record);
+    }
     exportQueue?.pump();
   },
 });
@@ -215,6 +270,7 @@ engineBridge = createWorkspaceEngineBridge({
   MB,
   queue,
   uxController,
+  watchDirStore,
   identified,
   identify: identifyFile,
   getActiveSourceId: () => activeSourceId,
@@ -419,7 +475,58 @@ async function loadActiveSource(targetId, { forceDispose = false } = {}) {
   }
 }
 
-async function openReview(id) {
+function notifyRecordingReady(sourceId, record = null) {
+  if (!sourceId || !view.sources.some((item) => item.id === sourceId)) return;
+  const saved = workspace.getSource(sourceId);
+  const rec = record || bindings.get(sourceId) || null;
+  const name = extractBasename(rec?.file?.name || saved?.identity?.name || '');
+  const candidateCount = saved.clips.filter((clip) => !clip.provisional && !clip.excluded).length;
+  const isCoarse = rec?.alignment?.confidence === 'coarse';
+  backgroundReadiness.onRecordingReady({
+    sourceId,
+    name,
+    candidateCount,
+    isCoarse,
+  });
+}
+
+function renderReadyToast() {
+  const toastNode = $('ready-toast');
+  if (!toastNode) return;
+  const toast = backgroundReadiness.activeToast;
+  if (!toast || workspaceMode === 'live' || libraryPreview) {
+    toastNode.hidden = true;
+    toastNode.dataset.sourceId = '';
+    return;
+  }
+  toastNode.hidden = false;
+  toastNode.dataset.sourceId = toast.sourceId;
+  toastNode.dataset.coarse = String(Boolean(toast.isCoarse));
+  const titleEl = $('ready-toast-title');
+  const metaEl = $('ready-toast-meta');
+  if (titleEl) {
+    titleEl.textContent = toast.name;
+    titleEl.title = toast.name;
+  }
+  if (metaEl) {
+    if (toast.candidateCount > 0) {
+      const candidates = formatCandidateCountLabel(toast.candidateCount);
+      metaEl.textContent = t(toast.isCoarse ? 'ready_toast_meta_coarse' : 'ready_toast_meta_ready', { candidates });
+    } else {
+      metaEl.textContent = t(toast.isCoarse ? 'ready_toast_meta_coarse_no_candidates' : 'ready_toast_meta_no_candidates');
+    }
+  }
+  const openBtn = $('ready-toast-open');
+  if (openBtn) openBtn.textContent = t('ready_toast_open');
+  const dismissBtn = $('ready-toast-dismiss');
+  if (dismissBtn) {
+    const label = t('ready_toast_dismiss_aria');
+    dismissBtn.title = label;
+    dismissBtn.setAttribute('aria-label', label);
+  }
+}
+
+async function openReview(id, { focusFirstCandidate = false } = {}) {
   const snapshot = buildLibrarySnapshot();
   const hasItem = snapshot.items.some((item) => item.id === id) || view.sources.some((item) => item.id === id);
   if (!hasItem) return;
@@ -443,9 +550,22 @@ async function openReview(id) {
   activeSourceId = rec.activeSourceId;
   activeRecordId = rec.activeRecordId;
   uxController.onRecordingOpened(activeSourceId);
+  backgroundReadiness.onRecordingOpened(activeSourceId);
 
+  let targetFirstClip = null;
   if (activeSourceId && view.sources.some((item) => item.id === activeSourceId)) {
-    seenCandidates.set(activeSourceId, workspace.getSource(activeSourceId).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
+    const savedTarget = workspace.getSource(activeSourceId);
+    seenCandidates.set(activeSourceId, savedTarget.clips.filter((clip) => !clip.provisional && !clip.excluded).length);
+    if (focusFirstCandidate) {
+      targetFirstClip = pickFirstReviewableCandidate(savedTarget);
+      if (targetFirstClip) {
+        workspace.setReview(activeSourceId, {
+          selectedClipId: targetFirstClip.id,
+          ...selectionWindow(savedTarget.duration, targetFirstClip),
+          position: targetFirstClip.start,
+        });
+      }
+    }
   }
   if (switched && !wasExports) {
     player.pause();
@@ -456,6 +576,9 @@ async function openReview(id) {
   } else if (rec.shouldDisposePlayer) {
     await loadActiveSource(activeSourceId, { forceDispose: true });
   } else {
+    if (focusFirstCandidate && targetFirstClip && bindings.get(activeSourceId)?.file) {
+      await player.seek(targetFirstClip.start);
+    }
     renderPlayer();
   }
 }
@@ -510,6 +633,7 @@ globalTopbarControls = createGlobalTopbarControls({
   onSelectDevice: (deviceId) => safely(() => engineBridge.setAudioSourcePreference({ sourceKind: 'device', deviceId })),
   onRefreshDevices: () => engineBridge.refreshAudioDevices(),
   onToggleGateBypass: (allow) => { engineBridge.setAllowGateBypass(allow); },
+  onToggleReadyNotifications: (enabled) => safely(() => readyNotifier.setNotificationsEnabled(enabled)),
   onActivateWatchDir: () => safely(invokeChooseWatchDir),
 });
 
@@ -801,7 +925,7 @@ function renderOnboarding(snapshot) {
   if (watchBtn) {
     watchBtn.disabled = !watch.canChoose;
     watchBtn.textContent = watch.status === 'needs-permission'
-      ? t('library_watch_restore')
+      ? t('topbar_watch_restore_cta')
       : watch.name
         ? t('onboarding_step1_change')
         : t('onboarding_step1_cta');
@@ -986,6 +1110,7 @@ function render() {
     }
 
     renderWorkspaceUxChrome(latestLibrarySnapshot, layout);
+    renderReadyToast();
 
     const pageKey = reportedPage();
     $('status').hidden = $('status').dataset.page !== pageKey && $('status').dataset.tone !== 'error';
@@ -1223,7 +1348,20 @@ const fitSelectedClip = () => safely(() => { const clip = selectedClip(); if (cl
 if ($('quick-fit-clip')) $('quick-fit-clip').onclick = fitSelectedClip;
 $('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); };
 
-onLanguageChange(render);
+if ($('ready-toast-open')) {
+  $('ready-toast-open').onclick = () => safely(() => backgroundReadiness.openToastTarget());
+}
+if ($('ready-toast-dismiss')) {
+  $('ready-toast-dismiss').onclick = () => { backgroundReadiness.dismissToast(); };
+}
+document.addEventListener('visibilitychange', () => {
+  safely(() => backgroundReadiness.handleVisibilityChange(document.visibilityState));
+});
+
+onLanguageChange(() => {
+  readyNotifier.syncTitle();
+  render();
+});
 
 // Session state is intentionally not written to browser storage.
 const shouldWarnOnLeave = () => !preview && !libraryPreview && !workspacePreview && (
@@ -1407,6 +1545,10 @@ if (libraryPreview) {
 }
 render();
 note(t('status_ready'), 'quiet');
+const watchDirRestoreReady = (!preview && !libraryPreview && !workspacePreview)
+  ? engineBridge.restorePersistedWatchDirectory().catch(() => null)
+  : Promise.resolve(null);
+
 window.reviewApp = {
   workspace,
   queue,
@@ -1416,6 +1558,10 @@ window.reviewApp = {
   autoIntake: engineBridge.autoIntake,
   engineBridge,
   globalTopbarControls,
+  watchDirStore,
+  readyNotifier,
+  backgroundReadiness,
+  watchDirRestoreReady,
   submitExport,
   importFiles,
   openReview,

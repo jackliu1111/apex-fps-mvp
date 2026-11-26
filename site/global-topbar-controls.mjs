@@ -29,9 +29,9 @@ function formatLiveActionLabel(live, translate) {
   return live.active ? translate('library_live_stop') : translate('library_live_start');
 }
 
-function formatWatchValueLabel(watch, translate) {
+function formatWatchValueLabel(watch, translate, hasRestoreCta) {
   if (!watch.name) return translate('library_watch_unset');
-  if (watch.status === 'needs-permission') {
+  if (watch.status === 'needs-permission' && !hasRestoreCta) {
     return translate('library_watch_needs_permission', { name: watch.name });
   }
   return watch.name;
@@ -45,6 +45,7 @@ export function createGlobalTopbarControls({
   onSelectDevice = () => {},
   onRefreshDevices = () => {},
   onToggleGateBypass = () => {},
+  onToggleReadyNotifications = () => {},
   onActivateWatchDir = () => {},
   onPopoverToggle = () => {},
 } = {}) {
@@ -65,10 +66,13 @@ export function createGlobalTopbarControls({
   const devSelect = byId('topbar-device-select');
   const devRefresh = byId('topbar-device-refresh');
   const gateBypass = byId('topbar-gate-bypass');
+  const readyNotify = byId('topbar-ready-notify');
+  const readyNotifyHint = byId('topbar-ready-notify-hint');
   const popToggle = byId('topbar-popover-toggle');
   const watchWrap = byId('topbar-watch-dir');
   const watchBtn = byId('topbar-watch-btn');
   const watchValue = byId('topbar-watch-value');
+  const watchRestoreCta = byId('topbar-watch-restore-cta');
 
   let popoverOpen = false;
   let lastDevicesKey = null;
@@ -138,6 +142,11 @@ export function createGlobalTopbarControls({
   if (gateBypass) {
     gateBypass.onchange = () => {
       onToggleGateBypass(Boolean(gateBypass.checked));
+    };
+  }
+  if (readyNotify) {
+    readyNotify.onchange = () => {
+      onToggleReadyNotifications(Boolean(readyNotify.checked));
     };
   }
   if (watchBtn) {
@@ -273,6 +282,24 @@ export function createGlobalTopbarControls({
       gateBypass.disabled = !isDevice;
       gateBypass.checked = isDevice && Boolean(live.allowGateBypass);
     }
+    const readyNotif = state.readyNotifications || null;
+    if (readyNotify && readyNotif) {
+      const perm = readyNotif.permission || 'default';
+      readyNotify.disabled = perm === 'unsupported';
+      readyNotify.checked = Boolean(readyNotif.enabled && perm === 'granted');
+      if (readyNotifyHint) {
+        if (perm === 'denied') {
+          readyNotifyHint.hidden = false;
+          setText(readyNotifyHint, translate('ready_notify_denied_hint'));
+        } else if (perm === 'unsupported') {
+          readyNotifyHint.hidden = false;
+          setText(readyNotifyHint, translate('ready_notify_unsupported_hint'));
+        } else {
+          readyNotifyHint.hidden = true;
+          setText(readyNotifyHint, '');
+        }
+      }
+    }
     if (popToggle) {
       popToggle.disabled = live.canToggle === false;
       setText(popToggle, formatLiveActionLabel({ status, active }, translate));
@@ -281,14 +308,19 @@ export function createGlobalTopbarControls({
     if (watchWrap) {
       watchWrap.dataset.watchStatus = watch.status || 'unset';
     }
-    const watchDisplay = formatWatchValueLabel(watch, translate);
+    const needsRestore = watch.status === 'needs-permission' && Boolean(watch.name);
+    const watchDisplay = formatWatchValueLabel(watch, translate, Boolean(watchRestoreCta));
     if (watchValue) {
       setText(watchValue, watchDisplay);
       watchValue.title = watch.name || '';
     }
+    if (watchRestoreCta) {
+      watchRestoreCta.hidden = !needsRestore;
+      setText(watchRestoreCta, translate('topbar_watch_restore_cta'));
+    }
     if (watchBtn) {
       watchBtn.disabled = watch.canChoose === false;
-      const watchTitle = watch.status === 'needs-permission' && watch.name
+      const watchTitle = needsRestore
         ? translate('topbar_watch_restore_title', { name: watch.name })
         : watch.name
           ? translate('topbar_watch_active_title', { name: watch.name })
@@ -309,6 +341,7 @@ export function createGlobalTopbarControls({
     if (devRefresh) devRefresh.onclick = null;
     if (devSelect) devSelect.onchange = null;
     if (gateBypass) gateBypass.onchange = null;
+    if (readyNotify) readyNotify.onchange = null;
     if (watchBtn) watchBtn.onclick = null;
   }
 

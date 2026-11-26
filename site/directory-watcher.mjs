@@ -17,6 +17,7 @@ export function isCandidateVideoName(name) {
 export function createDirectoryWatcher({
   pollIntervalMs = 2000,
   stablePollsRequired = 2,
+  stableDurationMs = pollIntervalMs * stablePollsRequired,
   probeFile,
   onStatus = () => {},
   onReady = () => {},
@@ -65,7 +66,7 @@ export function createDirectoryWatcher({
           // Windows exclusive write lock while recording: stay in growing state and retry next poll.
           if (session !== current || exportedNames.has(name)) continue;
           if (!entry && !baseline.has(name)) {
-            entry = { state: 'growing', size: -1, lastModified: 0, stableCount: 0, attempts: 0 };
+            entry = { state: 'growing', size: -1, lastModified: 0, stableCount: 0, stableSince: now(), attempts: 0 };
             tracked.set(name, entry);
             emit();
           }
@@ -83,12 +84,14 @@ export function createDirectoryWatcher({
           baseline.delete(name);
         }
 
+        const scanNow = now();
         if (!entry) {
           entry = {
             state: 'discovered',
             size: file.size,
             lastModified: file.lastModified,
             stableCount: 0,
+            stableSince: scanNow,
             attempts: 0,
             file,
           };
@@ -107,12 +110,18 @@ export function createDirectoryWatcher({
           entry.attempts = 0;
           entry.state = 'growing';
           entry.stableCount = 0;
+          entry.stableSince = scanNow;
           emit();
           continue;
         }
 
         entry.stableCount++;
-        if (entry.stableCount < stablePollsRequired) {
+        const stableElapsedMs = Math.max(0, scanNow - (Number.isFinite(entry.stableSince) ? entry.stableSince : scanNow));
+        const stabilizedByPolls = entry.stableCount >= stablePollsRequired;
+        const stabilizedByWallClock = Number.isFinite(stableDurationMs)
+          && stableDurationMs > 0
+          && stableElapsedMs >= stableDurationMs;
+        if (!stabilizedByPolls && !stabilizedByWallClock) {
           entry.state = 'stabilizing';
           emit();
           continue;
@@ -128,6 +137,7 @@ export function createDirectoryWatcher({
           if (meta?.pendingFinalization) {
             entry.state = 'growing';
             entry.stableCount = 0;
+            entry.stableSince = now();
             entry.attempts = 0;
             emit();
             continue;
@@ -140,6 +150,7 @@ export function createDirectoryWatcher({
             entry.state = 'growing';
             entry.attempts = 0;
             entry.stableCount = 0;
+            entry.stableSince = now();
             emit();
             continue;
           }
@@ -157,6 +168,7 @@ export function createDirectoryWatcher({
           } else {
             entry.state = 'growing';
             entry.stableCount = 0;
+            entry.stableSince = now();
           }
           emit();
         }
