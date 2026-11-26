@@ -246,6 +246,199 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
 #analysis-page #drop-zone:has(.empty):hover .signal-brackets { stroke: var(--accent); }
 #analysis-page .empty .signal-center > path:first-child { stroke: var(--accent); }
 #analysis-page #drop-zone.drag-over .signal-brackets { stroke-width: 2.5; }
+
+/* Empty-State Full-Page 2-Step Onboarding (Ticket #65 / ADR 0010) */
+.empty-onboarding {
+  display: none;
+}
+.clipping-workspace[data-layout="empty"] #library-topbar-slots {
+  display: none;
+}
+body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) main {
+  padding: 12px 32px 14px;
+}
+body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) .workspace-status {
+  min-height: 30px;
+  padding: 4px 12px;
+  margin-bottom: 10px;
+}
+body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) .review-preview-banner {
+  padding: 5px 12px;
+  margin-bottom: 8px;
+  font-size: 11.5px;
+}
+body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) .review-preview-banner select,
+body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) .review-preview-banner button {
+  min-height: 24px;
+  padding: 1px 8px;
+  font-size: 11.5px;
+}
+body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) .workspace-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .page-heading {
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page h1 {
+  font-size: 24px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .intro {
+  margin-top: 4px;
+  font-size: 13.5px;
+}
+.clipping-workspace[data-layout="empty"] .empty-onboarding {
+  display: block;
+  padding: 16px 22px 4px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .queue-panel > .panel-heading {
+  padding: 10px 22px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page #import-files {
+  min-height: 32px;
+  padding-inline: 14px;
+  font-size: 13px;
+  background: var(--surface);
+  border-color: var(--control);
+  color: var(--text);
+  box-shadow: none;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page #import-files:hover:not(:disabled) {
+  background: var(--surface-low);
+  border-color: #a1a1aa;
+  color: #09090b;
+  box-shadow: none;
+}
+.onboarding-eyebrow {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--faint);
+  margin: 0 0 10px;
+}
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 15px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fafafa;
+  transition: border-color 140ms var(--task-ease), background-color 140ms var(--task-ease);
+}
+.onboarding-step[data-watch-status="watching"],
+.onboarding-step[data-live-status="listening"] {
+  border-color: #bbf7d0;
+  background: #f6fef9;
+}
+.onboarding-step[data-watch-status="needs-permission"] {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+.onboarding-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.onboarding-step-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 650;
+  background: var(--accent);
+  color: #ffffff;
+}
+.onboarding-step[data-step="live-monitor"] .onboarding-step-badge {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--control);
+}
+.onboarding-step-status {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.onboarding-step[data-watch-status="watching"] .onboarding-step-status,
+.onboarding-step[data-live-status="listening"] .onboarding-step-status {
+  color: #15803d;
+}
+.onboarding-step h3 {
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.onboarding-step p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  flex: 1;
+}
+.onboarding-step-btn {
+  align-self: flex-start;
+  margin-top: 6px;
+  min-height: 34px;
+  padding: 5px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+}
+.onboarding-step-btn[aria-pressed="true"] {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #15803d;
+}
+.onboarding-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 4px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.onboarding-divider::before,
+.onboarding-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #eceef1;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page #drop-zone:has(.empty) {
+  min-height: 82px;
+  margin: 6px 22px 14px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .empty {
+  padding: 12px 18px;
+  gap: 4px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .empty .frame-signal {
+  width: 76px;
+  height: 34px;
+  margin-bottom: 0;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .empty strong {
+  font-size: 14.5px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .empty span {
+  font-size: 12.5px;
+}
+.clipping-workspace[data-layout="empty"] #analysis-page .queue-footer {
+  padding: 9px 22px;
+}
 #analysis-page .queue-footer {
   border-top: 1px solid #eceef1;
   margin-top: 0;
@@ -532,6 +725,34 @@ body:has(#review-page[hidden]) .workspace-status[data-tone="error"] {
   #analysis-page .library-row-summary { grid-column: 1; }
   #analysis-page .library-row-actions { grid-column: 2; justify-content: flex-end; }
   #analysis-page .workflow-list { gap: 12px; }
+}
+@media (max-width: 680px) {
+  body:has(.clipping-workspace[data-layout="empty"]:not([hidden])) main {
+    padding: 14px 16px 20px;
+  }
+  .clipping-workspace[data-layout="empty"] #analysis-page .queue-panel > .panel-heading {
+    padding: 12px 16px;
+  }
+  .clipping-workspace[data-layout="empty"] .empty-onboarding {
+    padding: 16px 16px 4px;
+  }
+  .onboarding-steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .onboarding-step {
+    padding: 15px 16px;
+  }
+  .onboarding-step-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .clipping-workspace[data-layout="empty"] #analysis-page #drop-zone:has(.empty) {
+    margin: 8px 16px 16px;
+  }
+  .clipping-workspace[data-layout="empty"] #analysis-page .queue-footer {
+    padding: 10px 16px;
+  }
 }
 @media (max-width: 540px) {
   #analysis-page .page-heading { grid-template-columns: minmax(0, 1fr); }

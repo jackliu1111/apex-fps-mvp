@@ -246,6 +246,7 @@ export function createRecordingLibraryView({
     row.onclick = () => triggerSelect();
 
     let actionsRefs = null;
+    let railRefs = null;
     if (showActions) {
       // Block 4: Minimal Action Buttons (1 primary action + secondary reanalyze ONLY for coarse)
       const actionsWrap = createNode(doc, 'div', 'row file-actions library-row-actions');
@@ -295,7 +296,17 @@ export function createRecordingLibraryView({
           triggerSelect();
         }
       };
-      row.append(identity, statusWrap, summaryWrap);
+
+      const railCell = createNode(doc, 'div', 'library-rail-cell');
+      railCell.setAttribute('aria-hidden', 'true');
+      const railDot = createNode(doc, 'span', 'library-rail-dot');
+      const railTime = createNode(doc, 'span', 'library-rail-time');
+      const railNewDot = createNode(doc, 'span', 'library-rail-new-dot');
+      railNewDot.hidden = true;
+      railCell.append(railDot, railTime, railNewDot);
+      railRefs = { railCell, railDot, railTime, railNewDot };
+
+      row.append(identity, statusWrap, summaryWrap, railCell);
     }
 
     row._refs = {
@@ -306,6 +317,7 @@ export function createRecordingLibraryView({
       statusBadge,
       summaryText,
       actionsRefs,
+      railRefs,
     };
     return row;
   }
@@ -317,12 +329,17 @@ export function createRecordingLibraryView({
     row.dataset.status = item.status;
     row.dataset.reviewable = String(Boolean(item.canReview));
     row.dataset.selected = String(Boolean(item.selected));
+    row.dataset.new = String(Boolean(item.isNew));
     row.classList.toggle('is-selected', Boolean(item.selected));
+    const statusLabel = formatStatusLabel(item, translate);
     if (!showActions) {
       row.setAttribute('aria-selected', String(Boolean(item.selected)));
+      if (row.title !== item.filename) row.title = item.filename;
+      const ariaParts = [item.filename, item.recordedTimeText, statusLabel].filter(Boolean);
+      row.setAttribute('aria-label', ariaParts.join(' · '));
     }
 
-    const { filename, newBadge, meta, statusBadge, summaryText, actionsRefs } = row._refs;
+    const { filename, newBadge, meta, statusBadge, summaryText, actionsRefs, railRefs } = row._refs;
 
     setText(filename, item.filename);
     if (filename.title !== item.filename) filename.title = item.filename;
@@ -333,9 +350,15 @@ export function createRecordingLibraryView({
     setText(meta, formatIdentityMeta(item, { showSize, translate }));
 
     statusBadge.dataset.status = item.status;
-    setText(statusBadge, formatStatusLabel(item, translate));
+    setText(statusBadge, statusLabel);
 
     setText(summaryText, formatSummaryLabel(item, translate));
+
+    if (railRefs) {
+      railRefs.railDot.dataset.status = item.status;
+      setText(railRefs.railTime, item.recordedTimeText || '--:--');
+      railRefs.railNewDot.hidden = !item.isNew;
+    }
 
     if (actionsRefs) {
       const { reviewBtn, reanalyzeBtn, analyzeBtn, stopBtn } = actionsRefs;

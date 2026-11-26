@@ -12,6 +12,21 @@ body:has(#review-page:not([hidden])) .review-preview-banner {
   gap: 6px 12px;
   font-size: 11.5px;
 }
+@media (min-width: 1180px) {
+  body:has(#review-page:not([hidden])) .review-preview-banner {
+    flex-wrap: nowrap;
+  }
+  body:has(#review-page:not([hidden])) .review-preview-banner .preview-controls {
+    flex-wrap: nowrap;
+    flex: none;
+  }
+  body:has(#review-page:not([hidden])) .review-preview-banner p {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
 body:has(#review-page:not([hidden])) .review-preview-banner select,
 body:has(#review-page:not([hidden])) .review-preview-banner button {
   min-height: 24px;
@@ -57,12 +72,85 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 }
 
 /* Split-Pane Local Clipping Workspace (ADR 0010): Left Recording Library Sidebar + Right Clip Review */
+.clipping-workspace {
+  position: relative;
+}
+.library-drawer-backdrop,
+.workspace-drop-overlay,
+.sidebar-collapse-toggle,
+.library-drawer-close,
+.library-drawer-toggle,
+.library-rail-cell {
+  display: none;
+}
+.clipping-workspace[data-drag-over="true"] > .workspace-drop-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  inset: 64px 16px 16px;
+  z-index: 95;
+  padding: 20px;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 2px dashed var(--selection-handle-hover);
+  border-radius: 18px;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.14);
+}
+.workspace-drop-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 440px;
+  padding: 16px 24px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid rgba(59, 130, 246, 0.32);
+  box-shadow: 0 12px 32px rgba(24, 24, 27, 0.12);
+  text-align: center;
+}
+.workspace-drop-pill strong {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+.workspace-drop-pill span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.library-heading-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
 .clipping-workspace[data-layout="split"] {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 14px;
   align-items: stretch;
   min-width: 0;
+  transition: grid-template-columns 180ms cubic-bezier(.2, 0, 0, 1);
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .sidebar-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 8px;
+  flex: none;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .sidebar-collapse-toggle svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 180ms cubic-bezier(.2, 0, 0, 1);
 }
 .clipping-workspace[data-layout="split"] > #analysis-page {
   min-width: 0;
@@ -1490,8 +1578,111 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   box-shadow: none;
 }
 
+@media (min-width: 901px) {
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] {
+    grid-template-columns: 74px minmax(0, 1fr);
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .queue-panel > .panel-heading {
+    padding: 8px 6px;
+    gap: 6px;
+    align-items: center;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .heading-label {
+    justify-content: center;
+    width: 100%;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-heading-title,
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .queue-footer,
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page #import-files .import-files-label {
+    display: none;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .sidebar-collapse-toggle svg {
+    transform: rotate(180deg);
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .queue-heading-actions {
+    justify-content: center;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page #import-files {
+    width: 32px;
+    min-height: 32px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius: var(--radius-pill);
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page #drop-zone {
+    padding: 6px 5px;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .file.library-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
+    min-height: 36px;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .file.library-row:hover,
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .file.library-row[data-status="analyzing"],
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .file.library-row.is-selected,
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .file.library-row[data-selected="true"] {
+    padding-inline: 4px;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-row-identity,
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-row-status,
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-row-summary {
+    display: none;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-rail-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    position: relative;
+    width: 100%;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-rail-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #a1a1aa;
+    flex: none;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-rail-dot[data-status="analyzing"] {
+    background: #3b82f6;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-rail-dot[data-status="ready"] {
+    background: var(--signal-lime);
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-rail-dot[data-status="conformed-coarse"] {
+    background: #d97706;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-rail-time {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] > #analysis-page .library-rail-new-dot {
+    position: absolute;
+    top: -4px;
+    right: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--selection-ink);
+    box-shadow: 0 0 0 1.5px var(--surface);
+  }
+  .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] #review-page .player-stage {
+    height: clamp(230px, calc(100dvh - 412px), calc((100vw - 126px) * 9 / 16));
+  }
+  body:has(.review-preview-banner) .clipping-workspace[data-layout="split"][data-sidebar-collapsed="true"] #review-page .player-stage {
+    height: clamp(200px, calc(100dvh - 456px), calc((100vw - 126px) * 9 / 16));
+  }
+}
+
 @media (max-width: 1360px) and (min-width: 901px) {
-  .clipping-workspace[data-layout="split"] {
+  .clipping-workspace[data-layout="split"]:not([data-sidebar-collapsed="true"]) {
     grid-template-columns: 244px minmax(0, 1fr);
     gap: 12px;
   }
@@ -1506,14 +1697,120 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
 }
 @media (max-width: 900px) {
   body:has(#review-page:not([hidden])) main {
-    padding: 10px 16px 16px;
+    padding: 10px 14px 16px;
   }
   .clipping-workspace[data-layout="split"] {
     grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    gap: 0;
+  }
+  .clipping-workspace[data-layout="split"] > #analysis-page .sidebar-collapse-toggle {
+    display: none;
+  }
+  .clipping-workspace[data-layout="split"] > #analysis-page .library-drawer-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0;
+    border-radius: 8px;
+    flex: none;
+  }
+  .clipping-workspace[data-layout="split"] > #analysis-page .library-drawer-close svg {
+    width: 15px;
+    height: 15px;
+  }
+  .clipping-workspace[data-layout="split"] #library-drawer-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface);
+    border-color: var(--control);
+    white-space: nowrap;
+    flex: none;
+  }
+  .clipping-workspace[data-layout="split"] #library-drawer-toggle svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+  .clipping-workspace[data-layout="split"] .drawer-toggle-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-low);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 650;
+  }
+  .clipping-workspace[data-layout="split"] .drawer-toggle-new-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--selection-ink);
+    flex: none;
+  }
+  .clipping-workspace[data-layout="split"] > #library-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 75;
+    background: rgba(24, 24, 27, 0.36);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 180ms ease, visibility 180ms ease;
+  }
+  .clipping-workspace[data-layout="split"][data-drawer-open="true"] > #library-drawer-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .clipping-workspace[data-layout="split"] > #analysis-page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(304px, 86vw);
+    max-width: 86vw;
+    z-index: 80;
+    padding: 10px;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(-105%);
+    transition: transform 200ms cubic-bezier(.2, 0, 0, 1), visibility 200ms ease;
+  }
+  .clipping-workspace[data-layout="split"][data-drawer-open="true"] > #analysis-page {
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(0);
   }
   .clipping-workspace[data-layout="split"] > #analysis-page .queue-panel {
-    max-height: 220px;
+    height: 100%;
+    max-height: 100%;
+    box-shadow: 0 14px 40px rgba(24, 24, 27, 0.2);
+  }
+  .clipping-workspace[data-layout="split"] > #analysis-page .file.library-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 3px 6px;
+  }
+  .clipping-workspace[data-layout="split"] > #analysis-page .library-filename {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   #review-page .player-stage {
     height: clamp(220px, 38dvh, 360px);
@@ -1552,16 +1849,21 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   }
 }
 @media (max-width: 640px) {
-  #review-page .review-heading { flex-direction: column; align-items: stretch; }
-  #review-page #review-source-title { max-width: 100%; }
+  #review-page .review-heading { flex-direction: column; align-items: stretch; gap: 6px; }
+  #review-page .review-title-group { flex-wrap: wrap; gap: 6px 8px; }
+  #review-page #review-source-title { max-width: 100%; flex: 1 1 140px; }
+  #review-page #review-progress { flex-basis: 100%; }
   #review-page .player-stage { height: 210px; }
   #review-page .player-frame { margin: 10px 10px 0; }
   #review-page .player-controls { flex-wrap: wrap; padding: 8px 0; }
   #review-page .player-controls .candidate-nav { order: 2; width: 100%; justify-content: flex-end; }
   #review-page .player-controls .playback-time { order: 1; }
+  #review-page .player-audio { margin-left: 0; }
   #selection-player-axis { padding: 10px 10px 8px; }
   .source-axis { height: 54px; }
   #review-page .selection-actions { padding-inline: 10px; }
   .selection-export-controls { width: 100%; }
   #review-page #export { width: 100%; }
+  .clipping-workspace[data-layout="split"] #library-drawer-toggle { min-height: 34px; }
+  .clipping-workspace[data-layout="split"] > #analysis-page #import-files { min-height: 36px; }
 }

@@ -35,7 +35,14 @@
   <main id="main" tabindex="-1">
     <p id="status" class="workspace-status" role="status" aria-live="polite" data-i18n="status_ready">Workspace ready</p>
     <div id="live-workspace" hidden></div>
-    <div id="clipping-workspace" class="clipping-workspace" data-layout="empty">
+    <div id="clipping-workspace" class="clipping-workspace" data-layout="empty" data-sidebar-collapsed="false" data-drawer-open="false" data-drag-over="false">
+    <div id="library-drawer-backdrop" class="library-drawer-backdrop" aria-hidden="true"></div>
+    <div id="workspace-drop-overlay" class="workspace-drop-overlay" aria-hidden="true">
+      <div class="workspace-drop-pill">
+        <strong data-i18n="workspace_drop_hint">Drop videos anywhere to add to Recording Library</strong>
+        <span data-i18n="workspace_drop_subhint">Added items appear with a New badge without interrupting your current review</span>
+      </div>
+    </div>
     <div id="analysis-page">
       <div class="page-heading">
         <div><h1 data-i18n="page_heading">Recording Library</h1><p class="intro" data-i18n="page_intro">View manual imports and auto-intake match recordings in one session list, and open ready footage for review.</p></div>
@@ -44,7 +51,11 @@
       <div class="analysis-layout">
         <section class="panel queue-panel" aria-labelledby="queue-heading">
           <div class="panel-heading library-topbar">
-            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Recordings</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
+            <div class="heading-label">
+              <div class="library-heading-title"><h2 id="queue-heading" data-i18n="queue_heading">Recordings</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
+              <button id="sidebar-collapse-toggle" class="quiet sidebar-collapse-toggle" type="button" aria-expanded="true" aria-controls="queue" title="Collapse library sidebar" aria-label="Collapse library sidebar" data-i18n-title="sidebar_collapse_title" data-i18n-aria="sidebar_collapse_title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <button id="library-drawer-close" class="quiet library-drawer-close" type="button" title="Close recording library" aria-label="Close recording library" data-i18n-title="drawer_close_title" data-i18n-aria="drawer_close_title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+            </div>
             <div class="row queue-heading-actions">
               <div id="library-topbar-slots" class="library-topbar-slots">
                 <div class="library-slot library-live-slot" data-slot="live-monitor" data-live-status="off">
@@ -60,10 +71,34 @@
                   <button class="quiet library-slot-btn" type="button" data-action="choose-watch-directory" disabled data-i18n="library_watch_choose">Choose</button>
                 </div>
               </div>
-              <button id="import-files" class="primary" disabled><span aria-hidden="true">＋</span> <span data-i18n="import_files">Import Videos</span></button>
+              <button id="import-files" class="primary" disabled title="Import Videos" data-i18n-title="import_files"><span aria-hidden="true">＋</span> <span class="import-files-label" data-i18n="import_files">Import Videos</span></button>
             </div>
             <input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden>
           </div>
+          <section id="empty-onboarding" class="empty-onboarding" aria-label="Two-step auto-intake setup" data-i18n-aria="onboarding_eyebrow">
+            <p class="onboarding-eyebrow" data-i18n="onboarding_eyebrow">Two-step auto-intake setup</p>
+            <div class="onboarding-steps">
+              <article class="onboarding-step" data-step="watch-dir" data-watch-status="unset">
+                <div class="onboarding-step-head">
+                  <span class="onboarding-step-badge" data-i18n="onboarding_step1_num">Step 1</span>
+                  <span id="onboarding-watch-status" class="onboarding-step-status" data-i18n="onboarding_step1_status_unset">Not set yet</span>
+                </div>
+                <h3 data-i18n="onboarding_step1_title">Choose Watch Folder</h3>
+                <p data-i18n="onboarding_step1_desc">Grant read-only access to your OBS or capture folder so finished match recordings appear here automatically.</p>
+                <button id="onboarding-choose-watch-dir" class="primary onboarding-step-btn" type="button" data-onboarding-action="choose-watch-dir" data-i18n="onboarding_step1_cta">Choose Watch Folder</button>
+              </article>
+              <article class="onboarding-step" data-step="live-monitor" data-live-status="off">
+                <div class="onboarding-step-head">
+                  <span class="onboarding-step-badge" data-i18n="onboarding_step2_num">Step 2</span>
+                  <span id="onboarding-live-status" class="onboarding-step-status" data-i18n="onboarding_step2_status_off">Standby</span>
+                </div>
+                <h3 data-i18n="onboarding_step2_title">Start Live Monitoring</h3>
+                <p data-i18n="onboarding_step2_desc">Capture game audio only while playing so new recordings conform right after each match without offline rescan.</p>
+                <button id="onboarding-toggle-monitoring" class="onboarding-step-btn" type="button" data-onboarding-action="toggle-monitoring" aria-pressed="false" data-i18n="onboarding_step2_cta">Start Live Monitoring</button>
+              </article>
+            </div>
+            <div class="onboarding-divider"><span data-i18n="onboarding_secondary_divider">or import local videos directly</span></div>
+          </section>
           <div id="drop-zone" aria-label="Drop local video files here" data-i18n-aria="drop_zone_aria" aria-disabled="true"><div id="queue" class="queue"></div></div>
           <div class="queue-footer"><span id="queue-summary" class="muted" data-i18n="queue_summary_waiting">Import recordings or choose a watch folder for auto-intake</span><span class="muted" data-i18n="queue_footer_right">Current session only · Recordings stay on device</span></div>
         </section>
@@ -71,7 +106,15 @@
     </div>
     <div id="review-page" hidden>
       <div class="page-heading review-heading">
-        <div class="row review-title-group"><h1 id="review-source-title" data-i18n="review_heading">Clip Review</h1><p id="review-progress" class="muted source-progress"></p><span id="new-candidates" class="badge" aria-live="polite"></span></div>
+        <div class="row review-title-group">
+          <button id="library-drawer-toggle" class="quiet library-drawer-toggle" type="button" aria-controls="analysis-page" aria-expanded="false" title="Open recording library" aria-label="Open recording library" data-i18n-title="drawer_open_title" data-i18n-aria="drawer_open_title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+            <span class="drawer-toggle-label" data-i18n="drawer_open_label">Library</span>
+            <span id="library-drawer-count" class="drawer-toggle-count">0</span>
+            <span id="library-drawer-new-dot" class="drawer-toggle-new-dot" hidden aria-hidden="true"></span>
+          </button>
+          <h1 id="review-source-title" data-i18n="review_heading">Clip Review</h1><p id="review-progress" class="muted source-progress"></p><span id="new-candidates" class="badge" aria-live="polite"></span>
+        </div>
         <div class="review-header-actions"><button id="review-primary-action" class="review-primary-action" type="button" hidden></button></div>
       </div>
       <div class="workspace">
