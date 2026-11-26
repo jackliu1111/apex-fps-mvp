@@ -24,7 +24,7 @@
       </div>
       <nav id="offline-nav" class="navigation" aria-label="Workspace" data-i18n-aria="nav_aria">
         <a href="landing.html" class="nav-portal-link" data-i18n="nav_portal">✦ Portal</a>
-        <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Analysis</button>
+        <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Recording Library</button>
         <button id="nav-review" disabled data-i18n="nav_review">Review</button>
         <button id="nav-exports" data-i18n="nav_exports">Exports</button>
       </nav>
@@ -38,26 +38,40 @@
     <div id="live-workspace" hidden></div>
     <div id="analysis-page">
       <div class="page-heading">
-        <div><h1 data-i18n="page_heading">Video Workspace</h1><p class="intro" data-i18n="page_intro">Import full match recordings, auto-locate combat segments, and export standalone clips.</p></div>
+        <div><h1 data-i18n="page_heading">Recording Library</h1><p class="intro" data-i18n="page_intro">View manual imports and auto-intake match recordings in one session list, and open ready footage for review.</p></div>
         <span class="local-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="2"/><path d="M8 20h8m-4-4v4"/></svg><span data-i18n="local_note">Recordings stay on device</span></span>
       </div>
       <div class="analysis-layout">
         <section class="panel queue-panel" aria-labelledby="queue-heading">
-          <div class="panel-heading">
-            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Analysis Queue</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
+          <div class="panel-heading library-topbar">
+            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Session Recordings</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
             <div class="row queue-heading-actions">
+              <div id="library-topbar-slots" class="library-topbar-slots">
+                <div class="library-slot library-live-slot" data-slot="live-monitor" data-live-status="off">
+                  <span class="library-slot-dot" aria-hidden="true"></span>
+                  <span class="library-slot-label" data-i18n="library_live_label">Live Monitor</span>
+                  <span class="library-slot-value" data-i18n="library_live_status_off">Off</span>
+                  <button class="quiet library-slot-btn" type="button" data-action="toggle-live-monitor" disabled data-i18n="library_live_start">Start</button>
+                </div>
+                <div class="library-slot library-watch-slot" data-slot="watch-directory" data-watch-status="unset">
+                  <span class="library-slot-dot" aria-hidden="true"></span>
+                  <span class="library-slot-label" data-i18n="library_watch_label">Watch Folder</span>
+                  <span class="library-slot-value" data-i18n="library_watch_unset">Not set</span>
+                  <button class="quiet library-slot-btn" type="button" data-action="choose-watch-directory" disabled data-i18n="library_watch_choose">Choose</button>
+                </div>
+              </div>
               <button id="import-files" class="primary" disabled><span aria-hidden="true">＋</span> <span data-i18n="import_files">Import Videos</span></button>
             </div>
             <input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden>
           </div>
           <div id="drop-zone" aria-label="Drop local video files here" data-i18n-aria="drop_zone_aria" aria-disabled="true"><div id="queue" class="queue"></div></div>
-          <div class="queue-footer"><span id="queue-summary" class="muted" data-i18n="queue_summary_waiting">Waiting for imported videos</span><span class="muted" data-i18n="queue_footer_right">Supports multiple files · Auto queued</span></div>
+          <div class="queue-footer"><span id="queue-summary" class="muted" data-i18n="queue_summary_waiting">Import recordings or choose a watch folder for auto-intake</span><span class="muted" data-i18n="queue_footer_right">Current session only · Recordings stay on device</span></div>
         </section>
       </div>
     </div>
     <div id="review-page" hidden>
       <div class="page-heading review-heading">
-        <div class="row review-title-group"><button id="back-analysis" class="icon-button" aria-label="Back to analysis queue" data-i18n-aria="back_to_analysis">←</button><h1 data-i18n="review_heading">Clip Review</h1><p id="review-progress" class="muted source-progress"></p><span id="new-candidates" class="badge" aria-live="polite"></span></div>
+        <div class="row review-title-group"><button id="back-analysis" class="icon-button" aria-label="Back to recording library" data-i18n-aria="back_to_analysis">←</button><h1 data-i18n="review_heading">Clip Review</h1><p id="review-progress" class="muted source-progress"></p><span id="new-candidates" class="badge" aria-live="polite"></span></div>
         <select id="source-select" aria-label="Currently reviewed recording" data-i18n-aria="select_recording_aria"></select>
       </div>
       <div class="workspace">
