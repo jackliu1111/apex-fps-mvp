@@ -1,4 +1,7 @@
 import { preview, mountReviewPreview, renderReviewPreview } from './review-preview.mjs';
+import { projectRecordingLibrary } from './recording-library-projection.mjs';
+import { createRecordingLibraryView } from './recording-library-view.mjs';
+import { isLibraryPreview, mountLibraryPreview } from './recording-library-preview.mjs';
 import { createSelectionTimeline, selectionWindow } from './selection-timeline.mjs';
 import { batchSummary, justCompleted, taskFeedback, createFrameSignal } from './task-feedback.mjs';
 import * as MB from '/assets/vendor/mediabunny.mjs';
@@ -15,18 +18,22 @@ import { createLiveCompanionWorkspace } from './live-companion-ui.mjs';
 import { createDiagnosticLog, collectDiagnostics, copyTextToClipboard } from './diagnostics.mjs';
 
 const $ = (id) => document.getElementById(id);
+const libraryPreview = isLibraryPreview();
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Map();
-const queueRows = new Map(), batchRows = new Map();
+const batchRows = new Map();
 const seenCandidates = new Map();
-const presentedRecords = new WeakSet();
 const startingExports = new Set();
 const recordedErrors = new Map();
 const diagnosticLog = createDiagnosticLog();
 diagnosticLog.attachGlobalListeners(window);
-let workspaceMode = 'offline', liveCompanion = null;
+let workspaceMode = 'offline', liveCompanion = null, libraryPreviewHarness = null;
 let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
 let directoryHandle = null, exportQueue, selectionTimeline;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
+const libraryTopbarState = {
+  liveMonitor: { status: 'off' },
+  watchDirectory: { status: 'unset', name: null },
+};
 
 const getStatuses = () => ({
   preparing: t('status_preparing'),
@@ -262,119 +269,54 @@ function showAnalysis() {
 function showExports() {
   player.pause(); loadToken++; loadingSource = false; currentPage = 'exports'; selectionTimeline?.suspend(); render();
 }
+function findLibraryRecord(id, item) {
+  return bindings.get(id) || queue.records.find((record) => record.id === item?.recordId || record.sourceId === id) || null;
+}
+
+const libraryView = createRecordingLibraryView({
+  listContainer: $('queue'),
+  topbarContainer: $('library-topbar-slots'),
+  countNode: $('queue-count'),
+  summaryNode: $('queue-summary'),
+  pageNode: $('analysis-page'),
+  createEmptyGraphic: createFrameSignal,
+  onReview: (id) => safely(() => openReview(id)),
+  onSelect: (id) => safely(() => openReview(id)),
+  onAnalyze: (id, item) => safely(() => {
+    const record = findLibraryRecord(id, item);
+    if (record) return queue.retry(record.id);
+  }),
+  onReanalyze: (id, item) => safely(() => {
+    const record = findLibraryRecord(id, item);
+    if (record) {
+      record.alignment = null;
+      return queue.retry(record.id);
+    }
+  }),
+  onStop: (id, item) => safely(() => {
+    const record = findLibraryRecord(id, item);
+    if (record) return queue.stop(record.id);
+  }),
+  onToggleLiveMonitor: () => note(t('library_slot_live_placeholder'), 'info'),
+  onChooseWatchDirectory: () => note(t('library_slot_watch_placeholder'), 'info'),
+  onRowTransition: (row, kind) => taskFeedback(row, kind),
+});
+
 function renderQueue() {
-  const rows = view.sources.map((saved) => ({ key: saved.id, saved, record: bindings.get(saved.id) }));
-  for (const record of queue.records) if (!record.sourceId) rows.push({ key: `runtime:${record.id}`, record });
-  const populated = rows.length > 0;
-  $('analysis-page').classList.toggle('has-recordings', populated);
-  const analyzing = rows.filter(({ record, saved }) => (record?.status || saved?.analysis?.status) === 'analyzing').length;
-  const waiting = rows.filter(({ record, saved }) => ['preparing', 'queued'].includes(record?.status || saved?.analysis?.status)).length;
-  $('queue-count').textContent = t('queue_count', { count: rows.length });
-  $('queue-summary').textContent = analyzing || waiting
-    ? t('queue_summary_analyzing', { analyzing, waiting })
-    : view.sources.length ? t('queue_summary_idle')
-      : rows.length ? t('queue_summary_failed') : t('queue_summary_empty');
-  const keys = new Set(rows.map((row) => row.key));
-  for (const [key, node] of queueRows) if (!keys.has(key)) { node.remove(); queueRows.delete(key); }
-  if (rows.length) $('queue').querySelector('.empty')?.remove();
-  if (!rows.length && !$('queue').querySelector('.empty')) {
-    const empty = element('div', undefined, 'empty');
-    const title = element('strong', t('empty_drop_title')); title.dataset.i18n = 'empty_drop_title';
-    const desc = element('span', t('empty_drop_desc')); desc.dataset.i18n = 'empty_drop_desc';
-    const types = element('small', t('empty_drop_types')); types.dataset.i18n = 'empty_drop_types';
-    empty.append(createFrameSignal(), title, desc, types);
-    $('queue').append(empty);
+  if (libraryPreview && libraryPreviewHarness) {
+    libraryPreviewHarness.rerender();
+    return;
   }
-  const statusDict = getStatuses();
-  for (const item of rows) {
-    let row = queueRows.get(item.key);
-    if (!row) {
-      row = element('div', undefined, 'file'); row.dataset.sourceId = item.key;
-      const fileInfo = element('div', undefined, 'file-info');
-      const filename = element('strong');
-      const fileMeta = element('small');
-      fileInfo.append(createFrameSignal(), filename, fileMeta);
-
-      const fileProgress = element('div', undefined, 'file-progress');
-      const statusSpan = element('span', undefined, 'file-status');
-      const countSmall = element('small');
-      const meter = element('progress', undefined, 'file-meter');
-      const errorSmall = element('small', undefined, 'error');
-      const messageSmall = element('small');
-      fileProgress.append(statusSpan, countSmall, meter);
-
-      const actions = element('div', undefined, 'row file-actions');
-      const reviewBtn = button(t('action_browse_source'), () => openReview(row.item.saved.id)); reviewBtn.dataset.action = 'review';
-      const stopBtn = button(t('action_stop'), () => queue.stop(row.item.record.id)); stopBtn.dataset.action = 'stop';
-      const retryBtn = button(t('action_retry'), () => queue.retry(row.item.record.id)); retryBtn.dataset.action = 'retry';
-      actions.append(reviewBtn, stopBtn, retryBtn);
-
-      row.append(fileInfo, fileProgress, actions);
-      row.refs = { filename, fileMeta, fileProgress, statusSpan, countSmall, meter, errorSmall, messageSmall, reviewBtn, stopBtn, retryBtn };
-      queueRows.set(item.key, row); $('queue').append(row);
-    }
-    row.item = item;
-    const { record, saved } = item;
-    const identity = saved?.identity || record.file;
-    const status = record?.status || saved.analysis.status;
-    const completedNow = justCompleted(row.dataset.status, status);
-    row.dataset.status = status;
-    const duration = saved?.duration || record.duration;
-    const processedUntil = record?.processedUntil ?? saved?.analysis.processedUntil ?? 0;
-    const count = saved?.clips.filter((clip) => !clip.provisional && !clip.excluded).length || 0;
-
-    const { filename, fileMeta, fileProgress, statusSpan, countSmall, meter, errorSmall, messageSmall, reviewBtn, stopBtn, retryBtn } = row.refs;
-    if (filename.textContent !== identity.name) {
-      filename.textContent = identity.name;
-      filename.title = identity.name;
-    }
-    const metaText = `${duration ? time(duration) : t('status_preparing')} · ${(identity.size / 1048576).toFixed(1)} MiB`;
-    if (fileMeta.textContent !== metaText) fileMeta.textContent = metaText;
-
-    const statusText = `${statusDict[status] || status}`;
-    if (statusSpan.textContent !== statusText) statusSpan.textContent = statusText;
-
-    const countText = `${t('source_analyzed_until', { time: time(processedUntil) })}${duration ? ` / ${time(duration)}` : ''} · ${t('source_clips_count', { count })}`;
-    if (countSmall.textContent !== countText) countSmall.textContent = countText;
-
-    const meterMax = duration > 0 ? duration : 1;
-    if (meter.max !== meterMax) meter.max = meterMax;
-    const meterVal = Math.max(0, Math.min(processedUntil, meterMax));
-    if (meter.value !== meterVal) meter.value = meterVal;
-    meter.setAttribute('aria-label', `${identity.name} ${t('status_analyzing')}`);
-    meter.setAttribute('aria-valuetext', duration > 0 ? `${t('source_analyzed_until', { time: time(processedUntil) })}, ${time(duration)}` : t('status_preparing'));
-
-    const err = record?.error || saved?.analysis.error;
-    if (err) {
-      if (!errorSmall.isConnected) fileProgress.append(errorSmall);
-      if (errorSmall.textContent !== err) errorSmall.textContent = err;
-    } else if (errorSmall.isConnected) {
-      errorSmall.remove();
-    }
-
-    if (record?.status === 'analyzing' && record.message) {
-      if (!messageSmall.isConnected) fileProgress.append(messageSmall);
-      if (messageSmall.textContent !== record.message) messageSmall.textContent = record.message;
-    } else if (messageSmall.isConnected) {
-      messageSmall.remove();
-    }
-
-    reviewBtn.hidden = !saved;
-    const reviewText = count ? t('action_review_count', { count }) : t('action_browse_source');
-    if (reviewBtn.textContent !== reviewText) reviewBtn.textContent = reviewText;
-
-    stopBtn.hidden = !record || !['preparing', 'queued', 'analyzing'].includes(status);
-    const stopText = status === 'queued' ? t('action_remove_queue') : t('action_stop');
-    if (stopBtn.textContent !== stopText) stopBtn.textContent = stopText;
-
-    retryBtn.hidden = !record || !['stopped', 'failed', 'complete'].includes(status);
-    const retryText = status === 'complete' ? t('action_reanalyze') : t('action_retry');
-    if (retryBtn.textContent !== retryText) retryBtn.textContent = retryText;
-
-    if (completedNow) taskFeedback(row, 'completed');
-    else if (record && !presentedRecords.has(record)) taskFeedback(row, 'added');
-    if (record) presentedRecords.add(record);
-  }
+  const snapshot = projectRecordingLibrary({
+    sources: view.sources,
+    records: queue.records,
+    batches: view.batches,
+    activeSourceId,
+    liveMonitor: libraryTopbarState.liveMonitor,
+    watchDirectory: libraryTopbarState.watchDirectory,
+    sortOrder: 'newest-first',
+  });
+  libraryView.render(snapshot);
 }
 function renderSources() {
   const select = $('source-select');
@@ -742,7 +684,7 @@ $('export-format').onchange = () => { outputSettings = exportSettings({ format: 
 onLanguageChange(render);
 
 // Session state is intentionally not written to browser storage.
-const shouldWarnOnLeave = () => !preview && (
+const shouldWarnOnLeave = () => !preview && !libraryPreview && (
   pendingImports.size > 0 || queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
   view.sources.some(item => item.hasUnexportedChanges) ||
   view.batches.some(batch => ['awaiting-destination', 'queued', 'running'].includes(batch.status))
@@ -905,9 +847,15 @@ if ($('copy-diagnostics')) {
   $('copy-diagnostics').onclick = () => { void copyDiagnostics(); };
 }
 $('import-files').disabled = false;
+if (libraryPreview) {
+  libraryPreviewHarness = mountLibraryPreview({
+    onNote: (message, tone) => note(message, tone),
+    createEmptyGraphic: createFrameSignal,
+  });
+}
 render();
 note(t('status_ready'), 'quiet');
-window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, switchWorkspaceMode, liveCompanion, collectDiagnostics: getDiagnosticsSnapshot, copyDiagnostics, diagnosticLog, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; }, get mode() { return workspaceMode; } };
+window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, switchWorkspaceMode, liveCompanion, libraryView, collectDiagnostics: getDiagnosticsSnapshot, copyDiagnostics, diagnosticLog, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; }, get mode() { return workspaceMode; } };
 
 if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
-else if (new URLSearchParams(location.search).get('mode') === 'live') switchWorkspaceMode('live');
+else if (!libraryPreview && new URLSearchParams(location.search).get('mode') === 'live') switchWorkspaceMode('live');
