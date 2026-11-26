@@ -315,7 +315,6 @@ pre {
 }
 #analysis-timing { max-height: 260px; overflow: auto; }
 .review-heading { margin-bottom: 12px; }
-.review-heading select { max-width: 48%; }
 .source-progress { margin: 0; overflow-wrap: anywhere; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: var(--gap); align-items: start; }
 .preview { min-width: 0; display: grid; gap: 10px; }
@@ -515,7 +514,6 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   summary { display: list-item; align-content: center; }
   .file-actions button { min-height: 44px; }
   .review-heading { gap: 10px; }
-  .review-heading select { max-width: 100%; width: 100%; }
   .player-panel { padding: 12px; }
   .player-controls { gap: 8px; }
   .playback-time { order: 3; width: 100%; }

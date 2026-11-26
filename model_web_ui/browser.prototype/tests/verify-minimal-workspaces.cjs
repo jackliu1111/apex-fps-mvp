@@ -39,11 +39,13 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       name: 'local-recording.mp4', mimeType: 'video/mp4', buffer: Buffer.from(mediaBytes),
     });
     await page.waitForFunction(() => document.querySelectorAll('#queue .file').length >= 1, null, { timeout: 120000 });
-    await page.waitForFunction(() => !document.querySelector('#nav-review').disabled, null, { timeout: 120000 });
-    assert.equal(await page.locator('#nav-review').isEnabled(), true);
+    await page.waitForFunction(() => document.querySelector('#clipping-workspace')?.dataset.layout === 'split' && !document.querySelector('#review-page').hidden, null, { timeout: 120000 });
+    assert.equal(await page.locator('#nav-review').count(), 0);
+    assert.equal(await page.locator('#source-select').count(), 0);
+    assert.equal(await page.locator('#back-analysis').count(), 0);
 
     assert.deepEqual(errors, []);
-    console.log('PASS: minimal analysis queue & export workspace layout');
+    console.log('PASS: minimal split clipping & export workspace layout');
   } finally {
     await browser.close();
   }

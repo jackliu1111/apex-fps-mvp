@@ -20,7 +20,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.goto(previewUrl('mixed'));
     await page.locator('.library-preview-banner[data-ready="true"]').waitFor({ timeout: 10000 });
 
-    assert.equal(await page.locator('#nav-analysis').textContent(), 'Recording Library');
+    assert.equal(await page.locator('#nav-analysis').textContent(), 'Clip');
     assert.equal(await page.getByRole('heading', { level: 1 }).textContent(), 'Recording Library');
     assert.equal(await page.locator('#queue .file.library-row').count(), 5);
 
@@ -95,7 +95,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 
     // 2. Toggle Chinese and verify zh copy + exact 4 merged badges
     await page.locator('#lang-toggle').click();
-    assert.equal(await page.locator('#nav-analysis').textContent(), '录像库');
+    assert.equal(await page.locator('#nav-analysis').textContent(), '选片');
     assert.equal(await page.getByRole('heading', { level: 1 }).textContent(), '录像库');
     const zhBadges = await page.locator('#queue .library-status-badge').allTextContents();
     assert.deepEqual(zhBadges, ['已就绪', '已就绪 ⚠ 粗略', '分析中 62%', '未分析', '已就绪']);

@@ -1,10 +1,22 @@
 /* Monochrome Pure-White Rounded Review Workbench:
    Neutral pure-white & soft-gray surfaces, ink-black actions, and airy light-blue timeline selection. */
 body:has(#review-page:not([hidden])) main {
-  padding: 10px 28px 10px;
+  padding: 8px 18px 10px;
 }
 body:has(#review-page:not([hidden])) .workspace-footer {
   display: none;
+}
+body:has(#review-page:not([hidden])) .review-preview-banner {
+  padding: 5px 12px;
+  margin-bottom: 6px;
+  gap: 6px 12px;
+  font-size: 11.5px;
+}
+body:has(#review-page:not([hidden])) .review-preview-banner select,
+body:has(#review-page:not([hidden])) .review-preview-banner button {
+  min-height: 24px;
+  padding: 1px 8px;
+  font-size: 11.5px;
 }
 body:has(#review-page:not([hidden])) .workspace-status {
   position: fixed;
@@ -44,6 +56,190 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   pointer-events: none;
 }
 
+/* Split-Pane Local Clipping Workspace (ADR 0010): Left Recording Library Sidebar + Right Clip Review */
+.clipping-workspace[data-layout="split"] {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  min-width: 0;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page > .page-heading,
+.clipping-workspace[data-layout="split"] > #analysis-page #library-topbar-slots {
+  display: none;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .analysis-layout {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .queue-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: calc(100dvh - 76px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+}
+body:has(.review-preview-banner) .clipping-workspace[data-layout="split"] > #analysis-page .queue-panel {
+  max-height: calc(100dvh - 118px);
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .queue-panel > .panel-heading {
+  padding: 10px 12px;
+  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  flex: none;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .heading-label {
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page h2 {
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page #queue-count {
+  padding: 1px 8px;
+  font-size: 11px;
+  flex: none;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .queue-heading-actions {
+  width: 100%;
+  margin-left: 0;
+  gap: 6px;
+  flex: none;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page #import-files {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  gap: 5px;
+  white-space: nowrap;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page #import-files > span:first-child {
+  font-size: 13px;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page #drop-zone {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 8px;
+  align-content: start;
+  scrollbar-width: thin;
+  scrollbar-color: var(--control) transparent;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .file.library-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "meta status"
+    "title title"
+    "summary summary";
+  align-items: center;
+  gap: 3px 6px;
+  padding: 8px 10px;
+  margin: 0 0 4px;
+  border: 1px solid transparent;
+  border-top: 1px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  background: transparent;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .file.library-row:last-child {
+  margin-bottom: 0;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .file.library-row:hover {
+  margin-inline: 0;
+  padding-inline: 10px;
+  background: var(--ground);
+  border-color: var(--border);
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .file.library-row[data-status="analyzing"] {
+  margin-inline: 0;
+  padding-inline: 10px;
+  border-left-width: 1px;
+  border-color: rgba(59, 130, 246, 0.2);
+  background: #fafafa;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .file.library-row.is-selected,
+.clipping-workspace[data-layout="split"] > #analysis-page .file.library-row[data-selected="true"] {
+  margin-inline: 0;
+  padding-inline: 10px;
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.34);
+  box-shadow: inset 3px 0 0 var(--selection-handle-hover);
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .file.library-row:focus-visible {
+  outline: 2px solid var(--selection-handle-hover);
+  outline-offset: -2px;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-row-identity {
+  display: contents;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-meta {
+  grid-area: meta;
+  font-size: 11px;
+  color: var(--faint);
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-row-status {
+  grid-area: status;
+  justify-content: flex-end;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-status-badge {
+  padding: 1px 7px;
+  font-size: 11px;
+  gap: 5px;
+  line-height: 1.35;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-title-line {
+  grid-area: title;
+  gap: 6px;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-filename {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-row-summary {
+  grid-area: summary;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .library-summary-text {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .queue-footer {
+  padding: 7px 12px;
+  flex: none;
+  flex-wrap: nowrap;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .queue-footer > span:first-child {
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.clipping-workspace[data-layout="split"] > #analysis-page .queue-footer > span:last-child {
+  display: none;
+}
+
+.clipping-workspace[data-layout="split"] > #review-page {
+  min-width: 0;
+}
+
 #review-page .review-heading,
 #review-page .notice,
 #review-page .workspace {
@@ -55,38 +251,28 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 16px;
-  margin-bottom: 8px;
-  min-height: 34px;
+  gap: 8px 12px;
+  margin-bottom: 6px;
+  min-height: 32px;
   min-width: 0;
 }
 #review-page .review-title-group {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 10px 12px;
+  gap: 8px 10px;
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
 }
-#review-page #back-analysis {
-  flex: none;
-  width: 32px;
-  min-height: 32px;
-  background: var(--surface);
-  border-color: var(--control);
-  border-radius: var(--radius-pill);
-  font-size: 15px;
-  color: var(--text);
-}
-#review-page #back-analysis:hover:not(:disabled) {
-  background: var(--surface-low);
-  border-color: #a1a1aa;
-  color: #09090b;
-}
-#review-page h1 {
-  flex: none;
-  font-size: 17px;
+#review-page h1,
+#review-page #review-source-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 15.5px;
   font-weight: 650;
   white-space: nowrap;
   color: var(--text);
@@ -94,25 +280,37 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 #review-page #review-progress {
   margin: 0;
   min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow-wrap: normal;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
 }
-#review-page #source-select {
-  flex: 0 1 clamp(240px, 22vw, 420px);
-  max-width: clamp(240px, 22vw, 420px);
-  min-width: 0;
-  min-height: 32px;
-  padding: 3px 12px;
-  background: var(--surface);
-  border-color: var(--control);
-  border-radius: var(--radius-control);
-  font-size: 13px;
-  color: var(--text);
-  text-overflow: ellipsis;
+#review-page .review-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+#review-page .review-primary-action {
+  min-height: 30px;
+  padding: 3px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#review-page .review-primary-action-warning {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+#review-page .review-primary-action-warning:hover:not(:disabled) {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #78350f;
 }
 
 #review-page .workspace { display: block; }
@@ -128,7 +326,7 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 }
 #review-page .player-frame {
   position: relative;
-  margin: 12px 14px 0;
+  margin: 10px 14px 0;
   border-radius: 0;
   border: 0;
   background: transparent;
@@ -139,12 +337,15 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 }
 #review-page .player-stage {
   position: relative;
-  height: clamp(360px, max(calc(44dvh + 16px), calc(28vw + 10px)), calc((100vw - 84px) * 9 / 16));
+  height: clamp(230px, calc(100dvh - 412px), calc((100vw - 320px) * 9 / 16));
   width: 100%;
   background: #141619;
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   overflow: hidden;
+}
+body:has(.review-preview-banner) #review-page .player-stage {
+  height: clamp(200px, calc(100dvh - 456px), calc((100vw - 320px) * 9 / 16));
 }
 #review-page #source-canvas {
   width: 100%;
@@ -615,21 +816,29 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
-  gap: 6px 10px;
-  margin-bottom: 8px;
+  gap: 4px 8px;
+  margin-bottom: 6px;
+  min-width: 0;
 }
 .timeline-tools-left,
 .timeline-tools-right {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
 }
-@media (max-width: 1120px) {
+.timeline-tools-left {
+  flex: 1 1 auto;
+}
+.timeline-tools-right {
+  flex: none;
+}
+@media (max-width: 1200px) {
   .timeline-toolbar {
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 5px;
   }
   .timeline-tools-left,
   .timeline-tools-right {
@@ -638,9 +847,9 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   }
 }
 .timeline-toolbar button {
-  min-height: 26px;
-  padding: 2px 8px;
-  font-size: 12px;
+  min-height: 25px;
+  padding: 2px 6px;
+  font-size: 11.5px;
   font-weight: 550;
   border-radius: 8px;
   border-color: var(--control);
@@ -648,6 +857,7 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   color: #3f3f46;
   box-shadow: none;
   white-space: nowrap;
+  flex: none;
 }
 .timeline-toolbar button:hover:not(:disabled) {
   background: #f4f4f5;
@@ -661,9 +871,13 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   opacity: 0.7;
 }
 #selection-readout {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--muted);
   margin-right: 2px;
+  min-width: 0;
+  max-width: clamp(110px, 14vw, 220px);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 #selection-readout[data-active="true"] {
@@ -702,13 +916,18 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
 .show-excluded-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-left: 4px;
+  gap: 4px;
+  margin-left: 2px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11.5px;
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  flex: none;
+}
+.show-excluded-toggle input {
+  width: 14px;
+  height: 14px;
 }
 .show-excluded-toggle:hover { color: var(--text); }
 .scope-pill {
@@ -1271,9 +1490,10 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
   box-shadow: none;
 }
 
-@media (min-aspect-ratio: 17 / 10) and (min-width: 960px) {
-  #review-page .player-stage {
-    height: clamp(420px, max(calc(54dvh + 32px), calc(34vw + 32px)), calc((100vw - 84px) * 9 / 16));
+@media (max-width: 1360px) and (min-width: 901px) {
+  .clipping-workspace[data-layout="split"] {
+    grid-template-columns: 244px minmax(0, 1fr);
+    gap: 12px;
   }
 }
 @media (min-width: 1800px) and (min-height: 980px) {
@@ -1286,7 +1506,17 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
 }
 @media (max-width: 900px) {
   body:has(#review-page:not([hidden])) main {
-    padding: 10px 18px 16px;
+    padding: 10px 16px 16px;
+  }
+  .clipping-workspace[data-layout="split"] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .clipping-workspace[data-layout="split"] > #analysis-page .queue-panel {
+    max-height: 220px;
+  }
+  #review-page .player-stage {
+    height: clamp(220px, 38dvh, 360px);
   }
   #review-page .player-controls {
     flex-wrap: nowrap;
@@ -1323,7 +1553,7 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
 }
 @media (max-width: 640px) {
   #review-page .review-heading { flex-direction: column; align-items: stretch; }
-  #review-page #source-select { flex: none; width: 100%; max-width: 100%; }
+  #review-page #review-source-title { max-width: 100%; }
   #review-page .player-stage { height: 210px; }
   #review-page .player-frame { margin: 10px 10px 0; }
   #review-page .player-controls { flex-wrap: wrap; padding: 8px 0; }

@@ -287,6 +287,14 @@ export function createRecordingLibraryView({
       row.append(identity, statusWrap, summaryWrap, actionsWrap);
       actionsRefs = { actionsWrap, reviewBtn, reanalyzeBtn, analyzeBtn, stopBtn };
     } else {
+      row.setAttribute('role', 'option');
+      row.setAttribute('tabindex', '0');
+      row.onkeydown = (event) => {
+        if (event?.key === 'Enter' || (event?.key === ' ' && !row._item?.selected)) {
+          event.preventDefault?.();
+          triggerSelect();
+        }
+      };
       row.append(identity, statusWrap, summaryWrap);
     }
 
@@ -310,6 +318,9 @@ export function createRecordingLibraryView({
     row.dataset.reviewable = String(Boolean(item.canReview));
     row.dataset.selected = String(Boolean(item.selected));
     row.classList.toggle('is-selected', Boolean(item.selected));
+    if (!showActions) {
+      row.setAttribute('aria-selected', String(Boolean(item.selected)));
+    }
 
     const { filename, newBadge, meta, statusBadge, summaryText, actionsRefs } = row._refs;
 
@@ -375,6 +386,7 @@ export function createRecordingLibraryView({
     if (!listContainer) return;
 
     if (items.length === 0) {
+      if (!showActions) listContainer.removeAttribute?.('role');
       for (const row of rowsById.values()) row.remove();
       rowsById.clear();
       const empty = ensureEmptyState();
@@ -382,6 +394,10 @@ export function createRecordingLibraryView({
         listContainer.replaceChildren(empty);
       }
       return;
+    }
+
+    if (!showActions) {
+      listContainer.setAttribute?.('role', 'listbox');
     }
 
     const nextIds = new Set(items.map((item) => item.id));

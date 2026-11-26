@@ -24,8 +24,7 @@
       </div>
       <nav id="offline-nav" class="navigation" aria-label="Workspace" data-i18n-aria="nav_aria">
         <a href="landing.html" class="nav-portal-link" data-i18n="nav_portal">✦ Portal</a>
-        <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Recording Library</button>
-        <button id="nav-review" disabled data-i18n="nav_review">Review</button>
+        <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Clip</button>
         <button id="nav-exports" data-i18n="nav_exports">Exports</button>
       </nav>
       <div class="session-notice" data-i18n="session_notice">Re-import videos after refresh or close</div>
@@ -36,6 +35,7 @@
   <main id="main" tabindex="-1">
     <p id="status" class="workspace-status" role="status" aria-live="polite" data-i18n="status_ready">Workspace ready</p>
     <div id="live-workspace" hidden></div>
+    <div id="clipping-workspace" class="clipping-workspace" data-layout="empty">
     <div id="analysis-page">
       <div class="page-heading">
         <div><h1 data-i18n="page_heading">Recording Library</h1><p class="intro" data-i18n="page_intro">View manual imports and auto-intake match recordings in one session list, and open ready footage for review.</p></div>
@@ -44,7 +44,7 @@
       <div class="analysis-layout">
         <section class="panel queue-panel" aria-labelledby="queue-heading">
           <div class="panel-heading library-topbar">
-            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Session Recordings</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
+            <div class="heading-label"><h2 id="queue-heading" data-i18n="queue_heading">Recordings</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
             <div class="row queue-heading-actions">
               <div id="library-topbar-slots" class="library-topbar-slots">
                 <div class="library-slot library-live-slot" data-slot="live-monitor" data-live-status="off">
@@ -71,8 +71,8 @@
     </div>
     <div id="review-page" hidden>
       <div class="page-heading review-heading">
-        <div class="row review-title-group"><button id="back-analysis" class="icon-button" aria-label="Back to recording library" data-i18n-aria="back_to_analysis">←</button><h1 data-i18n="review_heading">Clip Review</h1><p id="review-progress" class="muted source-progress"></p><span id="new-candidates" class="badge" aria-live="polite"></span></div>
-        <select id="source-select" aria-label="Currently reviewed recording" data-i18n-aria="select_recording_aria"></select>
+        <div class="row review-title-group"><h1 id="review-source-title" data-i18n="review_heading">Clip Review</h1><p id="review-progress" class="muted source-progress"></p><span id="new-candidates" class="badge" aria-live="polite"></span></div>
+        <div class="review-header-actions"><button id="review-primary-action" class="review-primary-action" type="button" hidden></button></div>
       </div>
       <div class="workspace">
         <section class="panel player-panel review-workbench" aria-label="Source playback & timeline" data-i18n-aria="player_panel_aria">
@@ -155,6 +155,7 @@
           </div>
         </section>
       </div>
+    </div>
     </div>
     <section id="exports-section" hidden class="panel exports-panel" aria-labelledby="exports-heading">
       <div class="panel-heading"><div class="heading-label"><h2 id="exports-heading" data-i18n="exports_heading">Export Tasks</h2><span id="export-count" class="count" data-i18n="export_count" data-i18n-count="0">0 batches</span></div><div class="row"><button id="choose-directory" data-i18n="choose_directory">Choose Output Folder</button></div></div>

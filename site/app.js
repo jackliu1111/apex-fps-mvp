@@ -1,7 +1,18 @@
 import { preview, mountReviewPreview, renderReviewPreview } from './review-preview.mjs';
-import { projectRecordingLibrary } from './recording-library-projection.mjs';
+import { projectRecordingLibrary, extractBasename } from './recording-library-projection.mjs';
 import { createRecordingLibraryView } from './recording-library-view.mjs';
 import { isLibraryPreview, mountLibraryPreview } from './recording-library-preview.mjs';
+import {
+  resolveReviewPrimaryAction,
+  dispatchReviewPrimaryAction,
+  resolveClippingLayout,
+  reconcileSplitSelection,
+} from './split-workspace-controller.mjs';
+import {
+  isWorkspacePreview,
+  mountSplitWorkspacePreview,
+  renderWorkspacePreviewCanvas,
+} from './split-workspace-preview.mjs';
 import { createSelectionTimeline, selectionWindow } from './selection-timeline.mjs';
 import { batchSummary, justCompleted, taskFeedback, createFrameSignal } from './task-feedback.mjs';
 import * as MB from '/assets/vendor/mediabunny.mjs';
@@ -19,6 +30,7 @@ import { createDiagnosticLog, collectDiagnostics, copyTextToClipboard } from './
 
 const $ = (id) => document.getElementById(id);
 const libraryPreview = isLibraryPreview();
+const workspacePreview = isWorkspacePreview();
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Map();
 const batchRows = new Map();
 const seenCandidates = new Map();
@@ -26,41 +38,39 @@ const startingExports = new Set();
 const recordedErrors = new Map();
 const diagnosticLog = createDiagnosticLog();
 diagnosticLog.attachGlobalListeners(window);
-let workspaceMode = 'offline', liveCompanion = null, libraryPreviewHarness = null;
-let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
+let workspaceMode = 'offline', liveCompanion = null, libraryPreviewHarness = null, workspacePreviewHarness = null;
+let currentPage = 'clipping', activeSourceId = null, activeRecordId = null;
+let playerSourceId = null, playerLoadedFile = null, pendingLoadSourceId = null, pendingLoadFile = null;
+let loadingSource = false, loadToken = 0;
 let directoryHandle = null, exportQueue, selectionTimeline;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
+let latestLibrarySnapshot = null;
 const libraryTopbarState = {
   liveMonitor: { status: 'off' },
   watchDirectory: { status: 'unset', name: null },
 };
 
-const getStatuses = () => ({
-  preparing: t('status_preparing'),
-  queued: t('status_queued'),
-  analyzing: t('status_analyzing'),
-  complete: t('status_completed'),
-  completed: t('status_completed'),
-  stopped: t('status_stopped'),
-  failed: t('status_failed'),
-  interrupted: t('status_interrupted')
-});
-
 const time = (seconds = 0) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
 const errorText = (error) => error?.message || String(error);
 const source = () => view.sources.find((item) => item.id === activeSourceId);
 const selectedClip = () => source()?.clips.find((clip) => clip.id === source().review.selectedClipId && !clip.excluded);
+const reportedPage = () => {
+  if (currentPage === 'exports') return 'exports';
+  const itemCount = latestLibrarySnapshot?.items.length ?? (view.sources.length + queue.records.length);
+  return !libraryPreview && itemCount > 0 ? 'review' : 'analysis';
+};
 let noteTimer = null;
 const note = (message, tone = 'info') => {
   if (tone === 'error') diagnosticLog.record('ui.error', message);
+  const pageKey = reportedPage();
   $('status').textContent = message;
   $('status').dataset.tone = tone;
-  $('status').dataset.page = currentPage;
+  $('status').dataset.page = pageKey;
   $('status').hidden = false;
   clearTimeout(noteTimer);
-  if (currentPage === 'review') {
+  if (pageKey === 'review') {
     noteTimer = setTimeout(() => {
-      if (currentPage === 'review') $('status').hidden = true;
+      if (reportedPage() === 'review') $('status').hidden = true;
     }, tone === 'error' ? 6000 : 3500);
   }
 };
@@ -244,31 +254,131 @@ async function importFiles(files, options = {}) {
   if (failures.length) note(t('note_import_failed', { list: failures.join('; ') }), 'error');
   else if ($('status').textContent === importMessage) note(t('note_files_added'), 'quiet');
 }
-async function openReview(id) {
-  if (!view.sources.some((item) => item.id === id)) return;
-  if (currentPage === 'review') player.pause();
-  activeSourceId = id; currentPage = 'review';
-  seenCandidates.set(id, workspace.getSource(id).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
-  render();
-  const record = bindings.get(id), token = ++loadToken;
-  playerSourceId = null; loadingSource = true;
+function buildLibrarySnapshot(selectedId = activeSourceId) {
+  const combinedRecords = [...queue.records];
+  const seenSourceIds = new Set(combinedRecords.map((record) => record?.sourceId).filter(Boolean));
+  for (const [sourceId, record] of bindings) {
+    if (record && !seenSourceIds.has(sourceId)) {
+      combinedRecords.push(record);
+      seenSourceIds.add(sourceId);
+    }
+  }
+  return projectRecordingLibrary({
+    sources: view.sources,
+    records: combinedRecords,
+    batches: view.batches,
+    activeSourceId: selectedId,
+    liveMonitor: libraryTopbarState.liveMonitor,
+    watchDirectory: libraryTopbarState.watchDirectory,
+    sortOrder: 'newest-first',
+  });
+}
+
+async function loadActiveSource(targetId, { forceDispose = false } = {}) {
+  const record = targetId ? bindings.get(targetId) : null;
+  const token = ++loadToken;
+  if (!record || !record.file) {
+    playerSourceId = null;
+    playerLoadedFile = null;
+    pendingLoadSourceId = null;
+    pendingLoadFile = null;
+    loadingSource = false;
+    $('source-canvas').getContext('2d').clearRect(0, 0, $('source-canvas').width, $('source-canvas').height);
+    if (forceDispose || !record?.isPreviewMock) {
+      try { await player.dispose(); } catch (_) {}
+    }
+    if (token === loadToken) renderPlayer();
+    return;
+  }
+  player.pause();
+  playerSourceId = null;
+  playerLoadedFile = null;
+  pendingLoadSourceId = targetId;
+  pendingLoadFile = record.file;
+  loadingSource = true;
   $('source-canvas').getContext('2d').clearRect(0, 0, $('source-canvas').width, $('source-canvas').height);
+  renderPlayer();
   try {
-    if (record) {
-      const saved = workspace.getSource(id);
-      await player.load({ file: record.file, origin: record.origin, duration: record.duration, position: saved.review.position });
-    } else await player.dispose();
+    const saved = workspace.getSource(targetId);
+    await player.load({ file: record.file, origin: record.origin, duration: record.duration, position: saved.review.position });
     if (token !== loadToken) return;
-    playerSourceId = record ? id : null;
-  } catch (error) { if (token === loadToken) note(errorText(error)); }
-  finally { if (token === loadToken) { loadingSource = false; renderPlayer(); } }
+    playerSourceId = targetId;
+    playerLoadedFile = record.file;
+  } catch (error) {
+    if (token === loadToken) note(errorText(error));
+  } finally {
+    if (token === loadToken) {
+      pendingLoadSourceId = null;
+      pendingLoadFile = null;
+      loadingSource = false;
+      renderPlayer();
+    }
+  }
 }
+
+async function openReview(id) {
+  const snapshot = buildLibrarySnapshot();
+  const hasItem = snapshot.items.some((item) => item.id === id) || view.sources.some((item) => item.id === id);
+  if (!hasItem) return;
+
+  const wasExports = currentPage === 'exports';
+  currentPage = 'clipping';
+
+  const effectiveLoadedId = loadingSource ? pendingLoadSourceId : playerSourceId;
+  const effectiveLoadedFile = loadingSource ? pendingLoadFile : playerLoadedFile;
+  const rec = reconcileSplitSelection({
+    items: snapshot.items,
+    activeSourceId,
+    activeRecordId,
+    requestedSourceId: id,
+    loadedSourceId: effectiveLoadedId,
+    loadedFile: effectiveLoadedFile,
+    getFileForId: (sourceId) => bindings.get(sourceId)?.file || null,
+  });
+
+  const switched = rec.activeSourceId !== activeSourceId;
+  activeSourceId = rec.activeSourceId;
+  activeRecordId = rec.activeRecordId;
+
+  if (activeSourceId && view.sources.some((item) => item.id === activeSourceId)) {
+    seenCandidates.set(activeSourceId, workspace.getSource(activeSourceId).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
+  }
+  if (switched && !wasExports) {
+    player.pause();
+  }
+  render();
+  if (rec.shouldReloadPlayer) {
+    await loadActiveSource(activeSourceId);
+  } else if (rec.shouldDisposePlayer) {
+    await loadActiveSource(activeSourceId, { forceDispose: true });
+  } else {
+    renderPlayer();
+  }
+}
+
 function showAnalysis() {
-  player.pause(); loadToken++; loadingSource = false; currentPage = 'analysis'; selectionTimeline?.suspend(); render();
+  const wasExports = currentPage === 'exports';
+  currentPage = 'clipping';
+  render();
+  if (wasExports && activeSourceId && !loadingSource) {
+    const record = bindings.get(activeSourceId);
+    if (record?.file && (playerSourceId !== activeSourceId || playerLoadedFile !== record.file)) {
+      void loadActiveSource(activeSourceId);
+    }
+  }
 }
+
 function showExports() {
-  player.pause(); loadToken++; loadingSource = false; currentPage = 'exports'; selectionTimeline?.suspend(); render();
+  player.pause();
+  loadToken++;
+  loadingSource = false;
+  pendingLoadSourceId = null;
+  pendingLoadFile = null;
+  currentPage = 'exports';
+  selectionTimeline?.suspend();
+  render();
 }
+
 function findLibraryRecord(id, item) {
   return bindings.get(id) || queue.records.find((record) => record.id === item?.recordId || record.sourceId === id) || null;
 }
@@ -279,64 +389,25 @@ const libraryView = createRecordingLibraryView({
   countNode: $('queue-count'),
   summaryNode: $('queue-summary'),
   pageNode: $('analysis-page'),
+  showActions: false,
+  showSize: false,
   createEmptyGraphic: createFrameSignal,
   onReview: (id) => safely(() => openReview(id)),
   onSelect: (id) => safely(() => openReview(id)),
-  onAnalyze: (id, item) => safely(() => {
-    const record = findLibraryRecord(id, item);
-    if (record) return queue.retry(record.id);
-  }),
-  onReanalyze: (id, item) => safely(() => {
-    const record = findLibraryRecord(id, item);
-    if (record) {
-      record.alignment = null;
-      return queue.retry(record.id);
-    }
-  }),
-  onStop: (id, item) => safely(() => {
-    const record = findLibraryRecord(id, item);
-    if (record) return queue.stop(record.id);
-  }),
   onToggleLiveMonitor: () => note(t('library_slot_live_placeholder'), 'info'),
   onChooseWatchDirectory: () => note(t('library_slot_watch_placeholder'), 'info'),
   onRowTransition: (row, kind) => taskFeedback(row, kind),
 });
 
-function renderQueue() {
-  if (libraryPreview && libraryPreviewHarness) {
-    libraryPreviewHarness.rerender();
-    return;
-  }
-  const snapshot = projectRecordingLibrary({
-    sources: view.sources,
-    records: queue.records,
-    batches: view.batches,
-    activeSourceId,
-    liveMonitor: libraryTopbarState.liveMonitor,
-    watchDirectory: libraryTopbarState.watchDirectory,
-    sortOrder: 'newest-first',
-  });
-  libraryView.render(snapshot);
-}
-function renderSources() {
-  const select = $('source-select');
-  const ids = view.sources.map((item) => item.id);
-  if ([...select.options].map((option) => option.value).join('|') !== ids.join('|')) {
-    select.replaceChildren(...view.sources.map((item) => new Option(item.identity.name, item.id)));
-  }
-  if (activeSourceId && !ids.includes(activeSourceId)) {
-    activeSourceId = ids[0] || null;
-  }
-  select.value = activeSourceId || '';
-}
 function selectRange(clip, jump = true) {
-  const shouldMove = jump && (bindings.has(activeSourceId) || preview);
+  const hasMedia = Boolean(bindings.get(activeSourceId)?.file);
+  const shouldMove = jump && (hasMedia || preview || workspacePreview);
   workspace.setReview(activeSourceId, {
     selectedClipId: clip.id,
     ...selectionWindow(source().duration, clip),
     ...(shouldMove ? { position: clip.start } : {}),
   });
-  if (jump && bindings.has(activeSourceId)) return player.seek(clip.start);
+  if (jump && hasMedia) return player.seek(clip.start);
 }
 function renderRange(saved) {
   const clip = selectedClip(), valid = !!clip && !clip.provisional;
@@ -353,9 +424,11 @@ function renderRange(saved) {
   }
 }
 function renderPlayer() {
-  if (currentPage === 'review') selectionTimeline?.render(source());
-  const saved = source(); if (!saved) return;
-  const bound = bindings.has(saved.id);
+  const saved = source();
+  if (currentPage === 'clipping' && saved && !$('review-page').hidden) selectionTimeline?.render(saved);
+  if (!saved) return;
+  const record = bindings.get(saved.id);
+  const bound = Boolean(record?.file);
   $('play-pause').disabled = !bound || loadingSource || playerState.status === 'loading' || playerState.status === 'error';
   $('play-pause').textContent = playerState.playing ? t('pause') : t('play');
   const clip = selectedClip();
@@ -382,22 +455,83 @@ function renderPlayer() {
     fsBtn.title = isFull ? t('exit_fullscreen_title') : t('fullscreen_title');
     fsBtn.setAttribute('aria-label', fsBtn.title);
   }
-  $('player-status').textContent = !bound ? t('player_select_hint') : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? (getLang() === 'zh' ? '正在准备该位置…' : 'Preparing position...') : playerState.status === 'error' ? playerState.error : '';
+  if (record?.isPreviewMock) {
+    renderWorkspacePreviewCanvas(saved, record);
+    $('player-status').textContent = '';
+  } else {
+    $('player-status').textContent = !bound ? t('player_select_hint') : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? (getLang() === 'zh' ? '正在准备该位置…' : 'Preparing position...') : playerState.status === 'error' ? playerState.error : '';
+  }
   renderReviewPreview(saved, bound);
 }
-function renderReview() {
+function formatReviewProgressText(saved, activeItem) {
+  if (!saved) return t('review_preparing_source');
+  const status = activeItem?.status || 'unanalyzed';
+  const total = time(saved.duration);
+  if (status === 'ready') return t('review_progress_compact_ready', { total });
+  if (status === 'conformed-coarse') return t('review_progress_compact_coarse', { total });
+  if (status === 'analyzing') {
+    return t('review_progress_compact_analyzing', {
+      percent: activeItem?.progressPercent ?? 0,
+      current: time(saved.analysis.processedUntil),
+      total,
+    });
+  }
+  return t('review_progress_compact_unanalyzed', { total });
+}
+function renderReviewPrimaryAction(activeItem) {
+  const btn = $('review-primary-action');
+  if (!btn) return;
+  const action = resolveReviewPrimaryAction(activeItem);
+  if (!action) {
+    btn.hidden = true;
+    btn.disabled = false;
+    btn.dataset.action = '';
+    btn.dataset.tone = '';
+    btn.textContent = '';
+    return;
+  }
+  btn.hidden = false;
+  btn.disabled = action.disabled;
+  btn.dataset.action = action.kind;
+  btn.dataset.tone = action.tone;
+  btn.className = action.tone === 'primary'
+    ? 'primary review-primary-action'
+    : action.tone === 'warning'
+      ? 'review-primary-action review-primary-action-warning'
+      : 'quiet review-primary-action';
+  btn.textContent = t(action.labelKey);
+}
+function renderReview(activeItem = null) {
   const saved = source();
-  if (!saved) return;
+  const titleNode = $('review-source-title');
+  const displayName = activeItem?.filename || extractBasename(saved?.identity?.name || '') || t('review_heading');
+  if (titleNode) {
+    if (titleNode.textContent !== displayName) titleNode.textContent = displayName;
+    if (titleNode.title !== displayName) titleNode.title = displayName;
+  }
+  renderReviewPrimaryAction(activeItem);
+  $('review-progress').textContent = formatReviewProgressText(saved, activeItem);
+
+  if (!saved) {
+    if ($('new-candidates')) $('new-candidates').textContent = '';
+    $('selection-summary').textContent = '';
+    $('export').disabled = true;
+    $('play-pause').disabled = true;
+    $('play-selection').disabled = true;
+    $('prev-candidate').disabled = true;
+    $('next-candidate').disabled = true;
+    $('player-status').textContent = t('review_preparing_source');
+    return;
+  }
   const record = bindings.get(saved.id), selected = saved.clips.filter((clip) => clip.selected && !clip.provisional);
-  const analyzing = ['analyzing', 'queued', 'preparing'].includes(saved.analysis.status);
-  $('review-progress').textContent = t('review_progress_text', { name: saved.identity.name, current: time(saved.analysis.processedUntil), total: time(saved.duration), status: getStatuses()[saved.analysis.status] || saved.analysis.status, analyzing: analyzing ? t('analyzing_ongoing') : '' });
   const added = saved.clips.filter((clip) => !clip.provisional && !clip.excluded).length - (seenCandidates.get(saved.id) || 0);
   if ($('new-candidates')) $('new-candidates').textContent = added > 0 ? t('new_candidates_badge', { count: added }) : '';
   const selectionSummary = t('selection_summary_text', { count: selected.length, duration: selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2), unexported: saved.hasUnexportedChanges ? t('unexported_changes_tag') : '' });
   if ($('selection-summary').textContent !== selectionSummary) $('selection-summary').textContent = selectionSummary;
-  $('export').disabled = !selected.length || !record;
+  $('export').disabled = !selected.length || !record?.file;
   $('export').textContent = t('submit_export');
-  renderRange(saved); renderPlayer();
+  renderRange(saved);
+  renderPlayer();
 }
 function renderExports() {
   const batchStatusMap = {
@@ -521,32 +655,82 @@ function render() {
   if ($('mode-live')) $('mode-live').setAttribute('aria-pressed', String(isLive));
   if ($('offline-nav')) $('offline-nav').hidden = isLive;
   if ($('live-workspace')) $('live-workspace').hidden = !isLive;
+  const clippingWorkspace = $('clipping-workspace');
   if (isLive) {
+    if (clippingWorkspace) clippingWorkspace.hidden = true;
     $('analysis-page').hidden = true;
     $('review-page').hidden = true;
     $('exports-section').hidden = true;
     $('status').hidden = true;
     return;
   }
-  $('exports-section').hidden = currentPage !== 'exports';
-  $('nav-exports').setAttribute('aria-current', currentPage === 'exports' ? 'page' : 'false');
+
+  const baseSnapshot = libraryPreview ? null : buildLibrarySnapshot();
+  const layout = resolveClippingLayout({
+    page: currentPage,
+    workspaceMode,
+    itemCount: baseSnapshot ? baseSnapshot.items.length : 0,
+    forceStandaloneLibrary: libraryPreview,
+  });
+
+  $('exports-section').hidden = layout !== 'exports';
+  if (clippingWorkspace) {
+    clippingWorkspace.hidden = layout === 'exports';
+    clippingWorkspace.dataset.layout = layout === 'split' ? 'split' : 'empty';
+  }
+  $('analysis-page').hidden = layout === 'exports';
+  $('review-page').hidden = layout !== 'split';
+
+  $('nav-exports').setAttribute('aria-current', layout === 'exports' ? 'page' : 'false');
   const activeExports = view.batches.filter((batch) => ['awaiting-destination', 'queued', 'running'].includes(batch.status)).length;
   $('nav-exports').textContent = activeExports ? t('nav_exports_badge', { count: activeExports }) : t('nav_exports');
-  $('analysis-page').hidden = currentPage !== 'analysis'; $('review-page').hidden = currentPage !== 'review';
-  $('status').hidden = $('status').dataset.page !== currentPage && $('status').dataset.tone !== 'error';
-  $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
-  $('nav-review').setAttribute('aria-current', currentPage === 'review' ? 'page' : 'false'); $('nav-review').disabled = !view.sources.length;
-  $('drop-zone').setAttribute('aria-disabled', String(currentPage !== 'analysis'));
-  if (currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
+  $('nav-analysis').setAttribute('aria-current', layout !== 'exports' ? 'page' : 'false');
 
-  if (currentPage === 'analysis') {
-    renderQueue();
-  } else if (currentPage === 'review') {
-    renderSources();
-    renderReview();
-  } else if (currentPage === 'exports') {
+  const canDrop = layout === 'empty' || layout === 'split' || layout === 'standalone-library';
+  $('drop-zone').setAttribute('aria-disabled', String(!canDrop));
+  if (!canDrop) $('drop-zone').classList.remove('drag-over');
+
+  if (layout === 'standalone-library') {
+    latestLibrarySnapshot = libraryPreviewHarness ? libraryPreviewHarness.rerender() : null;
+  } else if (layout === 'split') {
+    const effectiveLoadedId = loadingSource ? pendingLoadSourceId : playerSourceId;
+    const effectiveLoadedFile = loadingSource ? pendingLoadFile : playerLoadedFile;
+    const rec = reconcileSplitSelection({
+      items: baseSnapshot.items,
+      activeSourceId,
+      activeRecordId,
+      loadedSourceId: effectiveLoadedId,
+      loadedFile: effectiveLoadedFile,
+      getFileForId: (sourceId) => bindings.get(sourceId)?.file || null,
+    });
+    activeSourceId = rec.activeSourceId;
+    activeRecordId = rec.activeRecordId;
+    if (rec.changed && activeSourceId && view.sources.some((item) => item.id === activeSourceId) && !seenCandidates.has(activeSourceId)) {
+      seenCandidates.set(activeSourceId, workspace.getSource(activeSourceId).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
+    }
+    latestLibrarySnapshot = buildLibrarySnapshot(activeSourceId);
+    const activeItem = latestLibrarySnapshot.items.find((item) => item.id === activeSourceId) || rec.activeItem;
+    libraryView.render(latestLibrarySnapshot);
+    renderReview(activeItem);
+    if (rec.shouldReloadPlayer) {
+      void loadActiveSource(activeSourceId);
+    } else if (rec.shouldDisposePlayer) {
+      void loadActiveSource(activeSourceId, { forceDispose: true });
+    }
+  } else if (layout === 'empty') {
+    latestLibrarySnapshot = baseSnapshot;
+    const hadLoaded = playerSourceId !== null || loadingSource;
+    activeSourceId = null;
+    activeRecordId = null;
+    libraryView.render(baseSnapshot);
+    if (hadLoaded) void loadActiveSource(null, { forceDispose: true });
+  } else if (layout === 'exports') {
+    latestLibrarySnapshot = baseSnapshot;
     renderExports();
   }
+
+  const pageKey = reportedPage();
+  $('status').hidden = $('status').dataset.page !== pageKey && $('status').dataset.tone !== 'error';
 }
 
 $('export').onclick = () => safely(submitExport);
@@ -554,7 +738,7 @@ $('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) =>
 $('import-files').onclick = () => { $('files').click(); };
 $('drop-zone').addEventListener('click', (event) => {
   if (event.target.closest('button')) return;
-  if (currentPage === 'analysis' && !$('import-files').disabled && event.target.closest('.empty')) {
+  if (currentPage === 'clipping' && !$('import-files').disabled && event.target.closest('.empty')) {
     $('import-files').click();
   }
 });
@@ -563,7 +747,7 @@ const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includ
 document.addEventListener('dragover', (event) => {
   if (!isFileDrag(event)) return;
   event.preventDefault();
-  const canImport = currentPage === 'analysis' && $('drop-zone').contains(event.target);
+  const canImport = workspaceMode === 'offline' && currentPage === 'clipping' && $('drop-zone').contains(event.target);
   event.dataTransfer.dropEffect = canImport ? 'copy' : 'none';
   $('drop-zone').classList.toggle('drag-over', canImport);
 });
@@ -574,14 +758,25 @@ document.addEventListener('drop', (event) => {
   if (!isFileDrag(event)) return;
   event.preventDefault();
   $('drop-zone').classList.remove('drag-over');
-  if (currentPage !== 'analysis' || !$('drop-zone').contains(event.target)) return;
+  if (workspaceMode !== 'offline' || currentPage !== 'clipping' || !$('drop-zone').contains(event.target)) return;
   const files = Array.from(event.dataTransfer.files);
   if (files.length) safely(() => importFiles(files));
 });
 $('nav-exports').onclick = $('view-exports').onclick = showExports;
-$('nav-analysis').onclick = $('back-analysis').onclick = showAnalysis;
-$('nav-review').onclick = () => safely(() => openReview(activeSourceId || view.sources[0].id));
-$('source-select').onchange = () => safely(() => openReview($('source-select').value));
+$('nav-analysis').onclick = showAnalysis;
+if ($('review-primary-action')) {
+  $('review-primary-action').onclick = () => safely(async () => {
+    const item = latestLibrarySnapshot?.items.find((entry) => entry.id === activeSourceId) || null;
+    const action = resolveReviewPrimaryAction(item);
+    if (!action || action.disabled) return;
+    if (workspacePreviewHarness && workspacePreviewHarness.runPreviewAction(activeSourceId, action.kind)) {
+      render();
+      return;
+    }
+    const record = findLibraryRecord(activeSourceId, item);
+    await dispatchReviewPrimaryAction({ item, record, queue, action });
+  });
+}
 $('play-pause').onclick = () => { if (playerState.playing) player.pause(); else player.play().catch((error) => note(errorText(error))); };
 $('play-selection').onclick = () => safely(() => {
   const clip = selectedClip();
@@ -632,7 +827,7 @@ async function seek(value) {
   const position = Math.max(0, Math.min(saved.duration, Number(value)));
   if (!Number.isFinite(position)) return;
   workspace.setReview(saved.id, { position });
-  if (bindings.has(saved.id)) await player.seek(position);
+  if (bindings.get(saved.id)?.file) await player.seek(position);
 }
 function stepCandidate(direction) {
   const saved = source(); if (!saved) return;
@@ -671,7 +866,7 @@ for (const key of ['start', 'end']) {
   if (quickSet) quickSet.onclick = () => safely(() => trimBoundary(key, source().review.position));
 }
 selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(),
-  isActive: () => workspaceMode === 'offline' && currentPage === 'review' && !loadingSource,
+  isActive: () => workspaceMode === 'offline' && currentPage === 'clipping' && Boolean(source()) && !loadingSource,
   playPause: () => { if (!$('play-pause').disabled) $('play-pause').click(); },
   playRange: () => { if (!$('play-selection').disabled) $('play-selection').click(); },
   toggleMute: () => player.toggleMute(),
@@ -684,7 +879,7 @@ $('export-format').onchange = () => { outputSettings = exportSettings({ format: 
 onLanguageChange(render);
 
 // Session state is intentionally not written to browser storage.
-const shouldWarnOnLeave = () => !preview && !libraryPreview && (
+const shouldWarnOnLeave = () => !preview && !libraryPreview && !workspacePreview && (
   pendingImports.size > 0 || queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
   view.sources.some(item => item.hasUnexportedChanges) ||
   view.batches.some(batch => ['awaiting-destination', 'queued', 'running'].includes(batch.status))
@@ -767,7 +962,7 @@ function buildDiagnosticState() {
   const resourceSnapshot = liveCompanion?.resourceMonitor?.getSnapshot?.() || null;
   return {
     mode: workspaceMode,
-    page: currentPage,
+    page: reportedPage(),
     language: getLang(),
     workspace: {
       sources,
@@ -855,7 +1050,16 @@ if (libraryPreview) {
 }
 render();
 note(t('status_ready'), 'quiet');
-window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, switchWorkspaceMode, liveCompanion, libraryView, collectDiagnostics: getDiagnosticsSnapshot, copyDiagnostics, diagnosticLog, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; }, get mode() { return workspaceMode; } };
+window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, render, switchWorkspaceMode, liveCompanion, libraryView, collectDiagnostics: getDiagnosticsSnapshot, copyDiagnostics, diagnosticLog, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return reportedPage(); }, get mode() { return workspaceMode; } };
 
-if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
-else if (!libraryPreview && new URLSearchParams(location.search).get('mode') === 'live') switchWorkspaceMode('live');
+if (workspacePreview) {
+  void ready.then(async () => {
+    workspacePreviewHarness = await mountSplitWorkspacePreview(window.reviewApp, {
+      onNote: (message, tone) => note(message, tone),
+    });
+  }).catch((error) => note(errorText(error), 'error'));
+} else if (preview) {
+  void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
+} else if (!libraryPreview && new URLSearchParams(location.search).get('mode') === 'live') {
+  switchWorkspaceMode('live');
+}
