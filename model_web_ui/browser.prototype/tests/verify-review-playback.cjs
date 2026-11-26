@@ -48,7 +48,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       });
     }
     await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 120000 });
-    await page.locator('#queue [data-action=review]').first().click();
+    await page.locator('#queue .file').first().click();
     await settled();
     await page.evaluate(() => reviewApp.workspace.publishCandidates(reviewApp.activeSourceId, [
       { id: 'one', start: 2, end: 3.1 }, { id: 'two', start: 8, end: 10 },
@@ -182,7 +182,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     closeTo((await source()).review.position, 1.2);
 
     // Existing fields, select and editable regions retain their own keyboard behavior.
-    for (const selector of ['#player-volume', '#source-select']) {
+    for (const selector of ['#player-volume', '#export-format']) {
       const before = await player();
       await page.locator(selector).focus();
       await page.keyboard.press('Space');
@@ -289,7 +289,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
         await page.locator('#selection-player-axis').screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/waveform-${width}.png`, animations: 'disabled' });
       }
     }
-    await page.locator('#nav-analysis').click();
+    await page.locator('#nav-exports').click();
     const offPage = await source(), offPagePlayer = await player();
     const offPagePrevented = await page.evaluate(() => {
       const events = [' ', 'm', 'Delete', 'ArrowRight', ']'].map(key => new KeyboardEvent('keydown', { key, code: key === ' ' ? 'Space' : '', bubbles: true, cancelable: true }));

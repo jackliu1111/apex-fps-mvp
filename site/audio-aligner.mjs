@@ -190,7 +190,7 @@ export function selectAnchorRanges({
 }
 
 /**
- * Map live history (scores, envelope peaks, manual pre-decisions) onto a master recording timeline.
+ * Map live history (scores and envelope peaks) onto a master recording timeline.
  * Supports linear clock-drift interpolation when head + tail anchors both achieve exact alignment.
  */
 export function mapLiveHistoryToMaster({
@@ -279,24 +279,7 @@ export function mapLiveHistoryToMaster({
     };
   }
 
-  const liveDecisions = [];
-  for (const dec of liveHistory.decisions || []) {
-    const start = toMediaSec(dec.wallStartMs);
-    const end = toMediaSec(dec.wallEndMs);
-    if (end <= 0 || start >= duration) continue;
-    const clampedStart = Math.max(0, start);
-    const clampedEnd = Math.min(duration, end);
-    if (clampedEnd > clampedStart + 0.05) {
-      liveDecisions.push({
-        id: dec.id,
-        kind: dec.kind,
-        start: clampedStart,
-        end: clampedEnd,
-      });
-    }
-  }
-
-  return { windowScores, waveform, scoreTimeline, liveDecisions };
+  return { windowScores, waveform, scoreTimeline };
 }
 
 /**

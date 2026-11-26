@@ -90,7 +90,7 @@ test('two-stage aligner degrades cleanly to coarse on uncorrelated audio and unm
   assert.equal(oldResult.confidence, 'unmatched');
   assert.equal(oldResult.mapped, null);
 
-  // 2) Overlapping wall-clock but uncorrelated master audio -> safe coarse fallback + migrated decisions.
+  // 2) Overlapping wall-clock but uncorrelated master audio -> safe coarse fallback without legacy liveDecisions.
   const uncorrelatedMaster = new Float32Array(750).map((_, i) => Math.sin(i * 0.37) * 0.2 + 0.3);
   const coarseResult = await alignRecordingToLiveSession({
     file: { name: 'mismatch-track.mp4', lastModified: liveStartEpochMs + 45_000 },
@@ -100,8 +100,9 @@ test('two-stage aligner degrades cleanly to coarse on uncorrelated audio and unm
   });
   assert.equal(coarseResult.confidence, 'coarse');
   assert.equal(coarseResult.mapped.windowScores.length, 1);
-  assert.equal(coarseResult.mapped.liveDecisions.length, 1);
-  assert.equal(coarseResult.mapped.liveDecisions[0].kind, 'retain');
+  assert.ok(coarseResult.mapped.waveform);
+  assert.ok(coarseResult.mapped.scoreTimeline?.groupScorePyramid);
+  assert.equal('liveDecisions' in coarseResult.mapped, false, 'legacy liveDecisions must not be mapped');
 });
 
 test('computeEnvelopeFromPcm produces 20ms RMS buckets accurately', () => {

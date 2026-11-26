@@ -2,9 +2,9 @@
  * Local-only, privacy-safe environment & runtime diagnostics collector.
  *
  * Collects browser/OS/GPU/audio/WebCodecs/WASM capabilities, anonymized workspace
- * metrics, Live Companion telemetry summaries, and recent sanitized error logs
- * for one-click clipboard copy. Never reads or includes file names, folder names,
- * local paths, or media bytes.
+ * metrics, pure-audio Live Monitor & auto-intake status summaries, and recent
+ * sanitized error logs for one-click clipboard copy. Never reads or includes file
+ * names, folder names, local paths, or media bytes.
  */
 
 const DEFAULT_MAX_LOG_ENTRIES = 30;
@@ -316,33 +316,33 @@ function summarizeWorkspace(state) {
   };
 }
 
-function summarizeLiveCompanion(live) {
+function summarizeLiveMonitor(live) {
   if (!live) return null;
-  const res = live.resourceSnapshot || null;
   return {
+    status: live.status || 'off',
     active: Boolean(live.active),
-    sourceKind: res?.sourceKind ?? null,
-    proxyMode: res?.proxyMode ?? null,
-    hopSeconds: res?.hopSeconds ?? null,
-    watchingDirectory: Boolean(live.watchingDirectory),
-    gated: Boolean(live.gated),
-    candidateCount: Number.isFinite(live.candidateCount) ? live.candidateCount : 0,
-    decisionCount: Number.isFinite(live.decisionCount) ? live.decisionCount : 0,
-    conformedCount: Number.isFinite(live.conformedCount) ? live.conformedCount : 0,
-    telemetry: res ? {
-      totalSeconds: res.totalSeconds,
-      foregroundSeconds: res.fgSeconds,
-      backgroundSeconds: res.bgSeconds,
-      overloadCount: res.overloadCount,
-      conformCount: res.conformCount,
-      maxConformMs: res.maxConformMs,
-      proxyMB: bytesToMB(res.proxyBytes),
-      proxyLimitMB: bytesToMB(res.proxyMaxBytes),
-      totalMemoryMB: res.totalMemory ? bytesToMB(res.totalMemory.bytes) : null,
-      overall: res.overall,
-      backgroundOnly: res.background,
-      foregroundOnly: res.foreground,
-    } : null,
+    sourceKind: live.sourceKind || live.effectiveSourceKind || null,
+    gateActive: Boolean(live.gateActive),
+    allowGateBypass: Boolean(live.allowGateBypass),
+    silenceWarning: Boolean(live.silenceWarning),
+    modelStatus: live.modelStatus || null,
+    inferenceCount: Number.isFinite(live.inferenceCount) ? live.inferenceCount : 0,
+    historyDurationSec: round1(live.historyDurationSec),
+    disconnectReason: live.disconnectReason ? sanitizeDiagnosticText(live.disconnectReason, 160) : null,
+    error: live.error ? sanitizeDiagnosticText(live.error, 200) : null,
+  };
+}
+
+function summarizeAutoIntake(intake) {
+  if (!intake) return null;
+  return {
+    status: intake.status || 'unset',
+    watching: Boolean(intake.watching),
+    needsRestore: Boolean(intake.needsRestore),
+    processingCount: Number.isFinite(intake.processingCount) ? intake.processingCount : 0,
+    intakeCount: Number.isFinite(intake.intakeCount) ? intake.intakeCount : 0,
+    lastIntakeKind: intake.lastIntake?.kind || intake.lastIntakeKind || null,
+    error: intake.error ? sanitizeDiagnosticText(intake.error, 200) : null,
   };
 }
 
@@ -402,7 +402,6 @@ export async function collectDiagnostics({
     collectedAt: new Date(nowMs).toISOString(),
     privacyNote: 'Local diagnostics only; file names, folder names, local paths, and media data are excluded.',
     app: {
-      mode: state.mode || 'offline',
       page: state.page || 'analysis',
       language: state.language || null,
       protocol: loc.protocol || null,
@@ -461,7 +460,8 @@ export async function collectDiagnostics({
     },
     memory,
     workspace: summarizeWorkspace(state.workspace),
-    liveCompanion: summarizeLiveCompanion(state.liveCompanion),
+    liveMonitor: summarizeLiveMonitor(state.liveMonitor),
+    autoIntake: summarizeAutoIntake(state.autoIntake),
     recentErrors: log && typeof log.entries === 'function' ? log.entries() : [],
   };
 }

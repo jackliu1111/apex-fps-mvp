@@ -333,7 +333,7 @@ test('live audio history maintains a 60-min default rolling window, trims expire
     `expected <=30ms alignment error, got ${Math.abs(aligned.masterStartEpochMs - recordingStartMs)}ms`);
   assert.equal(aligned.mapped.windowScores.length, 1);
   assert.ok(aligned.mapped.scoreTimeline?.groupScorePyramid);
-  assert.deepEqual(aligned.mapped.liveDecisions, []);
+  assert.equal('liveDecisions' in aligned.mapped, false);
 });
 
 test('system audio capture immediately stops and removes video tracks before binding ended listeners only on audio tracks, and wires 16kHz worklet to silent sink', async () => {
@@ -700,7 +700,7 @@ test('worker inference computes gunshot and 4-group score windows, coalesces bus
   assert.equal(aligned.confidence, 'exact');
   assert.equal(aligned.mapped.windowScores.length, 2);
   assert.ok(aligned.mapped.scoreTimeline?.groupScorePyramid);
-  assert.deepEqual(aligned.mapped.liveDecisions, []);
+  assert.equal('liveDecisions' in aligned.mapped, false);
 
   await engine.dispose();
 });
