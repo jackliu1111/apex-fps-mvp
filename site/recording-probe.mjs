@@ -59,8 +59,59 @@ async function awaitingMatroskaTrailer(file) {
   return lavf && (reservedCrc || reservedDuration);
 }
 
+const ISO_BMFF_INITIAL_BOXES = new Set(['ftyp', 'wide', 'free', 'skip', 'mdat', 'moov']);
+const MAX_TOP_LEVEL_BOXES = 64;
+
+function readIsoBoxHeader(bytes, offset, fileSize) {
+  if (bytes.length < 8) return { truncated: true };
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const size32 = view.getUint32(0, false);
+  const type = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+  let headerSize = 8;
+  let boxSize = size32;
+  if (size32 === 1) {
+    if (bytes.length < 16) return { truncated: true };
+    const hi = view.getUint32(8, false);
+    const lo = view.getUint32(12, false);
+    boxSize = hi * 0x100000000 + lo;
+    headerSize = 16;
+  } else if (size32 === 0) {
+    boxSize = fileSize - offset;
+  }
+  if (!Number.isFinite(boxSize) || boxSize < headerSize) return { invalid: true };
+  return { type, headerSize, boxSize, end: offset + boxSize };
+}
+
+async function awaitingMp4Trailer(file) {
+  if (typeof file.slice !== 'function') return false;
+  if (file.size === 0) return true;
+  let offset = 0;
+  let seenMoov = false;
+  let seenFtyp = false;
+  let seenEmptyMdat = false;
+  let boxCount = 0;
+  while (offset < file.size && boxCount < MAX_TOP_LEVEL_BOXES) {
+    const headerBytes = new Uint8Array(await file.slice(offset, Math.min(file.size, offset + 16)).arrayBuffer());
+    const box = readIsoBoxHeader(headerBytes, offset, file.size);
+    if (box.truncated) return boxCount > 0;
+    if (box.invalid) return seenFtyp && seenEmptyMdat && !seenMoov;
+    if (boxCount === 0 && !ISO_BMFF_INITIAL_BOXES.has(box.type)) return false;
+    if (box.end > file.size) return true;
+    if (box.type === 'ftyp') seenFtyp = true;
+    if (box.type === 'mdat' && box.boxSize === box.headerSize) seenEmptyMdat = true;
+    if (box.type === 'moov') seenMoov = true;
+    offset = box.end;
+    boxCount++;
+  }
+  return !seenMoov;
+}
+
 export async function probeRecordingFile(file, MB) {
-  if (file.name.toLowerCase().endsWith('.mkv') && await awaitingMatroskaTrailer(file)) {
+  const lower = (file.name || '').toLowerCase();
+  if (lower.endsWith('.mkv') && await awaitingMatroskaTrailer(file)) {
+    return { pendingFinalization: true };
+  }
+  if ((lower.endsWith('.mp4') || lower.endsWith('.mov')) && await awaitingMp4Trailer(file)) {
     return { pendingFinalization: true };
   }
   const input = new MB.Input({ source: createMediaReadSource({ MB, file, priority: 'analysis' }), formats: MB.ALL_FORMATS });
