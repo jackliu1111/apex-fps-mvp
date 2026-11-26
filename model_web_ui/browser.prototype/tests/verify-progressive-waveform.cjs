@@ -13,7 +13,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await reviewApp.importFiles([await createSyntheticFile({ duration: 135, frameRate: 4 })]);
     });
     await page.waitForFunction(() => reviewApp.queue.records[0]?.waveform?.decodedUntil > 0);
-    await page.locator('#queue [data-action=review]').first().click();
+    await page.locator('#queue .file[data-reviewable="true"] .library-row-identity').first().click();
     await page.waitForFunction(() => document.querySelector('#prediction-wave')?.dataset.decodedUntil > 0);
     const partial = await page.evaluate(() => {
       const record = reviewApp.queue.records[0];

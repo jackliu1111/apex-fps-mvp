@@ -446,16 +446,26 @@ canvas { display: block; width: 100%; aspect-ratio: 16 / 9; }
   color: var(--faint);
   font-size: 12px;
 }
-@media (max-width: 1240px) {
+@media (max-width: 1340px) {
   .header-inner { gap: 12px; padding-inline: 24px; }
   .brand-secondary { display: none; }
-  .navigation button, .navigation .nav-portal-link { padding-inline: 8px; }
+  .navigation button, .navigation .nav-portal-link { padding-inline: 10px; }
   .session-notice { display: none; }
   .diag-toggle { margin-left: auto; }
 }
 @media (max-width: 1024px) {
   .diag-toggle { width: 30px; padding: 0; }
   .diag-toggle .diag-label { display: none; }
+}
+@media (max-width: 960px) and (min-width: 851px) {
+  .header-inner { gap: 8px; padding-inline: 16px; }
+  .brand { gap: 8px; font-size: 14px; }
+  .mode-switcher { margin-left: 2px; }
+  .mode-switcher button { padding: 2px 8px; }
+  .navigation { gap: 2px; }
+  .navigation .nav-portal-link { margin-right: 2px; }
+  .navigation button, .navigation .nav-portal-link { padding: 6px 8px; font-size: 12.5px; }
+  .lang-toggle { padding: 3px 10px; }
 }
 @media (max-width: 1100px) {
   .workspace { grid-template-columns: minmax(0, 1fr) 330px; }
