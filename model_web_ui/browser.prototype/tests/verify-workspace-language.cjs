@@ -42,7 +42,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.evaluate(() => Boolean(window.reviewApp)), false);
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
     assert.equal(await page.getByRole('heading', { level: 1 }).textContent(), '录像库');
-    assert.equal(await nav.locator('#nav-analysis').textContent(), '录像库');
+    assert.equal(await nav.locator('#nav-analysis').textContent(), '选片');
     assert.equal(await page.locator('#queue-count').textContent(), '0 份录像');
 
     releaseVendor();

@@ -787,10 +787,10 @@ test('onRowTransition fires after rows are mounted in listContainer for added an
   ]);
 });
 
-test('i18n dictionary renames Analysis Queue to Recording Library / 录像库 with zero forbidden 分析队列 copy', () => {
-  assert.equal(translations.zh.nav_analysis, '录像库');
+test('i18n dictionary uses ADR 0010 Clip/选片 nav and Recording Library/录像库 heading with zero forbidden 分析队列 copy', () => {
+  assert.equal(translations.zh.nav_analysis, '选片');
   assert.equal(translations.zh.page_heading, '录像库');
-  assert.equal(translations.en.nav_analysis, 'Recording Library');
+  assert.equal(translations.en.nav_analysis, 'Clip');
   assert.equal(translations.en.page_heading, 'Recording Library');
   for (const [lang, dict] of Object.entries(translations)) {
     for (const [key, value] of Object.entries(dict)) {
