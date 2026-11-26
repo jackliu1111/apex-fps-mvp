@@ -4,7 +4,6 @@ import { createRecordingLibraryView } from './recording-library-view.mjs';
 import { isLibraryPreview, mountLibraryPreview } from './recording-library-preview.mjs';
 import {
   resolveReviewPrimaryAction,
-  dispatchReviewPrimaryAction,
   resolveClippingLayout,
   reconcileSplitSelection,
   createWorkspaceUxController,
@@ -30,6 +29,8 @@ import { createBrowserConverter } from './browser-export.mjs';
 import { DEFAULT_EXPORT_SETTINGS, sourceExportSettings, exportSettings } from './export-policy.mjs';
 import { t, getLang, onLanguageChange } from './i18n.js';
 import { createLiveCompanionWorkspace } from './live-companion-ui.mjs';
+import { createWorkspaceEngineBridge } from './workspace-engine-bridge.mjs';
+import { createGlobalTopbarControls } from './global-topbar-controls.mjs';
 import { createDiagnosticLog, collectDiagnostics, copyTextToClipboard } from './diagnostics.mjs';
 
 const $ = (id) => document.getElementById(id);
@@ -46,14 +47,14 @@ let workspaceMode = 'offline', liveCompanion = null, libraryPreviewHarness = nul
 let currentPage = 'clipping', activeSourceId = null, activeRecordId = null;
 let playerSourceId = null, playerLoadedFile = null, pendingLoadSourceId = null, pendingLoadFile = null;
 let loadingSource = false, loadToken = 0;
-let directoryHandle = null, exportQueue, selectionTimeline;
+let directoryHandle = null, exportQueue, selectionTimeline, engineBridge = null, globalTopbarControls = null;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
 let latestLibrarySnapshot = null;
 let isRendering = false;
 let lastRenderedCollapsed = null;
-const libraryTopbarState = {
-  liveMonitor: { status: 'off' },
-  watchDirectory: { status: 'unset', name: null },
+const onboardingStateOverride = {
+  liveMonitor: null,
+  watchDirectory: null,
 };
 const onboardingHandlers = {
   onChooseWatchDir: null,
@@ -73,9 +74,24 @@ function setOnboardingHandlers(handlers = {}) {
 }
 
 function setOnboardingState({ watchDirectory, liveMonitor } = {}) {
-  if (watchDirectory) libraryTopbarState.watchDirectory = { ...watchDirectory };
-  if (liveMonitor) libraryTopbarState.liveMonitor = { ...liveMonitor };
+  if (watchDirectory !== undefined) onboardingStateOverride.watchDirectory = watchDirectory ? { ...watchDirectory } : null;
+  if (liveMonitor !== undefined) onboardingStateOverride.liveMonitor = liveMonitor ? { ...liveMonitor } : null;
   render();
+}
+
+function getEffectiveSessionState() {
+  const base = engineBridge ? engineBridge.getState() : {
+    liveMonitor: { status: 'off', active: false, canToggle: true },
+    watchDirectory: { status: 'unset', name: null, canChoose: true },
+  };
+  return {
+    liveMonitor: onboardingStateOverride.liveMonitor
+      ? { ...base.liveMonitor, ...onboardingStateOverride.liveMonitor }
+      : base.liveMonitor,
+    watchDirectory: onboardingStateOverride.watchDirectory
+      ? { ...base.watchDirectory, ...onboardingStateOverride.watchDirectory }
+      : base.watchDirectory,
+  };
 }
 
 const time = (seconds = 0) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
@@ -166,13 +182,20 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
     const saved = workspace.getSource(playerSourceId).review.position;
     if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position });
   }
+  engineBridge?.notifyPlayerState(next);
   liveCompanion?.notifyExternalPlayback(!!(next.playing && !next.muted && next.volume > 0));
   renderPlayer();
 } });
 
 let outputSettings = DEFAULT_EXPORT_SETTINGS;
 exportQueue = createExportQueue({
-  convert: createBrowserConverter({ MB }),
+  convert: createBrowserConverter({
+    MB,
+    onOutputFileCreated(name) {
+      engineBridge?.registerExportedFilename(name);
+      liveCompanion?.registerExportedFilename?.(name);
+    },
+  }),
   onChange({ id, status, outputs, error, progress, clipResults, destination }) {
     if (error && recordedErrors.get(`export:${id}`) !== error) {
       recordedErrors.set(`export:${id}`, error);
@@ -180,7 +203,36 @@ exportQueue = createExportQueue({
     }
     workspace.updateBatch(id, { status, outputs, error, progress, clipResults, destination });
   },
-  onOutput(_batchId, output) { if (output?.name) liveCompanion?.registerExportedFilename(output.name); },
+  onOutput(_batchId, output) {
+    if (output?.name) {
+      engineBridge?.registerExportedFilename(output.name);
+      liveCompanion?.registerExportedFilename?.(output.name);
+    }
+  },
+});
+
+engineBridge = createWorkspaceEngineBridge({
+  MB,
+  queue,
+  uxController,
+  identified,
+  identify: identifyFile,
+  getActiveSourceId: () => activeSourceId,
+  isLibraryEmpty: () => view.sources.length === 0 && queue.records.length === 0,
+  translate: t,
+  onStateChange() {
+    if (!isRendering) render();
+  },
+  onIntake() {
+    if (!isRendering) render();
+  },
+  onNotice(message, tone) {
+    note(message, tone);
+  },
+  onError(err) {
+    diagnosticLog.record('auto-intake', err);
+    note(errorText(err), 'error');
+  },
 });
 function directoryCapabilityError() {
   if (!window.isSecureContext) return t('err_dir_secure');
@@ -278,12 +330,13 @@ async function importFiles(files, options = {}) {
       identity = await identifyFile(file);
       identified.set(file, identity);
       if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(t('note_file_exists', { name: file.name })); return; }
-      if (wasEmpty && !claimedEmptyFirst) {
-        claimedEmptyFirst = true;
-      } else {
+      const shouldMarkNew = !(wasEmpty && !claimedEmptyFirst);
+      if (!shouldMarkNew) claimedEmptyFirst = true;
+      const pending = trackImport(identity.id, queue.importFiles([file], importOptions));
+      if (shouldMarkNew) {
         uxController.markRecordingNew(identity.id, { activeSourceId });
       }
-      await trackImport(identity.id, queue.importFiles([file], importOptions));
+      await pending;
     } catch (error) {
       if (identity?.id) uxController.clearRecordingNew(identity.id);
       failures.push(`${file.name}: ${errorText(error)}`);
@@ -311,14 +364,15 @@ function buildLibrarySnapshot(selectedId = activeSourceId) {
       effectiveNewIds.add(`runtime:${record.id}`);
     }
   }
+  const sessionState = getEffectiveSessionState();
   return projectRecordingLibrary({
     sources: view.sources,
     records: combinedRecords,
     batches: view.batches,
     activeSourceId: selectedId,
     newIds: effectiveNewIds,
-    liveMonitor: libraryTopbarState.liveMonitor,
-    watchDirectory: libraryTopbarState.watchDirectory,
+    liveMonitor: sessionState.liveMonitor,
+    watchDirectory: sessionState.watchDirectory,
     sortOrder: 'newest-first',
   });
 }
@@ -437,7 +491,7 @@ function invokeChooseWatchDir() {
   if (typeof onboardingHandlers.onChooseWatchDir === 'function') {
     return onboardingHandlers.onChooseWatchDir();
   }
-  note(t('library_slot_watch_placeholder'), 'info');
+  return engineBridge.activateWatchDirectory();
 }
 
 function invokeToggleMonitoring() {
@@ -445,12 +499,23 @@ function invokeToggleMonitoring() {
   if (typeof handler === 'function') {
     return handler();
   }
-  note(t('library_slot_live_placeholder'), 'info');
+  return engineBridge.toggleLiveMonitor();
 }
+
+globalTopbarControls = createGlobalTopbarControls({
+  doc: document,
+  translate: t,
+  onToggleLive: () => safely(invokeToggleMonitoring),
+  onSelectSourceKind: (sourceKind) => safely(() => engineBridge.setAudioSourcePreference({ sourceKind })),
+  onSelectDevice: (deviceId) => safely(() => engineBridge.setAudioSourcePreference({ sourceKind: 'device', deviceId })),
+  onRefreshDevices: () => engineBridge.refreshAudioDevices(),
+  onToggleGateBypass: (allow) => { engineBridge.setAllowGateBypass(allow); },
+  onActivateWatchDir: () => safely(invokeChooseWatchDir),
+});
 
 const libraryView = createRecordingLibraryView({
   listContainer: $('queue'),
-  topbarContainer: $('library-topbar-slots'),
+  topbarContainer: null,
   countNode: $('queue-count'),
   summaryNode: $('queue-summary'),
   pageNode: $('analysis-page'),
@@ -728,7 +793,9 @@ function renderOnboarding(snapshot) {
       ? t('onboarding_step1_status_watching', { name: watch.name })
       : watch.status === 'needs-permission' && watch.name
         ? t('onboarding_step1_status_restore', { name: watch.name })
-        : t('onboarding_step1_status_unset');
+        : watch.status === 'error'
+          ? t('onboarding_step1_status_error')
+          : t('onboarding_step1_status_unset');
   }
   const watchBtn = $('onboarding-choose-watch-dir');
   if (watchBtn) {
@@ -744,9 +811,17 @@ function renderOnboarding(snapshot) {
   if (liveStep) liveStep.dataset.liveStatus = live.status;
   const liveStatusNode = $('onboarding-live-status');
   if (liveStatusNode) {
-    liveStatusNode.textContent = live.active
+    liveStatusNode.textContent = live.status === 'listening'
       ? t('onboarding_step2_status_active')
-      : t('onboarding_step2_status_off');
+      : live.status === 'paused-loopback'
+        ? t('onboarding_step2_status_paused')
+        : live.status === 'starting'
+          ? t('onboarding_step2_status_starting')
+          : live.status === 'disconnected'
+            ? t('onboarding_step2_status_disconnected')
+            : live.status === 'error'
+              ? t('onboarding_step2_status_error')
+              : t('onboarding_step2_status_off');
   }
   const liveBtn = $('onboarding-toggle-monitoring');
   if (liveBtn) {
@@ -810,6 +885,7 @@ function render() {
     if ($('mode-live')) $('mode-live').setAttribute('aria-pressed', String(isLive));
     if ($('offline-nav')) $('offline-nav').hidden = isLive;
     if ($('live-workspace')) $('live-workspace').hidden = !isLive;
+    globalTopbarControls?.render(getEffectiveSessionState(), { hidden: isLive || libraryPreview });
     const clippingWorkspace = $('clipping-workspace');
     if (isLive) {
       uxController.handleLayoutChange('live');
@@ -881,6 +957,7 @@ function render() {
       uxController.pruneNewIds([
         ...baseSnapshot.items.map((item) => item.id),
         ...pendingImports.keys(),
+        ...(engineBridge?.getPendingIntakeIds() || []),
       ]);
       latestLibrarySnapshot = buildLibrarySnapshot(activeSourceId);
       const activeItem = latestLibrarySnapshot.items.find((item) => item.id === activeSourceId) || rec.activeItem;
@@ -896,7 +973,10 @@ function render() {
       const hadLoaded = playerSourceId !== null || loadingSource;
       activeSourceId = null;
       activeRecordId = null;
-      uxController.pruneNewIds([...pendingImports.keys()]);
+      uxController.pruneNewIds([
+        ...pendingImports.keys(),
+        ...(engineBridge?.getPendingIntakeIds() || []),
+      ]);
       libraryView.render(baseSnapshot);
       renderOnboarding(baseSnapshot);
       if (hadLoaded) void loadActiveSource(null, { forceDispose: true });
@@ -1003,7 +1083,7 @@ if ($('review-primary-action')) {
       return;
     }
     const record = findLibraryRecord(activeSourceId, item);
-    await dispatchReviewPrimaryAction({ item, record, queue, action });
+    await engineBridge.dispatchPrimaryAction({ item, record, action });
   });
 }
 $('play-pause').onclick = () => { if (playerState.playing) player.pause(); else player.play().catch((error) => note(errorText(error))); };
@@ -1147,7 +1227,8 @@ onLanguageChange(render);
 
 // Session state is intentionally not written to browser storage.
 const shouldWarnOnLeave = () => !preview && !libraryPreview && !workspacePreview && (
-  pendingImports.size > 0 || queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
+  pendingImports.size > 0 || (engineBridge?.watchDirState.processingCount || 0) > 0 ||
+  queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
   view.sources.some(item => item.hasUnexportedChanges) ||
   view.batches.some(batch => ['awaiting-destination', 'queued', 'running'].includes(batch.status))
 );
@@ -1224,6 +1305,7 @@ function buildDiagnosticState() {
     savedCount: Array.isArray(batch.outputs) ? batch.outputs.filter((item) => item?.saved).length : 0,
     error: batch.error || null,
   }));
+  const bridgeState = engineBridge?.getState?.() || null;
   const liveSnap = liveCompanion?.session?.snapshot?.() || null;
   const watcherState = liveCompanion?.watcher?.state || null;
   const resourceSnapshot = liveCompanion?.resourceMonitor?.getSnapshot?.() || null;
@@ -1242,13 +1324,21 @@ function buildDiagnosticState() {
       },
     },
     liveCompanion: liveSnap ? {
-      active: liveSnap.active,
-      watchingDirectory: Boolean(watcherState?.watching),
-      gated: Boolean(liveSnap.gated),
+      active: liveSnap.active || Boolean(bridgeState?.liveMonitor?.active),
+      watchingDirectory: Boolean(watcherState?.watching || bridgeState?.watchDirectory?.watching),
+      gated: Boolean(liveSnap.gated || bridgeState?.liveMonitor?.gateActive),
       candidateCount: liveSnap.candidates?.length || 0,
       decisionCount: liveSnap.decisions?.length || 0,
-      conformedCount: liveSnap.conformed?.length || 0,
+      conformedCount: (liveSnap.conformed?.length || 0) + (bridgeState?.watchDirectory?.intakeCount || 0),
       resourceSnapshot,
+    } : bridgeState ? {
+      active: Boolean(bridgeState.liveMonitor.active),
+      watchingDirectory: Boolean(bridgeState.watchDirectory.watching),
+      gated: Boolean(bridgeState.liveMonitor.gateActive),
+      candidateCount: 0,
+      decisionCount: 0,
+      conformedCount: bridgeState.watchDirectory.intakeCount || 0,
+      resourceSnapshot: null,
     } : null,
   };
 }
@@ -1322,6 +1412,10 @@ window.reviewApp = {
   queue,
   player,
   exportQueue,
+  liveMonitor: engineBridge.liveMonitor,
+  autoIntake: engineBridge.autoIntake,
+  engineBridge,
+  globalTopbarControls,
   submitExport,
   importFiles,
   openReview,
@@ -1341,6 +1435,10 @@ window.reviewApp = {
   toggleLibraryDrawer: () => uxController.toggleDrawer(),
   setOnboardingHandlers,
   setOnboardingState,
+  setWatchDirectoryHandle: (handle, opts) => engineBridge.setWatchDirectoryHandle(handle, opts),
+  setWatchDirectoryRestoreNeeded: (handle, name) => engineBridge.setWatchDirectoryRestoreNeeded(handle, name),
+  getWatchDirectoryHandle: () => engineBridge.getWatchDirectoryHandle(),
+  get watchDirState() { return engineBridge.watchDirState; },
   collectDiagnostics: getDiagnosticsSnapshot,
   copyDiagnostics,
   diagnosticLog,

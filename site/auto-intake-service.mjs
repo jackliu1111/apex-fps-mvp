@@ -134,7 +134,7 @@ export function createAutoIntakeService({
     async function ensureOpenedMedia() {
       if (openedMedia) return openedMedia;
       if (!MB?.Input) throw new Error('缺少媒体解析器，无法执行声纹对齐');
-      input = new MB.Input({ source: createMediaReadSource({ MB, file, priority: 'analysis' }), formats: MB.ALL_FORMATS });
+      input = new MB.Input({ source: createMediaReadSource({ MB, file, priority: 'analysis', prefetchProfile: 'none' }), formats: MB.ALL_FORMATS });
       const video = await input.getPrimaryVideoTrack();
       if (!video) throw new Error('录像缺少视频轨');
       const origin = Number.isFinite(meta?.origin) ? meta.origin : Math.max(0, await video.getFirstTimestamp());

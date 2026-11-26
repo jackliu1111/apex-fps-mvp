@@ -37,13 +37,13 @@ function schedulerFor(file) {
  * an awaiting analysis chunk gets a turn. Navigation never stops the analysis task.
  * Each Input still owns an 8 MiB parser cache and its own disposal/cancellation lifetime.
  */
-export function createMediaReadSource({ MB, file, priority = 'analysis' }) {
+export function createMediaReadSource({ MB, file, priority = 'analysis', prefetchProfile = 'fileSystem' }) {
   const schedule = schedulerFor(file), controller = new AbortController();
   const options = {
     file,
     priority,
     getSize: () => file.size,
-    prefetchProfile: 'fileSystem',
+    prefetchProfile,
     maxCacheSize: 8 * 1024 * 1024,
     async read(start, end) {
       controller.signal.throwIfAborted();

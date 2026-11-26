@@ -27,6 +27,55 @@
         <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Clip</button>
         <button id="nav-exports" data-i18n="nav_exports">Exports</button>
       </nav>
+      <div id="global-session-controls" class="global-session-controls" role="group" aria-label="Live Monitoring and Watch Folder" data-i18n-aria="topbar_session_aria">
+        <div id="topbar-live-monitor" class="topbar-pill topbar-live-pill" data-live-status="off" data-silence-warning="false" data-source-kind="system">
+          <button id="topbar-live-toggle" class="topbar-pill-main" type="button" aria-pressed="false" title="Start or stop audio-only Live Monitoring" data-i18n-title="topbar_live_toggle_title">
+            <span class="topbar-pill-dot" aria-hidden="true"></span>
+            <span class="topbar-pill-label" data-i18n="library_live_label">Live Monitor</span>
+            <span id="topbar-live-status" class="topbar-pill-value" data-i18n="library_live_status_off">Off</span>
+            <span id="topbar-live-alert" class="topbar-pill-alert" hidden aria-hidden="true">!</span>
+          </button>
+          <button id="topbar-live-settings-btn" class="topbar-pill-caret" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="topbar-live-popover" title="Live Monitoring audio source & gate settings" aria-label="Live Monitoring audio source & gate settings" data-i18n-title="topbar_live_settings_title" data-i18n-aria="topbar_live_settings_title">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div id="topbar-live-popover" class="topbar-popover" role="dialog" aria-label="Live Monitoring settings" data-i18n-aria="topbar_live_popover_aria" hidden>
+            <div class="topbar-popover-head">
+              <strong data-i18n="library_live_label">Live Monitor</strong>
+              <span id="topbar-popover-status" class="topbar-popover-status" data-live-status="off" data-i18n="library_live_status_off">Off</span>
+            </div>
+            <p id="topbar-popover-notice" class="topbar-popover-notice" hidden></p>
+            <div class="topbar-popover-section">
+              <span class="topbar-popover-label" data-i18n="live_source_label">Audio source</span>
+              <div class="topbar-source-switch" role="radiogroup" aria-label="Audio source" data-i18n-aria="live_source_label">
+                <button id="topbar-source-system" type="button" role="radio" aria-checked="true" data-source-kind="system" data-i18n="live_source_system">System Audio</button>
+                <button id="topbar-source-device" type="button" role="radio" aria-checked="false" data-source-kind="device" data-i18n="live_source_device">Audio Device</button>
+              </div>
+            </div>
+            <div id="topbar-device-group" class="topbar-popover-section" hidden>
+              <div class="topbar-device-row">
+                <label class="topbar-popover-label" for="topbar-device-select" data-i18n="live_device_label">Input device</label>
+                <button id="topbar-device-refresh" class="quiet topbar-mini-btn" type="button" data-i18n="live_device_refresh">Refresh</button>
+              </div>
+              <select id="topbar-device-select" aria-label="Input device" data-i18n-aria="live_device_label"></select>
+              <label class="topbar-gate-bypass">
+                <input id="topbar-gate-bypass" type="checkbox" disabled>
+                <span data-i18n="live_gate_bypass_label">Keep listening during unmuted playback (isolated virtual device only)</span>
+              </label>
+            </div>
+            <p class="topbar-popover-hint" data-i18n="live_audio_only_hint">Captures game audio only (no video preview or capture). Auto-pauses during unmuted playback.</p>
+            <div class="topbar-popover-actions">
+              <button id="topbar-popover-toggle" class="primary" type="button" data-i18n="library_live_start">Start</button>
+            </div>
+          </div>
+        </div>
+        <div id="topbar-watch-dir" class="topbar-pill topbar-watch-pill" data-watch-status="unset">
+          <button id="topbar-watch-btn" class="topbar-pill-main" type="button" title="Choose read-only Watch Folder for auto-intake" data-i18n-title="topbar_watch_choose_title">
+            <span class="topbar-pill-dot" aria-hidden="true"></span>
+            <span class="topbar-pill-label" data-i18n="library_watch_label">Watch Folder</span>
+            <span id="topbar-watch-value" class="topbar-pill-value" data-i18n="library_watch_unset">Not set</span>
+          </button>
+        </div>
+      </div>
       <div class="session-notice" data-i18n="session_notice">Re-import videos after refresh or close</div>
       <button id="copy-diagnostics" class="quiet diag-toggle" type="button" title="Copy sanitized environment & runtime diagnostics (no file names or paths)" aria-label="Copy diagnostics to clipboard" data-i18n-title="diagnostics_title" data-i18n-aria="diagnostics_aria"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M8 14h2l1.5-3 2 6 1.5-3h1"/></svg><span class="diag-label" data-i18n="diagnostics_btn">Diagnostics</span></button>
       <button id="lang-toggle" class="quiet lang-toggle" type="button" disabled aria-label="Switch language to Chinese" data-i18n="lang_toggle" data-i18n-aria="lang_toggle_aria">中文</button>

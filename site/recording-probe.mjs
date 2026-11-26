@@ -114,7 +114,7 @@ export async function probeRecordingFile(file, MB) {
   if ((lower.endsWith('.mp4') || lower.endsWith('.mov')) && await awaitingMp4Trailer(file)) {
     return { pendingFinalization: true };
   }
-  const input = new MB.Input({ source: createMediaReadSource({ MB, file, priority: 'analysis' }), formats: MB.ALL_FORMATS });
+  const input = new MB.Input({ source: createMediaReadSource({ MB, file, priority: 'analysis', prefetchProfile: 'none' }), formats: MB.ALL_FORMATS });
   try {
     const video = await input.getPrimaryVideoTrack();
     if (!video) throw new Error('无视频轨');
