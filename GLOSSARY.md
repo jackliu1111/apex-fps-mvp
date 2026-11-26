@@ -6,3 +6,4 @@
 选片勾选与排除决定的领域解耦见 [ADR 0007](docs/adr/0007-decouple-clip-selection-from-exclusion.md)。
 独立实时伴随模式、实时伴随代理与目录原片升格见 [ADR 0008](docs/adr/0008-live-proxy-and-directory-conform.md)。
 录像库、自动接入与纯音频对局监听见 [ADR 0009](docs/adr/0009-recording-library-auto-intake.md)（已接受，部分取代 ADR 0008）。
+录像库与片段复核合并为左右分栏的本地选片工作区见 [ADR 0010](docs/adr/0010-split-library-review-workspace.md)（已接受，部分取代 ADR 0009）。
