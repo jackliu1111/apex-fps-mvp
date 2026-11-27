@@ -1163,7 +1163,7 @@ test('auto-intake consumes live history directly from real createLiveMonitorEngi
   }
 
   const liveMonitor = createLiveMonitorEngine({
-    mediaDevices: { getUserMedia: async () => fakeStream },
+    mediaDevices: { getDisplayMedia: async () => fakeStream },
     AudioContext: FakeAudioContext,
     AudioWorkletNode: FakeWorkletNode,
     Worker: FakeWorker,
@@ -1218,7 +1218,7 @@ test('auto-intake consumes live history directly from real createLiveMonitorEngi
     await queue.dispose();
   });
 
-  await liveMonitor.start({ sourceKind: AUDIO_SOURCE_KINDS.DEVICE, deviceId: 'vb-1' });
+  await liveMonitor.start({ sourceKind: AUDIO_SOURCE_KINDS.SYSTEM });
   const worklet = workletNodes[0];
 
   // Feed 30s envelope & 1 gunshot inference window into real liveMonitor.
@@ -1441,6 +1441,92 @@ test('auto-intake aligns audio tracks with nonzero audioOrigin onto video timeli
   assert.equal(events[0].record.audioOffset, 0);
 });
 
+test('auto-intake supports opt-in autoAnalyzeUncovered (ADR 0012): default false leaves uncovered unanalyzed, true auto-queues uncovered while live-covered recordings still conform directly', async (t) => {
+  const nowRef = { value: 1_700_005_000_000 };
+  const sampleRate = 8000;
+  const durationSec = 20;
+  const livePcm = buildSyntheticCombatPcm(30, sampleRate, 88);
+  const envBatch = pcmToInterleavedEnvelope(livePcm, sampleRate);
+  const envPeaks = new Float32Array(envBatch.length / 2);
+  const envRms = new Float32Array(envBatch.length / 2);
+  for (let i = 0; i < envPeaks.length; i++) {
+    envPeaks[i] = envBatch[i * 2];
+    envRms[i] = envBatch[i * 2 + 1];
+  }
+  const liveHistory = {
+    startEpochMs: nowRef.value,
+    latestEpochMs: nowRef.value + 30_000,
+    envStepSeconds: 0.02,
+    envPeaks,
+    envRms,
+    scoreWindows: [{ wallStartMs: nowRef.value + 4_000, wallEndMs: nowRef.value + 14_000, scores: [0.92, 0.1] }],
+  };
+
+  const masterPcm = livePcm.subarray(2 * sampleRate, (2 + durationSec) * sampleRate);
+  const media = makeFakeMediaBoundary({
+    durationByName: { 'uncovered-auto.mp4': durationSec, 'covered-conform.mp4': durationSec },
+    pcmByName: { 'covered-conform.mp4': { sampleRate, samples: masterPcm } },
+  });
+  const queue = createBrowserAnalysis({
+    MB: media.MB,
+    openAudioStream: media.openAudioStream,
+    fetch: media.fetch,
+    infer: media.infer,
+  });
+
+  const events = [];
+  const service = createAutoIntakeService({
+    MB: media.MB,
+    queue,
+    getLiveHistory: () => liveHistory,
+    pollIntervalMs: 60_000,
+    stablePollsRequired: 2,
+    now: () => nowRef.value,
+    onIntake: (ev) => events.push(ev),
+  });
+  t.after(async () => {
+    service.dispose();
+    await queue.dispose();
+  });
+
+  assert.equal(service.getState().autoAnalyzeUncovered, false, 'autoAnalyzeUncovered must default to false');
+  assert.equal(service.setAutoAnalyzeUncovered(true), true);
+  assert.equal(service.getState().autoAnalyzeUncovered, true);
+
+  const files = new Map();
+  await service.startWatching(makeFakeDirectory('Captures', files));
+
+  // 1. Uncovered recording far outside live history -> auto-queued for offline analysis
+  files.set('uncovered-auto.mp4', new File(
+    [mp4Box('ftyp', 16), mp4Box('mdat', 64), mp4Box('moov', 32)],
+    'uncovered-auto.mp4',
+    { lastModified: nowRef.value - 3_600_000 },
+  ));
+  for (let i = 0; i < 4; i++) await service.pollNow();
+  await queue.whenIdle();
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].kind, INTAKE_EVENT_KINDS.QUEUED_OFFLINE);
+  assert.equal(events[0].record.status, 'complete');
+  const analyzeAfterUncovered = media.analyzeCalls;
+  assert.ok(analyzeAfterUncovered >= 1, 'Enabled autoAnalyzeUncovered must run offline analysis on uncovered recordings');
+
+  // 2. Covered recording inside live history -> still conforms directly without running offline scan!
+  const coveredLastMod = nowRef.value + 2_000 + durationSec * 1000;
+  nowRef.value = coveredLastMod + 500;
+  files.set('covered-conform.mp4', new File(
+    [mp4Box('ftyp', 16), mp4Box('mdat', 80), mp4Box('moov', 32)],
+    'covered-conform.mp4',
+    { lastModified: coveredLastMod },
+  ));
+  for (let i = 0; i < 4; i++) await service.pollNow();
+  await queue.whenIdle();
+
+  assert.equal(events.length, 2);
+  assert.equal(events[1].kind, INTAKE_EVENT_KINDS.CONFORMED_EXACT);
+  assert.equal(media.analyzeCalls, analyzeAfterUncovered, 'Live-covered recording must still conform without offline scan');
+});
+
 test('auto-intake supports read-only permission request, conforms after liveMonitor.stop(), and suppresses late self-exports during async conform', async (t) => {
   const sampleRate = 8000;
   const liveStartMs = 1_700_004_000_000;
@@ -1484,7 +1570,7 @@ test('auto-intake supports read-only permission request, conforms after liveMoni
   }
 
   const liveMonitor = createLiveMonitorEngine({
-    mediaDevices: { getUserMedia: async () => fakeStream },
+    mediaDevices: { getDisplayMedia: async () => fakeStream },
     AudioContext: FakeAudioContext,
     AudioWorkletNode: FakeWorkletNode,
     Worker: FakeWorker,
@@ -1510,7 +1596,7 @@ test('auto-intake supports read-only permission request, conforms after liveMoni
     now: () => clock,
   });
 
-  await liveMonitor.start({ sourceKind: AUDIO_SOURCE_KINDS.DEVICE, deviceId: 'dev-1' });
+  await liveMonitor.start({ sourceKind: AUDIO_SOURCE_KINDS.SYSTEM });
   clock = liveStartMs + 20_000;
   workletNodes[0].port.onmessage({ data: { type: 'envelope', buckets: envBatch, silentSeconds: 0 } });
   workletNodes[0].port.onmessage({ data: { type: 'window', waveform: new Float32Array(16000 * 10), coveredSeconds: 10 } });

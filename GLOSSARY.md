@@ -7,3 +7,5 @@
 独立实时伴随模式、实时伴随代理与目录原片升格见 [ADR 0008](docs/adr/0008-live-proxy-and-directory-conform.md)。
 录像库、自动接入与纯音频对局监听见 [ADR 0009](docs/adr/0009-recording-library-auto-intake.md)（已接受，部分取代 ADR 0008）。
 录像库与片段复核合并为左右分栏的本地选片工作区见 [ADR 0010](docs/adr/0010-split-library-review-workspace.md)（已接受，部分取代 ADR 0009）。
+常驻分栏选片工作区与录像库侧栏接入控制见 [ADR 0011](docs/adr/0011-always-split-sidebar-intake.md)（已接受，部分被 ADR 0012 取代）。
+实时音频分析与自动离线分析收归录像监听目录及移除虚拟声卡输入见 [ADR 0012](docs/adr/0012-watch-folder-subordinate-analysis.md)（已接受）。

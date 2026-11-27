@@ -15,6 +15,7 @@ export const AUTO_INTAKE_STATES = Object.freeze({
 export const INTAKE_EVENT_KINDS = Object.freeze({
   CONFORMED_EXACT: 'conformed-exact',
   CONFORMED_COARSE: 'conformed-coarse',
+  QUEUED_OFFLINE: 'queued-offline',
   UNANALYZED: 'unanalyzed',
 });
 
@@ -48,6 +49,7 @@ export function createAutoIntakeService({
   extractEnvelopeSlice = extractMasterEnvelopeSlice,
   model = DEFAULT_MODEL,
   threshold = 0.2,
+  autoAnalyzeUncovered = false,
   pollIntervalMs = 2000,
   stablePollsRequired = 2,
   stableDurationMs = pollIntervalMs * stablePollsRequired,
@@ -68,6 +70,7 @@ export function createAutoIntakeService({
 
   let disposed = false;
   let status = AUTO_INTAKE_STATES.IDLE;
+  let autoAnalyze = Boolean(autoAnalyzeUncovered);
   let watcherState = { watching: false, directoryName: null, startedAt: 0, tracked: [] };
   let intakeCount = 0;
   let lastIntake = null;
@@ -79,6 +82,7 @@ export function createAutoIntakeService({
       watching: watcherState.watching,
       directoryName: watcherState.directoryName,
       startedAt: watcherState.startedAt,
+      autoAnalyzeUncovered: autoAnalyze,
       tracked: Object.freeze(watcherState.tracked.map((entry) => Object.freeze({ ...entry }))),
       processingCount: processingFiles.size,
       processingFiles: Object.freeze([...processingFiles]),
@@ -320,13 +324,16 @@ export function createAutoIntakeService({
           ? INTAKE_EVENT_KINDS.CONFORMED_EXACT
           : INTAKE_EVENT_KINDS.CONFORMED_COARSE;
       } else {
+        const shouldAutoAnalyze = Boolean(autoAnalyze);
         const [imported] = await queue.importFiles([file], {
           model: resolvedModel,
           threshold,
-          autoAnalyze: false,
+          autoAnalyze: shouldAutoAnalyze,
         });
         record = imported;
-        eventKind = INTAKE_EVENT_KINDS.UNANALYZED;
+        eventKind = shouldAutoAnalyze
+          ? INTAKE_EVENT_KINDS.QUEUED_OFFLINE
+          : INTAKE_EVENT_KINDS.UNANALYZED;
       }
 
       if (disposed || !record) return null;
@@ -473,10 +480,21 @@ export function createAutoIntakeService({
     subscribers.clear();
   }
 
+  function setAutoAnalyzeUncovered(enabled) {
+    if (disposed) return autoAnalyze;
+    const next = Boolean(enabled);
+    if (next !== autoAnalyze) {
+      autoAnalyze = next;
+      emit();
+    }
+    return autoAnalyze;
+  }
+
   return {
     startWatching,
     stopWatching,
     pollNow,
+    setAutoAnalyzeUncovered,
     registerExportedFilename,
     startAnalysis,
     reanalyze,

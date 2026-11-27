@@ -20,7 +20,6 @@ export const LIVE_MONITOR_STATES = Object.freeze({
 
 export const AUDIO_SOURCE_KINDS = Object.freeze({
   SYSTEM: 'system',
-  DEVICE: 'device',
 });
 
 export const SILENCE_WARNING_SECONDS = 10;
@@ -40,7 +39,7 @@ function stopStreamTracks(stream) {
 }
 
 /**
- * Pure-audio live monitoring engine (对局监听引擎, ADR 0009).
+ * Pure-audio Live Audio Analysis engine (实时音频分析引擎, ADR 0009 + ADR 0012).
  * Captures game audio only (no video display/proxy/filmstrip, no manual marks or live pre-decisions),
  * computes gunshot/4-group prediction scores and 20 ms energy envelopes, and maintains a rolling
  * 60-minute history for master recording alignment & conforming (原片升格).
@@ -68,13 +67,11 @@ export function createLiveMonitorEngine({
 
   let status = LIVE_MONITOR_STATES.IDLE;
   let sourceKind = null;
-  let deviceId = null;
   let audioLabel = null;
   let modelStatus = null;
   let modelLoadProgress = null;
   let gateActive = false;
   let gateReason = null;
-  let allowGateBypass = false;
   let playbackUnmuted = false;
   let playbackGateReason = null;
   let pausedAtMs = null;
@@ -112,14 +109,12 @@ export function createLiveMonitorEngine({
       status,
       active: isActiveStatus(status),
       sourceKind,
-      deviceId,
       audioLabel,
       modelId,
       modelStatus,
       modelLoadProgress,
       gateActive,
       gateReason,
-      allowGateBypass,
       silentSeconds,
       silenceWarning,
       disconnectReason,
@@ -363,7 +358,7 @@ export function createLiveMonitorEngine({
     const audioTracks = stream.getAudioTracks();
     if (!audioTracks.length) {
       stopStreamTracks(stream);
-      throw new Error('未获取到系统音频：请在共享窗口中勾选共享系统音频，或改用虚拟声卡音频设备。');
+      throw new Error('未获取到系统音频：请在共享窗口中勾选共享系统音频。');
     }
     // Immediately stop and remove all video tracks before binding any audio listeners.
     for (const videoTrack of [...stream.getVideoTracks()]) {
@@ -371,33 +366,6 @@ export function createLiveMonitorEngine({
       try { stream.removeTrack?.(videoTrack); } catch { /* ignore */ }
     }
     return stream;
-  }
-
-  async function acquireDeviceStream(requestedDeviceId) {
-    if (!mediaDevices?.getUserMedia) {
-      throw new Error('当前浏览器不支持音频设备输入');
-    }
-    const audio = requestedDeviceId
-      ? { ...RAW_AUDIO_CONSTRAINTS, deviceId: { exact: requestedDeviceId } }
-      : { ...RAW_AUDIO_CONSTRAINTS };
-    const stream = await mediaDevices.getUserMedia({ video: false, audio });
-    if (!stream.getAudioTracks().length) {
-      stopStreamTracks(stream);
-      throw new Error('所选音频设备未提供可用音轨');
-    }
-    return stream;
-  }
-
-  async function listAudioDevices() {
-    if (!mediaDevices?.enumerateDevices) return [];
-    const devices = await mediaDevices.enumerateDevices();
-    return devices
-      .filter((device) => device?.kind === 'audioinput')
-      .map((device) => ({
-        deviceId: device.deviceId || '',
-        label: device.label || '',
-        groupId: device.groupId || '',
-      }));
   }
 
   async function cleanupLocalAudioPipeline({ ctx = null, node = null, source = null, silentGain = null } = {}) {
@@ -500,7 +468,7 @@ export function createLiveMonitorEngine({
   }
 
   function shouldGate() {
-    return playbackUnmuted && !(sourceKind === AUDIO_SOURCE_KINDS.DEVICE && allowGateBypass);
+    return playbackUnmuted;
   }
 
   function postWorkletPause(paused) {
@@ -540,21 +508,12 @@ export function createLiveMonitorEngine({
     if (changed || forceEmit) emit();
   }
 
-  function setPlaybackGate(isPlayingUnmuted, reason = '回放中 · 已暂停对局监听') {
+  function setPlaybackGate(isPlayingUnmuted, reason = '回放中 · 已暂停实时音频分析') {
     if (disposed) return snapshot();
     playbackUnmuted = Boolean(isPlayingUnmuted);
-    playbackGateReason = playbackUnmuted ? (reason || '回放中 · 已暂停对局监听') : null;
+    playbackGateReason = playbackUnmuted ? (reason || '回放中 · 已暂停实时音频分析') : null;
     reconcilePlaybackGate();
     return snapshot();
-  }
-
-  function setAllowGateBypass(allow) {
-    if (disposed || sourceKind !== AUDIO_SOURCE_KINDS.DEVICE) return false;
-    const next = Boolean(allow);
-    const changed = next !== allowGateBypass;
-    allowGateBypass = next;
-    reconcilePlaybackGate({ forceEmit: changed });
-    return true;
   }
 
   function bindAudioTrackEnded(stream, token) {
@@ -568,7 +527,7 @@ export function createLiveMonitorEngine({
         gateActive = false;
         gateReason = null;
         pausedAtMs = null;
-        disconnectReason = '音频流已断开，对局监听已停止';
+        disconnectReason = '音频流已断开，实时音频分析已停止';
         void teardownCapture();
         emit();
       };
@@ -581,16 +540,14 @@ export function createLiveMonitorEngine({
     return Boolean(mediaStream || audioCtx || workletNode || sourceNode || silentGainNode || inferenceWorker || trackEndCleanups.length);
   }
 
-  async function start({ sourceKind: requestedKind = AUDIO_SOURCE_KINDS.SYSTEM, deviceId: requestedDeviceId = null } = {}) {
-    if (disposed) throw new Error('对局监听引擎已销毁');
-    if (requestedKind !== AUDIO_SOURCE_KINDS.SYSTEM && requestedKind !== AUDIO_SOURCE_KINDS.DEVICE) {
+  async function start({ sourceKind: requestedKind = AUDIO_SOURCE_KINDS.SYSTEM } = {}) {
+    if (disposed) throw new Error('实时音频分析引擎已销毁');
+    if (requestedKind !== AUDIO_SOURCE_KINDS.SYSTEM) {
       throw new Error(`不支持的音频源类型：${String(requestedKind)}`);
     }
 
     const token = ++runToken;
-    sourceKind = requestedKind;
-    deviceId = requestedKind === AUDIO_SOURCE_KINDS.DEVICE ? (requestedDeviceId || null) : null;
-    if (requestedKind === AUDIO_SOURCE_KINDS.SYSTEM) allowGateBypass = false;
+    sourceKind = AUDIO_SOURCE_KINDS.SYSTEM;
     status = LIVE_MONITOR_STATES.STARTING;
     gateActive = false;
     gateReason = null;
@@ -608,9 +565,7 @@ export function createLiveMonitorEngine({
 
     let stream = null;
     try {
-      stream = requestedKind === AUDIO_SOURCE_KINDS.DEVICE
-        ? await acquireDeviceStream(requestedDeviceId)
-        : await acquireSystemStream();
+      stream = await acquireSystemStream();
       if (token !== runToken || disposed) {
         stopStreamTracks(stream);
         return snapshot();
@@ -624,9 +579,6 @@ export function createLiveMonitorEngine({
       mediaStream = stream;
       const primaryAudio = stream.getAudioTracks()[0] || null;
       audioLabel = primaryAudio?.label || null;
-      if (requestedKind === AUDIO_SOURCE_KINDS.DEVICE) {
-        deviceId = primaryAudio?.getSettings?.()?.deviceId || requestedDeviceId || null;
-      }
       bindAudioTrackEnded(stream, token);
 
       history.begin(now());
@@ -677,10 +629,6 @@ export function createLiveMonitorEngine({
     return snapshot();
   }
 
-  async function switchAudioSource({ sourceKind: nextKind, deviceId: nextDeviceId = null } = {}) {
-    return start({ sourceKind: nextKind, deviceId: nextDeviceId });
-  }
-
   async function dispose() {
     if (disposed) return;
     disposed = true;
@@ -702,10 +650,7 @@ export function createLiveMonitorEngine({
   return {
     start,
     stop,
-    switchAudioSource,
-    listAudioDevices,
     setPlaybackGate,
-    setAllowGateBypass,
     getState: snapshot,
     subscribe(listener) {
       if (typeof listener !== 'function') throw new TypeError('listener must be a function');

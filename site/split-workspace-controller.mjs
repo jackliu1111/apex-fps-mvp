@@ -63,9 +63,10 @@ export function resolveClippingLayout({
   itemCount = 0,
   forceStandaloneLibrary = false,
 } = {}) {
+  void itemCount;
   if (page === 'exports') return 'exports';
   if (forceStandaloneLibrary) return 'standalone-library';
-  return itemCount > 0 ? 'split' : 'empty';
+  return 'split';
 }
 
 export function reconcileSplitSelection({
