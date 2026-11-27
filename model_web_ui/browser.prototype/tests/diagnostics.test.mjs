@@ -208,11 +208,9 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
       liveMonitor: {
         status: 'listening',
         active: true,
-        sourceKind: 'device',
-        audioLabel: 'VB-Cable Secret Device',
-        deviceId: 'secret-device-id',
+        sourceKind: 'system',
+        audioLabel: 'System Audio Secret Label',
         gateActive: false,
-        allowGateBypass: true,
         silenceWarning: false,
         modelStatus: 'ready',
         inferenceCount: 42,
@@ -225,6 +223,7 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
         name: 'OBS_Private_Folder',
         watching: true,
         needsRestore: false,
+        autoAnalyzeUncovered: true,
         processingCount: 1,
         intakeCount: 3,
         lastIntake: {
@@ -264,9 +263,8 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
   assert.deepEqual(report.liveMonitor, {
     status: 'listening',
     active: true,
-    sourceKind: 'device',
+    sourceKind: 'system',
     gateActive: false,
-    allowGateBypass: true,
     silenceWarning: false,
     modelStatus: 'ready',
     inferenceCount: 42,
@@ -278,6 +276,7 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
     status: 'watching',
     watching: true,
     needsRestore: false,
+    autoAnalyzeUncovered: true,
     processingCount: 1,
     intakeCount: 3,
     lastIntakeKind: 'conformed-exact',
@@ -285,7 +284,7 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
   });
 
   const serialized = JSON.stringify(report);
-  assert.doesNotMatch(serialized, /ApexClips|secret_match\.mp4|OBS_Private_Folder|VB-Cable Secret Device|secret-device-id|partial\.mkv/);
+  assert.doesNotMatch(serialized, /ApexClips|secret_match\.mp4|OBS_Private_Folder|System Audio Secret Label|partial\.mkv/);
 });
 
 test('collectDiagnostics handles missing or throwing browser APIs gracefully', async () => {

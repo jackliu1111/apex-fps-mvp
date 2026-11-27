@@ -165,17 +165,17 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       window.showDirectoryPicker = async () => opfsDir;
     });
 
-    await page.locator('#topbar-watch-btn').click();
+    await page.locator('#sidebar-watch-btn').click();
     await page.waitForFunction(() => window.reviewApp.watchDirState.status === 'watching');
-    assert.equal(await page.locator('#topbar-watch-value').textContent(), 'OBS_Background_Test');
+    assert.equal(await page.locator('#sidebar-watch-value').textContent(), 'OBS_Background_Test');
 
     // Reload page -> real IndexedDB apex-watch-dir-v1 loads OPFS handle and silently auto-restores!
     await page.reload();
     await page.waitForFunction(() => Boolean(window.reviewApp));
     await page.evaluate(() => window.reviewApp.watchDirRestoreReady);
     assert.equal(await page.evaluate(() => window.reviewApp.watchDirState.status), 'watching');
-    assert.equal(await page.locator('#topbar-watch-value').textContent(), 'OBS_Background_Test');
-    assert.equal(await page.locator('#topbar-watch-restore-cta').isHidden(), true);
+    assert.equal(await page.locator('#sidebar-watch-value').textContent(), 'OBS_Background_Test');
+    assert.equal(await page.locator('#sidebar-watch-restore-cta').isHidden(), true);
 
     // Verify legacy apex-review-v1 is completely untouched and session sources/batches did NOT persist
     const persistenceCheck = await page.evaluate(async () => {
@@ -214,9 +214,9 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       window.reviewApp.setWatchDirectoryRestoreNeeded(mockSavedHandle);
     });
 
-    assert.equal(await page.locator('#topbar-watch-dir').getAttribute('data-watch-status'), 'needs-permission');
-    assert.equal(await page.locator('#topbar-watch-restore-cta').isVisible(), true);
-    assert.equal(await page.locator('#topbar-watch-restore-cta').textContent(), 'Restore Watch');
+    assert.equal(await page.locator('#sidebar-watch-dir').getAttribute('data-watch-status'), 'needs-permission');
+    assert.equal(await page.locator('#sidebar-watch-restore-cta').isVisible(), true);
+    assert.equal(await page.locator('#sidebar-watch-restore-cta').textContent(), 'Restore Watch');
 
     const widths = [1440, 1280, 1201, 1200, 1024, 900, 851, 768, 540, 390, 320];
     await assertHeaderInvariant(page, widths, 'restore-cta-en');
@@ -224,24 +224,24 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.locator('#lang-toggle').click();
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
-    assert.equal(await page.locator('#topbar-watch-restore-cta').textContent(), '恢复监听');
+    assert.equal(await page.locator('#sidebar-watch-restore-cta').textContent(), '恢复监听');
     await assertHeaderInvariant(page, widths, 'restore-cta-zh');
 
     // Click Restore Watch CTA -> one-click restore succeeds without opening directory picker
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.locator('#topbar-watch-restore-cta').click();
+    await page.locator('#sidebar-watch-restore-cta').click();
     await page.waitForFunction(() => window.reviewApp.watchDirState.status === 'watching');
-    assert.equal(await page.locator('#topbar-watch-restore-cta').isHidden(), true);
+    assert.equal(await page.locator('#sidebar-watch-restore-cta').isHidden(), true);
     assert.equal(await page.evaluate(() => window.__restoreCheck.getPickerCalled()), 0);
     assert.deepEqual(await page.evaluate(() => window.__restoreCheck.reqs), [{ mode: 'read' }]);
 
     // -------------------------------------------------------------------------
-    // 3. Opt-in browser Notification checkbox inside #topbar-live-popover
+    // 3. Opt-in browser Notification checkbox inside #sidebar-intake-popover
     // -------------------------------------------------------------------------
-    await page.locator('#topbar-live-settings-btn').click();
-    assert.equal(await page.locator('#topbar-live-popover').isVisible(), true);
-    assert.equal(await page.locator('#topbar-ready-notify').isChecked(), false);
-    await page.locator('#topbar-ready-notify').check();
+    await page.locator('#sidebar-intake-settings-btn').click();
+    assert.equal(await page.locator('#sidebar-intake-popover').isVisible(), true);
+    assert.equal(await page.locator('#sidebar-ready-notify').isChecked(), false);
+    await page.locator('#sidebar-ready-notify').check();
     await page.waitForFunction(() => window.reviewApp.readyNotifier.notificationsEnabled === true);
     assert.equal(await page.evaluate(() => window.__notifTest.requests.length), 1);
     await page.keyboard.press('Escape');

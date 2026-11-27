@@ -438,83 +438,54 @@ test('system audio capture fails cleanly and stops video track when shared displ
   await engine.dispose();
 });
 
-test('virtual audio device capture enumerates audioinput devices, captures with raw constraints, and switchAudioSource releases old stream while keeping rolling history', async () => {
-  const cableTrack = createFakeTrack({ kind: 'audio', label: 'VB-Cable Output', deviceId: 'vb-1' });
-  const blackholeTrack = createFakeTrack({ kind: 'audio', label: 'BlackHole 2ch', deviceId: 'bh-2' });
-  const sysVideo = createFakeTrack({ kind: 'video', label: 'Display' });
-  const sysAudio = createFakeTrack({ kind: 'audio', label: 'Desktop Audio' });
-
-  const streamsByDevice = {
-    'vb-1': createFakeStream({ audioTracks: [cableTrack] }),
-    'bh-2': createFakeStream({ audioTracks: [blackholeTrack] }),
-  };
+test('live monitor engine enforces system-audio-only capture (ADR 0012), rejects device source, and preserves rolling history across restart', async () => {
+  const sysVideo1 = createFakeTrack({ kind: 'video', label: 'Display 1' });
+  const sysAudio1 = createFakeTrack({ kind: 'audio', label: 'Desktop Audio 1' });
+  const sysVideo2 = createFakeTrack({ kind: 'video', label: 'Display 2' });
+  const sysAudio2 = createFakeTrack({ kind: 'audio', label: 'Desktop Audio 2' });
+  let idx = 0;
 
   const harness = createFakeHarness({
-    devices: [
-      { kind: 'audioinput', deviceId: 'vb-1', label: 'VB-Cable Output', groupId: 'g1' },
-      { kind: 'videoinput', deviceId: 'cam-1', label: 'Webcam', groupId: 'g2' },
-      { kind: 'audiooutput', deviceId: 'spk-1', label: 'Speakers', groupId: 'g3' },
-      { kind: 'audioinput', deviceId: 'bh-2', label: 'BlackHole 2ch', groupId: 'g4' },
-    ],
-    userStreamFactory: (constraints) => {
-      const id = constraints.audio?.deviceId?.exact || 'vb-1';
-      return streamsByDevice[id];
-    },
-    displayStreamFactory: () => createFakeStream({ videoTracks: [sysVideo], audioTracks: [sysAudio] }),
+    displayStreamFactory: () => (idx++ === 0
+      ? createFakeStream({ videoTracks: [sysVideo1], audioTracks: [sysAudio1] })
+      : createFakeStream({ videoTracks: [sysVideo2], audioTracks: [sysAudio2] })),
   });
 
   const engine = createLiveMonitorEngine(harness);
 
-  const devices = await engine.listAudioDevices();
-  assert.deepEqual(devices, [
-    { deviceId: 'vb-1', label: 'VB-Cable Output', groupId: 'g1' },
-    { deviceId: 'bh-2', label: 'BlackHole 2ch', groupId: 'g4' },
-  ]);
+  assert.deepEqual(Object.keys(AUDIO_SOURCE_KINDS), ['SYSTEM']);
+  assert.equal('listAudioDevices' in engine, false);
+  assert.equal('switchAudioSource' in engine, false);
+  assert.equal('setAllowGateBypass' in engine, false);
+  await assert.rejects(() => engine.start({ sourceKind: 'device' }), /不支持的音频源类型/);
 
-  const s1 = await engine.start({ sourceKind: 'device', deviceId: 'vb-1' });
-  assert.deepEqual(harness.userCalls[0], {
-    video: false,
-    audio: {
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-      deviceId: { exact: 'vb-1' },
-    },
-  });
+  const s1 = await engine.start();
   assert.equal(s1.status, 'listening');
-  assert.equal(s1.sourceKind, 'device');
-  assert.equal(s1.deviceId, 'vb-1');
-  assert.equal(s1.audioLabel, 'VB-Cable Output');
+  assert.equal(s1.sourceKind, 'system');
+  assert.equal(s1.audioLabel, 'Desktop Audio 1');
+  assert.equal(sysVideo1.stoppedCount, 1);
 
-  // Switch to another virtual device after 1s.
+  // Restarting releases old stream & AudioContext cleanly.
   harness.nowRef.value += 1000;
-  const s2 = await engine.switchAudioSource({ sourceKind: 'device', deviceId: 'bh-2' });
-  assert.equal(cableTrack.stoppedCount, 1);
+  const s2 = await engine.start();
+  assert.equal(sysAudio1.stoppedCount, 1);
   assert.equal(harness.audioContexts[0].closed, true);
+  assert.equal(sysVideo2.stoppedCount, 1);
   assert.equal(s2.status, 'listening');
-  assert.equal(s2.sourceKind, 'device');
-  assert.equal(s2.deviceId, 'bh-2');
-  assert.equal(s2.audioLabel, 'BlackHole 2ch');
-
-  // Switch from device to system audio.
-  harness.nowRef.value += 1000;
-  const s3 = await engine.switchAudioSource({ sourceKind: 'system' });
-  assert.equal(blackholeTrack.stoppedCount, 1);
-  assert.equal(sysVideo.stoppedCount, 1);
-  assert.equal(s3.status, 'listening');
-  assert.equal(s3.sourceKind, 'system');
-  assert.equal(s3.deviceId, null);
-  assert.equal(s3.audioLabel, 'Desktop Audio');
+  assert.equal(s2.sourceKind, 'system');
+  assert.equal(s2.audioLabel, 'Desktop Audio 2');
 
   await engine.dispose();
 });
 
-test('worklet envelopes populate rolling alignment history, trigger silence warning at >=10s, clear on sound, and survive source switch', async () => {
-  const track1 = createFakeTrack({ kind: 'audio', label: 'Device A', deviceId: 'dev-a' });
-  const track2 = createFakeTrack({ kind: 'audio', label: 'Device B', deviceId: 'dev-b' });
+test('worklet envelopes populate rolling alignment history, trigger silence warning at >=10s, clear on sound, and survive restart', async () => {
+  const track1 = createFakeTrack({ kind: 'audio', label: 'System A' });
+  const track2 = createFakeTrack({ kind: 'audio', label: 'System B' });
+  let idx = 0;
   const harness = createFakeHarness({
-    userStreamFactory: (c) => createFakeStream({
-      audioTracks: [c.audio?.deviceId?.exact === 'dev-b' ? track2 : track1],
+    displayStreamFactory: () => createFakeStream({
+      videoTracks: [createFakeTrack({ kind: 'video' })],
+      audioTracks: [idx++ === 0 ? track1 : track2],
     }),
   });
   const engine = createLiveMonitorEngine(harness);
@@ -523,7 +494,7 @@ test('worklet envelopes populate rolling alignment history, trigger silence warn
   const warnings = [];
   engine.subscribe((s) => warnings.push(s.silenceWarning));
 
-  await engine.start({ sourceKind: 'device', deviceId: 'dev-a' });
+  await engine.start();
   const worklet1 = harness.workletNodes[0];
 
   // Emit 50 buckets (1.0s) of active audio.
@@ -551,14 +522,14 @@ test('worklet envelopes populate rolling alignment history, trigger silence warn
   assert.equal(engine.getState().silenceWarning, false);
   assert.ok(warnings.includes(true));
 
-  // Switch audio source 1s after the last envelope; history retains earlier buckets + gap padding.
+  // Restart capture 1s after the last envelope; history retains earlier buckets + gap padding.
   const beforeSwitch = engine.getHistoryForAlignment();
   assert.equal(beforeSwitch.envPeaks.length, 54);
   assert.ok(Math.abs(beforeSwitch.envPeaks[0] - 0.6) < 1e-5);
   assert.ok(Math.abs(beforeSwitch.envRms[0] - 0.35) < 1e-5);
 
   harness.nowRef.value = beforeSwitch.latestEpochMs + 1000;
-  await engine.switchAudioSource({ sourceKind: 'device', deviceId: 'dev-b' });
+  await engine.start();
   const worklet2 = harness.workletNodes[1];
   worklet2.emitFromWorklet({ type: 'envelope', buckets: new Float32Array([0.8, 0.4]), silentSeconds: 0 });
 
@@ -705,7 +676,7 @@ test('worker inference computes gunshot and 4-group score windows, coalesces bus
   await engine.dispose();
 });
 
-test('loopback gate pauses and resumes worklet and inference on system audio, rejects bypass on system, allows bypass only on device, and re-enforces gate when switching back to system', async () => {
+test('loopback gate always pauses and resumes worklet and inference during unmuted playback on system audio', async () => {
   const sysStream1 = createFakeStream({
     videoTracks: [createFakeTrack({ kind: 'video' })],
     audioTracks: [createFakeTrack({ kind: 'audio', label: 'System 1' })],
@@ -715,18 +686,14 @@ test('loopback gate pauses and resumes worklet and inference on system audio, re
     audioTracks: [createFakeTrack({ kind: 'audio', label: 'System 2' })],
   });
   let sysIdx = 0;
-  const devStream = createFakeStream({
-    audioTracks: [createFakeTrack({ kind: 'audio', label: 'VB-Cable', deviceId: 'vb-1' })],
-  });
 
   const harness = createFakeHarness({
     displayStreamFactory: () => (sysIdx++ === 0 ? sysStream1 : sysStream2),
-    userStreamFactory: () => devStream,
   });
   const engine = createLiveMonitorEngine(harness);
   const t0 = harness.nowRef.value;
 
-  await engine.start({ sourceKind: 'system' });
+  await engine.start();
   const wSys1 = harness.workletNodes[0];
 
   // Push 1s of audio before gating.
@@ -735,17 +702,12 @@ test('loopback gate pauses and resumes worklet and inference on system audio, re
 
   // Playback starts unmuted -> pauses worklet & inference.
   harness.nowRef.value = t0 + 1000;
-  engine.setPlaybackGate(true, '复核播放中 · 已暂停监听');
+  engine.setPlaybackGate(true, '复核播放中 · 已暂停实时音频分析');
   assert.equal(engine.getState().status, 'paused-loopback');
   assert.equal(engine.getState().active, true);
   assert.equal(engine.getState().gateActive, true);
-  assert.equal(engine.getState().gateReason, '复核播放中 · 已暂停监听');
+  assert.equal(engine.getState().gateReason, '复核播放中 · 已暂停实时音频分析');
   assert.deepEqual(wSys1.sentMessages.at(-1), { type: 'pause', value: true });
-
-  // Bypass MUST be rejected for system audio.
-  assert.equal(engine.setAllowGateBypass(true), false);
-  assert.equal(engine.getState().allowGateBypass, false);
-  assert.equal(engine.getState().status, 'paused-loopback');
 
   // Late envelopes and windows arriving while gated must be ignored.
   wSys1.emitFromWorklet({ type: 'envelope', buckets: new Float32Array([0.9, 0.9]), silentSeconds: 0 });
@@ -765,39 +727,11 @@ test('loopback gate pauses and resumes worklet and inference on system audio, re
   wSys1.emitFromWorklet({ type: 'envelope', buckets: new Float32Array([0.7, 0.5]), silentSeconds: 0 });
   assert.equal(engine.getState().envelopeBucketCount, 50 + 100 + 1); // 1s + 2s paused gap + 1 bucket
 
-  // Switch to virtual audio device -> gated by default, but bypass IS allowed.
-  await engine.switchAudioSource({ sourceKind: 'device', deviceId: 'vb-1' });
-  const wDev = harness.workletNodes[1];
+  // Starting while playback is already unmuted enters paused-loopback immediately.
   engine.setPlaybackGate(true, '复核播放中');
-  assert.equal(engine.getState().status, 'paused-loopback');
-  assert.deepEqual(wDev.sentMessages.at(-1), { type: 'pause', value: true });
-
-  assert.equal(engine.setAllowGateBypass(true), true);
-  assert.equal(engine.getState().allowGateBypass, true);
-  assert.equal(engine.getState().gateActive, false);
-  assert.equal(engine.getState().status, 'listening');
-  assert.deepEqual(wDev.sentMessages.at(-1), { type: 'pause', value: false });
-
-  // Inference runs normally on device audio while bypassed.
-  wDev.emitFromWorklet({ type: 'window', waveform: new Float32Array([1, 2, 3, 4]), coveredSeconds: 10 });
-  await new Promise((r) => setTimeout(r, 0));
-  assert.equal(harness.workers.length, 1);
-  assert.equal(harness.workers[0].posted.length, 1);
-
-  // Disabling bypass while unmuted playback is STILL active immediately re-pauses.
-  assert.equal(engine.setAllowGateBypass(false), true);
-  assert.equal(engine.getState().status, 'paused-loopback');
-  assert.equal(engine.getState().gateActive, true);
-  assert.deepEqual(wDev.sentMessages.at(-1), { type: 'pause', value: true });
-
-  // Re-enable bypass, then switch back to system audio -> bypass is cleared and gate is re-enforced!
-  assert.equal(engine.setAllowGateBypass(true), true);
-  assert.equal(engine.getState().status, 'listening');
-
-  await engine.switchAudioSource({ sourceKind: 'system' });
-  const wSys2 = harness.workletNodes[2];
+  await engine.start();
+  const wSys2 = harness.workletNodes[1];
   assert.equal(engine.getState().sourceKind, 'system');
-  assert.equal(engine.getState().allowGateBypass, false);
   assert.equal(engine.getState().gateActive, true);
   assert.equal(engine.getState().status, 'paused-loopback');
   assert.deepEqual(wSys2.sentMessages.at(-1), { type: 'pause', value: true });
@@ -843,14 +777,19 @@ test('audio track disconnect notifies subscribers, tears down capture, and prese
 });
 
 test('stop transitions cleanly to idle without triggering disconnect, preserves history, cancels in-flight start, and dispose clears everything', async () => {
-  const audioTrack = createFakeTrack({ kind: 'audio', label: 'VB-Cable', deviceId: 'vb-1', emitEndedOnStop: true });
+  const audioTrack = createFakeTrack({ kind: 'audio', label: 'System Audio', emitEndedOnStop: true });
   const deferred = Promise.withResolvers();
   let callIndex = 0;
 
   const harness = createFakeHarness({
-    userStreamFactory: () => {
+    displayStreamFactory: () => {
       callIndex++;
-      if (callIndex === 1) return createFakeStream({ audioTracks: [audioTrack] });
+      if (callIndex === 1) {
+        return createFakeStream({
+          videoTracks: [createFakeTrack({ kind: 'video' })],
+          audioTracks: [audioTrack],
+        });
+      }
       return deferred.promise;
     },
   });
@@ -859,7 +798,7 @@ test('stop transitions cleanly to idle without triggering disconnect, preserves 
   const observed = [];
   engine.subscribe((s) => observed.push(s.status));
 
-  await engine.start({ sourceKind: 'device', deviceId: 'vb-1' });
+  await engine.start();
   const worklet = harness.workletNodes[0];
   worklet.emitFromWorklet({ type: 'envelope', buckets: new Float32Array([0.7, 0.4]), silentSeconds: 12 });
   worklet.emitFromWorklet({ type: 'window', waveform: new Float32Array([1, 2]), coveredSeconds: 10 });
@@ -878,8 +817,8 @@ test('stop transitions cleanly to idle without triggering disconnect, preserves 
   assert.equal(observed.includes('disconnected'), false);
   assert.equal(engine.getHistoryForAlignment().envPeaks.length, 1);
 
-  // Start a second capture whose getUserMedia resolves AFTER stop() is called -> late track is stopped cleanly.
-  const pendingStart = engine.start({ sourceKind: 'device', deviceId: 'vb-1' });
+  // Start a second capture whose getDisplayMedia resolves AFTER stop() is called -> late track is stopped cleanly.
+  const pendingStart = engine.start();
   assert.equal(engine.getState().status, 'starting');
   await engine.stop();
   assert.equal(engine.getState().status, 'idle');
@@ -903,11 +842,14 @@ test('stop transitions cleanly to idle without triggering disconnect, preserves 
 
 test('worker error and crash recover cleanly without stalling subsequent inference windows', async () => {
   const harness = createFakeHarness({
-    userStreamFactory: () => createFakeStream({ audioTracks: [createFakeTrack({ kind: 'audio', label: 'Dev' })] }),
+    displayStreamFactory: () => createFakeStream({
+      videoTracks: [createFakeTrack({ kind: 'video' })],
+      audioTracks: [createFakeTrack({ kind: 'audio', label: 'System Audio' })],
+    }),
   });
   const engine = createLiveMonitorEngine(harness);
 
-  await engine.start({ sourceKind: 'device' });
+  await engine.start();
   const worklet = harness.workletNodes[0];
 
   worklet.emitFromWorklet({ type: 'window', waveform: new Float32Array([1]), coveredSeconds: 10 });
@@ -936,21 +878,22 @@ test('worker error and crash recover cleanly without stalling subsequent inferen
   await engine.dispose();
 });
 
-test('superseded start/switchAudioSource resolving late during resume or addModule cleans up only its own resources without killing newer active capture', async () => {
+test('superseded start resolving late during resume or addModule cleans up only its own resources without killing newer active capture', async () => {
   const resumeDeferred = Promise.withResolvers();
   const addModuleDeferred = Promise.withResolvers();
 
-  const track1 = createFakeTrack({ kind: 'audio', label: 'Stale Resume Device', deviceId: 'dev-1' });
-  const track2 = createFakeTrack({ kind: 'audio', label: 'Stale Worklet Device', deviceId: 'dev-2' });
-  const track3 = createFakeTrack({ kind: 'audio', label: 'Active Winner Device', deviceId: 'dev-3' });
-  const streams = {
-    'dev-1': createFakeStream({ audioTracks: [track1] }),
-    'dev-2': createFakeStream({ audioTracks: [track2] }),
-    'dev-3': createFakeStream({ audioTracks: [track3] }),
-  };
+  const track1 = createFakeTrack({ kind: 'audio', label: 'Stale Resume System' });
+  const track2 = createFakeTrack({ kind: 'audio', label: 'Stale Worklet System' });
+  const track3 = createFakeTrack({ kind: 'audio', label: 'Active Winner System' });
+  const streams = [
+    createFakeStream({ videoTracks: [createFakeTrack({ kind: 'video' })], audioTracks: [track1] }),
+    createFakeStream({ videoTracks: [createFakeTrack({ kind: 'video' })], audioTracks: [track2] }),
+    createFakeStream({ videoTracks: [createFakeTrack({ kind: 'video' })], audioTracks: [track3] }),
+  ];
+  let streamIdx = 0;
 
   const baseHarness = createFakeHarness({
-    userStreamFactory: (c) => streams[c.audio?.deviceId?.exact],
+    displayStreamFactory: () => streams[streamIdx++],
   });
 
   let ctxIdx = 0;
@@ -981,20 +924,19 @@ test('superseded start/switchAudioSource resolving late during resume or addModu
   });
 
   // 1) Start run 1 (stalls inside ctx.resume())
-  const run1 = engine.start({ sourceKind: 'device', deviceId: 'dev-1' });
+  const run1 = engine.start();
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(baseHarness.audioContexts.length, 1);
 
   // 2) Supersede with run 2 (stalls inside ctx.audioWorklet.addModule())
-  const run2 = engine.switchAudioSource({ sourceKind: 'device', deviceId: 'dev-2' });
+  const run2 = engine.start();
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(baseHarness.audioContexts.length, 2);
 
   // 3) Supersede again with run 3 (completes cleanly and becomes active)
-  const run3State = await engine.switchAudioSource({ sourceKind: 'device', deviceId: 'dev-3' });
+  const run3State = await engine.start();
   assert.equal(run3State.status, LIVE_MONITOR_STATES.LISTENING);
-  assert.equal(run3State.deviceId, 'dev-3');
-  assert.equal(run3State.audioLabel, 'Active Winner Device');
+  assert.equal(run3State.audioLabel, 'Active Winner System');
   assert.equal(baseHarness.audioContexts.length, 3);
   assert.equal(baseHarness.workletNodes.length, 1);
 
@@ -1016,7 +958,7 @@ test('superseded start/switchAudioSource resolving late during resume or addModu
   assert.equal(track3.stoppedCount, 0, 'active run 3 stream track must stay live');
   assert.equal(activeWorklet.disconnected, false, 'active run 3 worklet must stay connected');
   assert.equal(engine.getState().status, LIVE_MONITOR_STATES.LISTENING);
-  assert.equal(engine.getState().deviceId, 'dev-3');
+  assert.equal(engine.getState().audioLabel, 'Active Winner System');
 
   // Verify active run 3 still ingests worklet envelopes normally after stale runs settled.
   activeWorklet.emitFromWorklet({ type: 'envelope', buckets: new Float32Array([0.75, 0.5]), silentSeconds: 0 });

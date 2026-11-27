@@ -498,8 +498,8 @@ test('createRecordingLibraryView renders all 4 merged statuses, minimal 4-block 
   const watchSlot = topbarContainer.querySelector('[data-slot="watch-directory"]');
   assert.ok(liveSlot);
   assert.ok(watchSlot);
-  assert.match(liveSlot.innerText, /对局监听/);
-  assert.match(liveSlot.innerText, /监听中/);
+  assert.match(liveSlot.innerText, /实时音频分析/);
+  assert.match(liveSlot.innerText, /分析中/);
   assert.match(watchSlot.innerText, /Apex Captures/);
   assert.equal(watchSlot.innerText.includes('/Users/demo'), false);
 

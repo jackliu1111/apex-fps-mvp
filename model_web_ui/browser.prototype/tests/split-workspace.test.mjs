@@ -174,8 +174,8 @@ test('dispatchReviewPrimaryAction routes analyze/stop/reanalyze cleanly to analy
   ]);
 });
 
-test('resolveClippingLayout chooses split workspace whenever library is non-empty, empty state when 0 items, and preserves exports/libraryPreview', () => {
-  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 0 }), 'empty');
+test('resolveClippingLayout always keeps split workspace on Clipping page (even when empty), and preserves exports/libraryPreview', () => {
+  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 0 }), 'split');
   assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 1 }), 'split');
   assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 5 }), 'split');
   assert.equal(resolveClippingLayout({ page: 'exports', itemCount: 5 }), 'exports');

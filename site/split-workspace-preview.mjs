@@ -73,6 +73,7 @@ function buildRecordingsForScenario(scenario) {
         { id: 'ex-7', start: 1044, end: 1068 },
       ],
       savedExports: 2,
+      intakeSource: 'auto',
       mapLabel: 'Olympus · Ranked Win',
     },
     {
@@ -94,6 +95,7 @@ function buildRecordingsForScenario(scenario) {
       ],
       savedExports: 1,
       isNew: true,
+      intakeSource: 'auto',
       mapLabel: "World's Edge · Coarse Conform",
     },
     {
@@ -112,6 +114,7 @@ function buildRecordingsForScenario(scenario) {
         { id: 'an-3', start: 356, end: 378 },
       ],
       savedExports: 0,
+      intakeSource: 'manual',
       mapLabel: 'Storm Point · Analyzing 62%',
     },
     {
@@ -127,6 +130,7 @@ function buildRecordingsForScenario(scenario) {
       candidates: [],
       savedExports: 0,
       isNew: true,
+      intakeSource: 'auto',
       mapLabel: 'Broken Moon · Unanalyzed',
     },
     {
@@ -146,6 +150,7 @@ function buildRecordingsForScenario(scenario) {
         { id: 'of-4', start: 840, end: 866 },
       ],
       savedExports: 3,
+      intakeSource: 'manual',
       mapLabel: 'E-District · Ready',
     },
   ];
@@ -260,6 +265,7 @@ export async function mountSplitWorkspacePreview(app, {
       processedUntil: rec.processedUntil,
       alignment: rec.alignment ? { ...rec.alignment } : null,
       candidates: rec.candidates,
+      intakeSource: rec.intakeSource || null,
       isPreviewMock: true,
       mapLabel: rec.mapLabel,
     };
@@ -294,6 +300,7 @@ export async function mountSplitWorkspacePreview(app, {
         { id: `nd-${extraCounter}-3`, start: 590, end: 614 },
       ],
       savedExports: 0,
+      intakeSource: 'auto',
       mapLabel: `Kings Canyon · New Drop #${extraCounter}`,
     }, seed.recordings.length + extraCounter, { markNew: true });
     app.render?.();
@@ -330,32 +337,60 @@ export async function mountSplitWorkspacePreview(app, {
     return false;
   }
 
-  const mockOnboardingState = {
-    watchDirectory: { status: 'unset', name: null },
-    liveMonitor: { status: 'off' },
+  const mockIntakeState = {
+    watchDirectory: { status: 'unset', name: null, autoAnalyzeUncovered: false },
+    liveMonitor: { status: 'off', active: false, canToggle: false },
   };
   const mockFolders = ['Apex Captures', 'OBS Recordings', 'ShadowPlay Clips'];
   let mockFolderIndex = -1;
-  if (typeof app.setOnboardingHandlers === 'function') {
-    app.setOnboardingHandlers({
+  if (typeof app.setIntakeHandlers === 'function') {
+    const pushMockIntake = () => {
+      const watching = mockIntakeState.watchDirectory.status === 'watching';
+      app.setIntakeState?.({
+        watchDirectory: { ...mockIntakeState.watchDirectory },
+        liveMonitor: {
+          ...mockIntakeState.liveMonitor,
+          canToggle: Boolean(mockIntakeState.liveMonitor.active || watching),
+        },
+      });
+    };
+    app.setIntakeHandlers({
       onChooseWatchDir() {
         mockFolderIndex = (mockFolderIndex + 1) % mockFolders.length;
-        mockOnboardingState.watchDirectory = { status: 'watching', name: mockFolders[mockFolderIndex] };
-        app.setOnboardingState?.({
-          watchDirectory: { ...mockOnboardingState.watchDirectory },
-          liveMonitor: { ...mockOnboardingState.liveMonitor },
-        });
-        onNote(`[preview] watchDirectory -> ${mockOnboardingState.watchDirectory.name}`, 'info');
+        mockIntakeState.watchDirectory = {
+          ...mockIntakeState.watchDirectory,
+          status: 'watching',
+          name: mockFolders[mockFolderIndex],
+        };
+        pushMockIntake();
+        onNote(`[preview] watchDirectory -> ${mockIntakeState.watchDirectory.name}`, 'info');
+      },
+      onStopWatchDir() {
+        mockIntakeState.watchDirectory = {
+          ...mockIntakeState.watchDirectory,
+          status: 'unset',
+          name: null,
+        };
+        mockIntakeState.liveMonitor = { status: 'off', active: false, canToggle: false };
+        pushMockIntake();
+        onNote('[preview] watchDirectory -> stopped', 'info');
+      },
+      onToggleAutoAnalyze(enabled) {
+        mockIntakeState.watchDirectory = {
+          ...mockIntakeState.watchDirectory,
+          autoAnalyzeUncovered: Boolean(enabled),
+        };
+        pushMockIntake();
       },
       onToggleMonitoring() {
-        mockOnboardingState.liveMonitor = {
-          status: mockOnboardingState.liveMonitor.status === 'listening' ? 'off' : 'listening',
+        if (mockIntakeState.watchDirectory.status !== 'watching' && !mockIntakeState.liveMonitor.active) return;
+        const nextStatus = mockIntakeState.liveMonitor.status === 'listening' ? 'off' : 'listening';
+        mockIntakeState.liveMonitor = {
+          status: nextStatus,
+          active: nextStatus === 'listening',
         };
-        app.setOnboardingState?.({
-          watchDirectory: { ...mockOnboardingState.watchDirectory },
-          liveMonitor: { ...mockOnboardingState.liveMonitor },
-        });
-        onNote(`[preview] liveMonitor -> ${mockOnboardingState.liveMonitor.status}`, 'info');
+        pushMockIntake();
+        onNote(`[preview] liveMonitor -> ${mockIntakeState.liveMonitor.status}`, 'info');
       },
     });
   }

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { createWorkspaceEngineBridge } from '../../../site/workspace-engine-bridge.mjs';
-import { createGlobalTopbarControls } from '../../../site/global-topbar-controls.mjs';
+import { createLibraryIntakeControls } from '../../../site/library-intake-controls.mjs';
 import { translations } from '../../../site/i18n.js';
 import { createBrowserAnalysis } from '../../../site/browser-analysis.mjs';
 import { createReviewWorkspace } from '../../../site/review-workspace.mjs';
@@ -729,17 +729,35 @@ test('Coarse-aligned conform -> right-header Re-analyze Offline replaces coarse 
   );
 });
 
-test('Live monitor audio source switching, device-only loopback gate bypass, playback gate auto-pause/resume, disconnect/silence alerts, error projection, and #62 watch-dir restore hooks', async (t) => {
+test('Live audio analysis subordination (ADR 0012): requires watch folder, survives folder switch, cascades stop on directory stop/restore-needed, auto-offline preference persists, and loopback/silence/disconnect alerts work', async (t) => {
   const nowRef = { value: 1_700_000_000_000 };
   const harness = createSingleWorkspaceHarness({ nowRef });
   t.after(() => harness.dispose());
 
-  // 1. Start with system audio: loopback gate bypass MUST be disallowed
+  // 0. Without a watch folder, Live Audio Analysis is disallowed (subordinate to Watch Folder)
+  assert.equal(harness.bridge.getState().liveMonitor.canToggle, false);
+  assert.equal(harness.bridge.getState().liveMonitor.requiresWatchDir, true);
+  assert.equal(harness.bridge.watchDirState.autoAnalyzeUncovered, false);
+  await assert.rejects(() => harness.bridge.toggleLiveMonitor(), /Watch Folder|录像监听目录/);
+
+  // Enable persistent Auto Offline Analysis preference on bridge
+  assert.equal(harness.bridge.setAutoAnalyzeUncovered(true), true);
+  assert.equal(harness.bridge.watchDirState.autoAnalyzeUncovered, true);
+  assert.equal(harness.bridge.setAutoAnalyzeUncovered(false), false);
+
+  // Choose watch folder -> unlocks Live Audio Analysis
+  const watchDirA = createFakeDirectory('/Users/player/Videos/OBS A/', new Map());
+  harness.setPickerResult(watchDirA);
+  await harness.bridge.chooseWatchDirectory();
+  assert.equal(harness.bridge.getState().liveMonitor.canToggle, true);
+  assert.equal(harness.bridge.getState().liveMonitor.requiresWatchDir, false);
+
+  // 1. Start system-audio Live Audio Analysis
   await harness.bridge.toggleLiveMonitor();
   assert.equal(harness.bridge.getState().liveMonitor.status, 'listening');
   assert.equal(harness.bridge.getState().liveMonitor.sourceKind, AUDIO_SOURCE_KINDS.SYSTEM);
-  assert.equal(harness.bridge.setAllowGateBypass(true), false, 'Loopback gate bypass must be disallowed on system audio');
-  assert.equal(harness.bridge.getState().liveMonitor.allowGateBypass, false);
+  assert.equal('setAllowGateBypass' in harness.bridge, false);
+  assert.equal('setAudioSourcePreference' in harness.bridge, false);
 
   // Unmuted playback -> auto-pauses live inference (paused-loopback); mute/pause -> resumes (listening)
   harness.bridge.notifyPlayerState({ playing: true, muted: false, volume: 0.7 });
@@ -761,35 +779,30 @@ test('Live monitor audio source switching, device-only loopback gate bypass, pla
   assert.equal(harness.bridge.getState().liveMonitor.silenceWarning, true);
   assert.ok(harness.notices.some((n) => /audio|声音/i.test(n.message)));
 
-  // 3. Switch to virtual audio device -> enumerates devices, allows device-only loopback gate bypass
-  await harness.bridge.setAudioSourcePreference({ sourceKind: AUDIO_SOURCE_KINDS.DEVICE, deviceId: 'virt-1' });
-  const devState = harness.bridge.getState().liveMonitor;
-  assert.equal(devState.status, 'listening');
-  assert.equal(devState.sourceKind, AUDIO_SOURCE_KINDS.DEVICE);
-  assert.equal(devState.deviceId, 'virt-1');
-  assert.equal(devState.audioDevices.length, 2);
+  // 3. Switching watch directory while Live Audio Analysis is active MUST NOT stop live analysis
+  const watchDirB = createFakeDirectory('/Users/player/Videos/OBS B/', new Map());
+  harness.setPickerResult(watchDirB);
+  await harness.bridge.chooseWatchDirectory();
+  assert.equal(harness.bridge.watchDirState.name, 'OBS B');
+  assert.equal(harness.bridge.getState().liveMonitor.status, 'listening', 'Switching watch folder must not interrupt active Live Audio Analysis');
 
-  assert.equal(harness.bridge.setAllowGateBypass(true), true, 'Device source allows loopback gate bypass');
-  assert.equal(harness.bridge.getState().liveMonitor.allowGateBypass, true);
+  // 4. Stopping watch directory cascades stop to Live Audio Analysis and locks toggle again
+  harness.bridge.stopWatchingDirectory();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(harness.bridge.watchDirState.status, 'unset');
+  assert.equal(harness.bridge.getState().liveMonitor.status, 'off', 'Stopping watch directory must cascade-stop Live Audio Analysis');
+  assert.equal(harness.bridge.getState().liveMonitor.canToggle, false);
 
-  // With device bypass enabled, unmuted playback does NOT pause live monitoring
-  harness.bridge.notifyPlayerState({ playing: true, muted: false, volume: 0.8 });
-  assert.equal(harness.bridge.getState().liveMonitor.status, 'listening');
-  assert.equal(harness.bridge.getState().liveMonitor.gateActive, false);
-
-  // Disabling bypass immediately engages loopback gate while still playing unmuted
-  harness.bridge.setAllowGateBypass(false);
-  assert.equal(harness.bridge.getState().liveMonitor.status, 'paused-loopback');
-  harness.bridge.notifyPlayerState({ playing: false, muted: false, volume: 0.8 });
-  assert.equal(harness.bridge.getState().liveMonitor.status, 'listening');
-
-  // 4. Audio track ends -> transitions to disconnected + error notice
+  // 5. Re-choose directory, start live analysis, then audio track ends -> transitions to disconnected + error notice
+  harness.setPickerResult(watchDirA);
+  await harness.bridge.chooseWatchDirectory();
+  await harness.bridge.toggleLiveMonitor();
   const currentStream = harness.audioHw.activeStreams[harness.audioHw.activeStreams.length - 1];
   currentStream.audioTracks[0].emit('ended');
   assert.equal(harness.bridge.getState().liveMonitor.status, 'disconnected');
   assert.ok(harness.bridge.getState().liveMonitor.disconnectReason);
 
-  // 5. Projection supports 'error' live monitor status cleanly (no silent fallback to 'off')
+  // 6. Projection supports 'error' live monitor status cleanly (no silent fallback to 'off')
   const errorProj = projectRecordingLibrary({
     items: [],
     liveMonitor: { status: 'error' },
@@ -799,7 +812,9 @@ test('Live monitor audio source switching, device-only loopback gate bypass, pla
   assert.equal(errorProj.liveMonitor.active, false);
   assert.equal(errorProj.watchDirectory.status, 'error');
 
-  // 6. #62 watch-directory restore slots: setWatchDirectoryRestoreNeeded -> activateWatchDirectory one-click restore
+  // 7. #62 watch-directory restore slots: setWatchDirectoryRestoreNeeded cascades stop & locks live toggle until restored
+  await harness.bridge.toggleLiveMonitor();
+  assert.equal(harness.bridge.getState().liveMonitor.status, 'listening');
   const persistedFiles = new Map();
   let restoredPerm = 'prompt';
   const persistedHandle = {
@@ -809,21 +824,21 @@ test('Live monitor audio source switching, device-only loopback gate bypass, pla
     async *entries() { for (const [k, f] of persistedFiles) yield [k, { kind: 'file', async getFile() { return f; } }]; },
   };
   harness.bridge.setWatchDirectoryRestoreNeeded(persistedHandle);
+  await new Promise((r) => setTimeout(r, 10));
   assert.equal(harness.bridge.watchDirState.status, 'needs-permission');
   assert.equal(harness.bridge.watchDirState.name, 'Saved OBS');
   assert.equal(harness.bridge.watchDirState.needsRestore, true);
   assert.equal(harness.bridge.getWatchDirectoryHandle(), persistedHandle);
+  assert.equal(harness.bridge.getState().liveMonitor.status, 'off');
+  assert.equal(harness.bridge.getState().liveMonitor.canToggle, false);
 
-  // Clicking watch-folder control while needs-permission restores handle directly without opening showDirectoryPicker
+  // Clicking restore restores handle directly without opening showDirectoryPicker & re-enables live toggle
   const pickersBefore = harness.pickerCalls.length;
   await harness.bridge.activateWatchDirectory();
   assert.equal(harness.pickerCalls.length, pickersBefore, 'One-click restore must request permission on saved handle without re-opening picker');
   assert.equal(harness.bridge.watchDirState.status, 'watching');
   assert.equal(harness.bridge.watchDirState.needsRestore, false);
-
-  // 7. Switching back to system audio resets bypass
-  await harness.bridge.setAudioSourcePreference({ sourceKind: AUDIO_SOURCE_KINDS.SYSTEM });
-  assert.equal(harness.bridge.getState().liveMonitor.allowGateBypass, false);
+  assert.equal(harness.bridge.getState().liveMonitor.canToggle, true);
 });
 
 test('createBrowserConverter invokes onOutputFileCreated before writable stream opens to eliminate self-ingestion race', async () => {
@@ -881,7 +896,7 @@ test('createBrowserConverter invokes onOutputFileCreated before writable stream 
   ]);
 });
 
-function createTopbarFakeDom() {
+function createSidebarIntakeFakeDom() {
   const byId = new Map();
   const docListeners = new Map();
 
@@ -926,37 +941,48 @@ function createTopbarFakeDom() {
     return node;
   }
 
-  const root = makeNode('div', 'global-session-controls');
-  const liveWrap = makeNode('div', 'topbar-live-monitor');
-  const liveToggle = makeNode('button', 'topbar-live-toggle');
-  const liveStatus = makeNode('span', 'topbar-live-status');
-  const liveAlert = makeNode('span', 'topbar-live-alert');
+  const topbar = makeNode('div', 'library-topbar');
+  const sessionNotice = makeNode('div', 'session-notice');
+  const root = makeNode('div', 'sidebar-intake-controls');
+  const watchWrap = makeNode('div', 'sidebar-watch-dir');
+  const watchBtn = makeNode('button', 'sidebar-watch-btn');
+  const watchLabel = makeNode('span', 'sidebar-watch-label');
+  const watchValue = makeNode('span', 'sidebar-watch-value');
+  const watchAutoPill = makeNode('span', 'sidebar-watch-auto-pill');
+  watchAutoPill.hidden = true;
+  const livePill = makeNode('span', 'sidebar-live-pill');
+  livePill.hidden = true;
+  const liveAlert = makeNode('span', 'sidebar-live-alert');
   liveAlert.hidden = true;
-  const liveSettingsBtn = makeNode('button', 'topbar-live-settings-btn');
-  const popover = makeNode('div', 'topbar-live-popover');
+  const watchRestoreCta = makeNode('button', 'sidebar-watch-restore-cta');
+  watchRestoreCta.hidden = true;
+  const settingsBtn = makeNode('button', 'sidebar-intake-settings-btn');
+  const popover = makeNode('div', 'sidebar-intake-popover');
   popover.hidden = true;
-  const popStatus = makeNode('span', 'topbar-popover-status');
-  const popNotice = makeNode('p', 'topbar-popover-notice');
+  const popWatchStatus = makeNode('span', 'sidebar-popover-watch-status');
+  const popWatchName = makeNode('span', 'sidebar-popover-watch-name');
+  const popWatchChoose = makeNode('button', 'sidebar-popover-watch-choose');
+  const popWatchRestore = makeNode('button', 'sidebar-popover-watch-restore');
+  popWatchRestore.hidden = true;
+  const popWatchStop = makeNode('button', 'sidebar-popover-watch-stop');
+  popWatchStop.hidden = true;
+  const autoAnalyze = makeNode('input', 'sidebar-auto-analyze');
+  const liveSection = makeNode('div', 'sidebar-live-section');
+  const popLiveStatus = makeNode('span', 'sidebar-popover-live-status');
+  const popNotice = makeNode('p', 'sidebar-popover-notice');
   popNotice.hidden = true;
-  const srcSystem = makeNode('button', 'topbar-source-system');
-  const srcDevice = makeNode('button', 'topbar-source-device');
-  const devGroup = makeNode('div', 'topbar-device-group');
-  devGroup.hidden = true;
-  const devSelect = makeNode('select', 'topbar-device-select');
-  const devRefresh = makeNode('button', 'topbar-device-refresh');
-  const gateBypass = makeNode('input', 'topbar-gate-bypass');
-  const popToggle = makeNode('button', 'topbar-popover-toggle');
-  popover.append(popStatus, popNotice, srcSystem, srcDevice, devGroup, popToggle);
-  devGroup.append(devSelect, devRefresh, gateBypass);
-  liveToggle.append(liveStatus, liveAlert);
-  liveWrap.append(liveToggle, liveSettingsBtn, popover);
+  const liveToggle = makeNode('button', 'sidebar-live-toggle');
+  const liveHint = makeNode('p', 'sidebar-live-hint');
+  const readyNotify = makeNode('input', 'sidebar-ready-notify');
+  const readyNotifyHint = makeNode('small', 'sidebar-ready-notify-hint');
+  readyNotifyHint.hidden = true;
 
-  const watchWrap = makeNode('div', 'topbar-watch-dir');
-  const watchBtn = makeNode('button', 'topbar-watch-btn');
-  const watchValue = makeNode('span', 'topbar-watch-value');
-  watchBtn.append(watchValue);
-  watchWrap.append(watchBtn);
-  root.append(liveWrap, watchWrap);
+  liveSection.append(popLiveStatus, popNotice, liveToggle, liveHint);
+  popover.append(popWatchStatus, popWatchName, popWatchChoose, popWatchRestore, popWatchStop, autoAnalyze, liveSection, readyNotify, readyNotifyHint);
+  watchBtn.append(watchLabel, watchValue, watchAutoPill, livePill, liveAlert);
+  watchWrap.append(watchBtn, watchRestoreCta, settingsBtn, popover);
+  root.append(watchWrap);
+  topbar.append(root);
 
   const doc = {
     getElementById(id) { return byId.get(id) || null; },
@@ -971,25 +997,24 @@ function createTopbarFakeDom() {
   return { doc, byId };
 }
 
-test('Global topbar controls wire live monitor toggle, floating source/device/bypass popover, silence/disconnect alerts, and watch folder selector cleanly', async (t) => {
+test('Sidebar intake controls wire single-row watch bar, unified Auto-Intake Settings popover, Auto Offline Analysis toggle, subordinate Live Audio Analysis, Stop Watching cascade, and silence/disconnect alerts (ADR 0012)', async (t) => {
   const nowRef = { value: 1_700_000_000_000 };
   const harness = createSingleWorkspaceHarness({ nowRef });
-  const { doc, byId } = createTopbarFakeDom();
+  const { doc, byId } = createSidebarIntakeFakeDom();
   const translate = (key, params = {}) => {
     let text = translations.zh[key] || translations.en[key] || key;
     for (const [k, v] of Object.entries(params)) text = text.replaceAll(`{${k}}`, String(v));
     return text;
   };
 
-  const controls = createGlobalTopbarControls({
+  const controls = createLibraryIntakeControls({
     doc,
     translate,
     onToggleLive: () => harness.bridge.toggleLiveMonitor(),
-    onSelectSourceKind: (sourceKind) => harness.bridge.setAudioSourcePreference({ sourceKind }),
-    onSelectDevice: (deviceId) => harness.bridge.setAudioSourcePreference({ sourceKind: AUDIO_SOURCE_KINDS.DEVICE, deviceId }),
-    onRefreshDevices: () => harness.bridge.refreshAudioDevices(),
-    onToggleGateBypass: (allow) => harness.bridge.setAllowGateBypass(allow),
-    onActivateWatchDir: () => harness.bridge.activateWatchDirectory(),
+    onToggleAutoAnalyze: (enabled) => harness.bridge.setAutoAnalyzeUncovered(enabled),
+    onChooseWatchDir: () => harness.bridge.chooseWatchDirectory(),
+    onRestoreWatchDir: () => harness.bridge.restoreWatchDirectory(),
+    onStopWatchDir: () => harness.bridge.stopWatchingDirectory(),
   });
   const unsub = harness.bridge.subscribe((state) => controls.render(state));
   t.after(async () => {
@@ -999,83 +1024,111 @@ test('Global topbar controls wire live monitor toggle, floating source/device/by
   });
 
   controls.render(harness.bridge.getState());
-  assert.equal(byId.get('topbar-live-monitor').dataset.liveStatus, 'off');
-  assert.equal(byId.get('topbar-live-status').textContent, '未开启');
-  assert.equal(byId.get('topbar-watch-value').textContent, '未选择');
+  assert.equal(byId.get('library-topbar').dataset.watchStatus, 'unset');
+  assert.equal(byId.get('sidebar-watch-auto-pill').hidden, true);
+  assert.equal(byId.get('session-notice').textContent, translations.zh.session_notice);
+  assert.equal(byId.get('sidebar-watch-dir').dataset.watchStatus, 'unset');
+  assert.equal(byId.get('sidebar-watch-dir').dataset.liveStatus, 'off');
+  assert.equal(byId.get('sidebar-watch-value').textContent, '未选择');
+  assert.equal(byId.get('sidebar-watch-label').hidden, false);
+  assert.equal(byId.get('sidebar-live-toggle').disabled, true, 'Live Audio Analysis must be disabled before watch folder is active');
+  assert.equal(byId.get('sidebar-popover-watch-stop').hidden, true);
+  assert.equal(byId.get('sidebar-auto-analyze').checked, false);
 
-  // Toggle live monitoring directly from topbar pill
-  byId.get('topbar-live-toggle').click();
+  // Choose watch folder by clicking main bar while unset -> displays basename only, flips Scheme A hierarchy & unlocks Live Audio Analysis
+  const watchDir = createFakeDirectory('/Users/alice/Movies/Apex OBS/', new Map());
+  harness.setPickerResult(watchDir);
+  byId.get('sidebar-watch-btn').click();
   await new Promise((r) => setTimeout(r, 10));
-  assert.equal(byId.get('topbar-live-monitor').dataset.liveStatus, 'listening');
-  assert.equal(byId.get('topbar-live-status').textContent, '监听中');
-  assert.equal(byId.get('topbar-live-toggle').getAttribute('aria-pressed'), 'true');
+  assert.equal(byId.get('library-topbar').dataset.watchStatus, 'watching');
+  assert.equal(byId.get('sidebar-watch-auto-pill').hidden, false);
+  assert.equal(byId.get('sidebar-watch-auto-pill').textContent, '自动');
+  assert.equal(byId.get('session-notice').textContent, translations.zh.session_notice_watching);
+  assert.equal(byId.get('sidebar-watch-dir').dataset.watchStatus, 'watching');
+  assert.equal(byId.get('sidebar-watch-value').textContent, 'Apex OBS');
+  assert.equal(byId.get('sidebar-watch-value').textContent.includes('/'), false);
+  assert.equal(byId.get('sidebar-watch-label').hidden, true);
+  assert.equal(byId.get('sidebar-live-toggle').disabled, false);
+  assert.equal(byId.get('sidebar-popover-watch-stop').hidden, false);
 
-  // Open floating popover & switch to virtual audio device
-  byId.get('topbar-live-settings-btn').click();
-  assert.equal(byId.get('topbar-live-popover').hidden, false);
-  assert.equal(byId.get('topbar-device-group').hidden, true, 'Device controls hidden for system audio');
+  // Clicking settings gear (or active folder bar) opens unified Auto-Intake Settings popover
+  byId.get('sidebar-intake-settings-btn').click();
+  assert.equal(byId.get('sidebar-intake-popover').hidden, false);
 
-  byId.get('topbar-source-device').click();
-  await new Promise((r) => setTimeout(r, 15));
-  assert.equal(byId.get('topbar-device-group').hidden, false, 'Device controls visible for device audio');
-  assert.equal(byId.get('topbar-device-select').children.length, 2, 'Enumerated audio devices populate select');
+  // Toggle persistent Auto Offline Analysis checkbox inside popover
+  const autoBox = byId.get('sidebar-auto-analyze');
+  autoBox.checked = true;
+  autoBox.onchange();
+  assert.equal(harness.bridge.watchDirState.autoAnalyzeUncovered, true);
 
-  // Toggle device-only loopback gate bypass checkbox
-  const bypassInput = byId.get('topbar-gate-bypass');
-  bypassInput.checked = true;
-  bypassInput.onchange();
-  assert.equal(harness.bridge.getState().liveMonitor.allowGateBypass, true);
+  // Start Live Audio Analysis inside unified popover -> compact live pill replaces auto pill on bar
+  byId.get('sidebar-live-toggle').click();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(byId.get('sidebar-watch-dir').dataset.liveStatus, 'listening');
+  assert.equal(byId.get('sidebar-watch-auto-pill').hidden, true);
+  assert.equal(byId.get('sidebar-live-pill').hidden, false);
+  assert.equal(byId.get('sidebar-live-pill').textContent, '实时中');
+  assert.equal(byId.get('sidebar-popover-live-status').textContent, '分析中');
+  assert.equal(byId.get('sidebar-live-toggle').getAttribute('aria-pressed'), 'true');
 
-  // Silence warning shows alert indicator in topbar pill and notice inside popover
+  // Silence warning shows alert indicator on bar and notice inside popover
   const worklet = harness.audioHw.workletNodes[harness.audioHw.workletNodes.length - 1];
   worklet.emitEnvelope(new Float32Array([0, 0, 0, 0]), 12);
-  assert.equal(byId.get('topbar-live-monitor').dataset.silenceWarning, 'true');
-  assert.equal(byId.get('topbar-live-alert').hidden, false);
-  assert.equal(byId.get('topbar-popover-notice').hidden, false);
+  assert.equal(byId.get('sidebar-watch-dir').dataset.silenceWarning, 'true');
+  assert.equal(byId.get('sidebar-live-alert').hidden, false);
+  assert.equal(byId.get('sidebar-popover-notice').hidden, false);
+
+  // Stop Watching inside popover stops watch folder AND cascades stop to Live Audio Analysis & restores manual primary hierarchy
+  byId.get('sidebar-popover-watch-stop').click();
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(byId.get('library-topbar').dataset.watchStatus, 'unset');
+  assert.equal(byId.get('sidebar-watch-auto-pill').hidden, true);
+  assert.equal(byId.get('session-notice').textContent, translations.zh.session_notice);
+  assert.equal(byId.get('sidebar-watch-dir').dataset.watchStatus, 'unset');
+  assert.equal(byId.get('sidebar-watch-dir').dataset.liveStatus, 'off');
+  assert.equal(byId.get('sidebar-live-pill').hidden, true);
+  assert.equal(byId.get('sidebar-live-toggle').disabled, true);
 
   // Escape closes popover
   doc.emit('keydown', { key: 'Escape', preventDefault() {} });
-  assert.equal(byId.get('topbar-live-popover').hidden, true);
-
-  // Watch folder pill activates read-only picker and displays basename only
-  const watchDir = createFakeDirectory('/Users/alice/Movies/Apex OBS/', new Map());
-  harness.setPickerResult(watchDir);
-  byId.get('topbar-watch-btn').click();
-  await new Promise((r) => setTimeout(r, 10));
-  assert.equal(byId.get('topbar-watch-dir').dataset.watchStatus, 'watching');
-  assert.equal(byId.get('topbar-watch-value').textContent, 'Apex OBS');
-  assert.equal(byId.get('topbar-watch-value').textContent.includes('/'), false);
+  assert.equal(byId.get('sidebar-intake-popover').hidden, true);
 });
 
-test('index.html, i18n, and single-workspace engine modules enforce ADR 0010 global topbar controls, CONTEXT.md terminology, and zero legacy live-companion coupling', () => {
+test('index.html, i18n, and single-workspace engine modules enforce ADR 0011/0012 sidebar intake controls, CONTEXT.md terminology, and zero legacy live-companion coupling', () => {
   const testDir = path.dirname(fileURLToPath(import.meta.url));
   const siteDir = path.resolve(testDir, '../../../site');
   const html = readFileSync(path.join(siteDir, 'index.html'), 'utf8');
   const bridgeSrc = readFileSync(path.join(siteDir, 'workspace-engine-bridge.mjs'), 'utf8');
-  const topbarSrc = readFileSync(path.join(siteDir, 'global-topbar-controls.mjs'), 'utf8');
+  const intakeSrc = readFileSync(path.join(siteDir, 'library-intake-controls.mjs'), 'utf8');
 
-  // Global topbar controls exist inside .header-inner (outside #clipping-workspace and #exports-section)
+  // Header no longer carries session pills; unified single-row intake controls live inside #analysis-page .queue-panel
   const headerBlock = html.match(/<header class="app-header">[\s\S]*?<\/header>/)?.[0] || '';
-  assert.match(headerBlock, /id="global-session-controls"/);
-  assert.match(headerBlock, /id="topbar-live-monitor"/);
-  assert.match(headerBlock, /id="topbar-live-toggle"/);
-  assert.match(headerBlock, /id="topbar-live-settings-btn"/);
-  assert.match(headerBlock, /id="topbar-live-popover"/);
-  assert.match(headerBlock, /id="topbar-watch-dir"/);
-  assert.match(headerBlock, /id="topbar-watch-btn"/);
-  assert.match(headerBlock, /data-i18n="library_live_label"/);
-  assert.match(headerBlock, /data-i18n="library_watch_label"/);
+  assert.equal(/id="global-session-controls"/.test(headerBlock), false, 'App header must not mount #global-session-controls (ADR 0011)');
+
+  const sidebarBlock = html.match(/<div id="analysis-page">[\s\S]*?<div id="review-page"/)?.[0] || '';
+  assert.match(sidebarBlock, /id="sidebar-intake-controls"/);
+  assert.match(sidebarBlock, /id="sidebar-watch-dir"/);
+  assert.match(sidebarBlock, /id="sidebar-watch-btn"/);
+  assert.match(sidebarBlock, /id="sidebar-intake-settings-btn"/);
+  assert.match(sidebarBlock, /id="sidebar-intake-popover"/);
+  assert.match(sidebarBlock, /id="sidebar-auto-analyze"/);
+  assert.match(sidebarBlock, /id="sidebar-live-toggle"/);
+  assert.match(sidebarBlock, /id="sidebar-popover-watch-stop"/);
+  assert.match(sidebarBlock, /data-i18n="library_live_label"/);
+  assert.match(sidebarBlock, /data-i18n="library_watch_label"/);
+  assert.match(sidebarBlock, /data-i18n="auto_offline_analyze_label"/);
+  assert.equal(/id="sidebar-live-monitor"|id="sidebar-device-select"|id="sidebar-gate-bypass"/.test(sidebarBlock), false, 'Obsolete sibling live bar & virtual device UI must be removed (ADR 0012)');
 
   // Zero dependency on legacy live-companion-ui.mjs or live-proxy-buffer.mjs in new single-workspace engine modules
-  for (const src of [bridgeSrc, topbarSrc]) {
+  for (const src of [bridgeSrc, intakeSrc]) {
     assert.equal(/live-companion-ui|live-proxy-buffer/.test(src), false, 'Single-workspace modules must not import legacy live companion or proxy buffer');
   }
 
-  // Zero forbidden domain terms across all i18n translations
+  // Zero forbidden domain terms across all i18n translations (including retired 对局监听 per ADR 0012)
   for (const [lang, dict] of Object.entries(translations)) {
     for (const [key, value] of Object.entries(dict)) {
       assert.equal(
-        /分析队列|analysis queue|录像库页|复核页|实时伴随模式|实时伴随代理|内置录屏器|已确认高光|击杀片段/i.test(value),
+        /分析队列|analysis queue|录像库页|复核页|实时伴随模式|实时伴随代理|内置录屏器|已确认高光|击杀片段|对局监听/i.test(value),
         false,
         `${lang}.${key} contains forbidden domain term: ${value}`,
       );
@@ -1083,25 +1136,24 @@ test('index.html, i18n, and single-workspace engine modules enforce ADR 0010 glo
   }
 });
 
-test('Empty-state 2-step onboarding handlers drive real engineBridge watch-dir & live-monitor services and reflect live transitions across both views', async (t) => {
+test('Sidebar intake controls drive real engineBridge watch-dir & live-monitor services and survive Exports view transitions', async (t) => {
   const nowRef = { value: 1_700_000_000_000 };
   const harness = createSingleWorkspaceHarness({ nowRef });
-  const { doc, byId } = createTopbarFakeDom();
+  const { doc, byId } = createSidebarIntakeFakeDom();
   const translate = (key, params = {}) => {
     let text = translations.zh[key] || translations.en[key] || key;
     for (const [k, v] of Object.entries(params)) text = text.replaceAll(`{${k}}`, String(v));
     return text;
   };
 
-  const controls = createGlobalTopbarControls({
+  const controls = createLibraryIntakeControls({
     doc,
     translate,
     onToggleLive: () => harness.bridge.toggleLiveMonitor(),
-    onSelectSourceKind: (sourceKind) => harness.bridge.setAudioSourcePreference({ sourceKind }),
-    onSelectDevice: (deviceId) => harness.bridge.setAudioSourcePreference({ sourceKind: AUDIO_SOURCE_KINDS.DEVICE, deviceId }),
-    onRefreshDevices: () => harness.bridge.refreshAudioDevices(),
-    onToggleGateBypass: (allow) => harness.bridge.setAllowGateBypass(allow),
-    onActivateWatchDir: () => harness.bridge.activateWatchDirectory(),
+    onToggleAutoAnalyze: (enabled) => harness.bridge.setAutoAnalyzeUncovered(enabled),
+    onChooseWatchDir: () => harness.bridge.chooseWatchDirectory(),
+    onRestoreWatchDir: () => harness.bridge.restoreWatchDirectory(),
+    onStopWatchDir: () => harness.bridge.stopWatchingDirectory(),
   });
   const unsub = harness.bridge.subscribe((state) => controls.render(state));
   t.after(async () => {
@@ -1110,30 +1162,35 @@ test('Empty-state 2-step onboarding handlers drive real engineBridge watch-dir &
     await harness.dispose();
   });
 
-  // Wire Step 1 & Step 2 onboarding buttons to real engineBridge actions (mirrors app.js wiring)
-  const step1ChooseWatchDir = () => harness.bridge.activateWatchDirectory();
-  const step2ToggleLiveMonitor = () => harness.bridge.toggleLiveMonitor();
-
   const watchDir = createFakeDirectory('/Volumes/NVMe/Apex Recordings/', new Map());
   harness.setPickerResult(watchDir);
 
-  // Step 1: Choose Watch Folder
-  await step1ChooseWatchDir();
+  // Choose Watch Folder via sidebar intake control
+  byId.get('sidebar-watch-btn').click();
+  await new Promise((r) => setTimeout(r, 10));
   assert.equal(harness.bridge.watchDirState.status, 'watching');
   assert.equal(harness.bridge.watchDirState.name, 'Apex Recordings');
-  assert.equal(byId.get('topbar-watch-value').textContent, 'Apex Recordings');
+  assert.equal(byId.get('sidebar-watch-value').textContent, 'Apex Recordings');
 
-  // Step 2: Start Live Monitoring
-  await step2ToggleLiveMonitor();
+  // Start Live Audio Analysis via unified Auto-Intake Settings popover
+  byId.get('sidebar-intake-settings-btn').click();
+  byId.get('sidebar-live-toggle').click();
+  await new Promise((r) => setTimeout(r, 10));
   assert.equal(harness.bridge.getState().liveMonitor.status, 'listening');
-  assert.equal(byId.get('topbar-live-status').textContent, '监听中');
+  assert.equal(byId.get('sidebar-live-pill').textContent, '实时中');
+  assert.equal(byId.get('sidebar-popover-live-status').textContent, '分析中');
 
-  // Global topbar stays visible (hidden: false) across Clipping AND Exports views
+  // Switching to Exports hides sidebar controls without stopping live analysis, and returning restores visibility
+  controls.render(harness.bridge.getState(), { hidden: true });
+  assert.equal(byId.get('sidebar-intake-controls').hidden, true);
+  assert.equal(harness.bridge.getState().liveMonitor.status, 'listening');
   controls.render(harness.bridge.getState(), { hidden: false });
-  assert.equal(byId.get('global-session-controls').hidden, false);
+  assert.equal(byId.get('sidebar-intake-controls').hidden, false);
 
-  // Step 2 again: Stop Live Monitoring
-  await step2ToggleLiveMonitor();
+  // Stop Live Audio Analysis via popover toggle
+  byId.get('sidebar-live-toggle').click();
+  await new Promise((r) => setTimeout(r, 10));
   assert.equal(harness.bridge.getState().liveMonitor.status, 'off');
-  assert.equal(byId.get('topbar-live-status').textContent, '未开启');
+  assert.equal(byId.get('sidebar-popover-live-status').textContent, '未开启');
+  assert.equal(byId.get('sidebar-live-pill').hidden, true);
 });

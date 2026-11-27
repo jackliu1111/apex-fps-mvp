@@ -162,18 +162,22 @@ async function assertZeroScroll(page, width, height, label) {
     assert.equal(await page.locator('#clipping-workspace').isVisible(), true);
     assert.equal(await page.evaluate(() => window.reviewApp.activeSourceId), coarseId);
 
-    // 2. Empty scenario (?workspacePreview=empty)
+    // 2. Empty scenario (?workspacePreview=empty) stays in always-split layout (ADR 0011)
     await page.goto(previewUrl('empty'));
     await page.locator('#workspace-preview-banner[data-ready="true"]').waitFor({ timeout: 15000 });
-    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'empty');
-    assert.equal(await page.locator('#review-page').isHidden(), true);
+    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'split');
+    assert.equal(await page.locator('#review-page').isVisible(), true);
+    assert.equal(await page.locator('#sidebar-intake-controls').isVisible(), true);
     assert.equal(await page.locator('#queue .empty').isVisible(), true);
+    await assertZeroScroll(page, 1440, 900, 'workspacePreview-empty-split');
+    await assertZeroScroll(page, 1280, 800, 'workspacePreview-empty-split');
 
-    // 3. End-to-end real synthetic recording import (without preview param): empty -> split -> zero scroll -> stability
+    // 3. End-to-end real synthetic recording import (without preview param): always split -> zero scroll -> stability
     await page.goto(baseUrl.href);
     await page.waitForFunction(() => Boolean(window.reviewApp));
     await page.evaluate(() => window.reviewApp.ready);
-    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'empty');
+    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'split');
+    assert.equal(await page.locator('#review-page').isVisible(), true);
 
     const mediaBytes = await page.evaluate(async () => {
       const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');

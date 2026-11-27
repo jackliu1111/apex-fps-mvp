@@ -3,6 +3,7 @@
 // and optional user-opted browser Notification without ever stealing window focus.
 
 import { readBoolPref, writeBoolPref } from './pref-storage.mjs';
+import { buildFaviconSvg, svgToDataUrl } from './brand-icon.mjs';
 
 export const READY_NOTIFY_PREF_KEY = 'apex_local_cut_ready_notifications';
 
@@ -16,12 +17,7 @@ export function buildFaviconSvgDataUrl(count = 0) {
           + `<text x="24" y="11.6" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-size="${fontSize}" font-weight="700" fill="#ffffff">${label}</text>`;
       })()
     : '';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">`
-    + `<rect width="32" height="32" rx="8" fill="#18181b"/>`
-    + `<path d="M5 25 15 6h2.8l-5.6 11h6.5L15 25H5Zm15.6-11.2L27 25h-7.4l3.6-7.2-2.6-4Z" fill="#ffffff"/>`
-    + badge
-    + `</svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  return svgToDataUrl(buildFaviconSvg(badge));
 }
 
 function loadNotifyPref(storage) {
