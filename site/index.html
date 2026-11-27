@@ -5,90 +5,34 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f8f9fa">
   <title data-i18n="page_title">Apex Local Cut · Local Video Clipping Workspace</title>
-  <link id="app-favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%2318181b%22%2F%3E%3Cpath%20d%3D%22M5%2025%2015%206h2.8l-5.6%2011h6.5L15%2025H5Zm15.6-11.2L27%2025h-7.4l3.6-7.2-2.6-4Z%22%20fill%3D%22%23ffffff%22%2F%3E%3C%2Fsvg%3E">
+  <link id="app-favicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%2318181b%22%2F%3E%3Csvg%20x%3D%223.5%22%20y%3D%223.5%22%20width%3D%2225%22%20height%3D%2225%22%20viewBox%3D%2260%200%201080%201080%22%3E%3Cpath%20fill%3D%22%23ffffff%22%20fill-rule%3D%22evenodd%22%20d%3D%22M400%20320H580V220H620V320H800A200%20200%200%200%201%201000%20520V540H1060A30%2030%200%200%201%201090%20570V690A30%2030%200%200%201%201060%20720H1000V780A200%20200%200%200%201%20800%20980H400A200%20200%200%200%201%20200%20780V720H140A30%2030%200%200%201%20110%20690V570A30%2030%200%200%201%20140%20540H200V520A200%20200%200%200%201%20400%20320ZM550%20150A50%2050%200%201%200%20650%20150A50%2050%200%201%200%20550%20150ZM360%20450H840A90%2090%200%200%201%20930%20540V710A90%2090%200%200%201%20840%20800H360A90%2090%200%200%201%20270%20710V540A90%2090%200%200%201%20360%20450ZM395%20565A55%2055%200%201%200%20505%20565A55%2055%200%201%200%20395%20565ZM695%20565A55%2055%200%201%200%20805%20565A55%2055%200%201%200%20695%20565ZM480%20675H480A18%2018%200%200%201%20498%20693V707A18%2018%200%200%201%20480%20725H480A18%2018%200%200%201%20462%20707V693A18%2018%200%200%201%20480%20675ZM540%20650H540A18%2018%200%200%201%20558%20668V732A18%2018%200%200%201%20540%20750H540A18%2018%200%200%201%20522%20732V668A18%2018%200%200%201%20540%20650ZM600%20630H600A18%2018%200%200%201%20618%20648V752A18%2018%200%200%201%20600%20770H600A18%2018%200%200%201%20582%20752V648A18%2018%200%200%201%20600%20630ZM660%20650H660A18%2018%200%200%201%20678%20668V732A18%2018%200%200%201%20660%20750H660A18%2018%200%200%201%20642%20732V668A18%2018%200%200%201%20660%20650ZM720%20675H720A18%2018%200%200%201%20738%20693V707A18%2018%200%200%201%20720%20725H720A18%2018%200%200%201%20702%20707V693A18%2018%200%200%201%20720%20675Z%22%2F%3E%3C%2Fsvg%3E%3C%2Fsvg%3E">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="tactical-theme.css">
   <link rel="stylesheet" href="selection-timeline.css">
 </head>
 <body>
+  <svg class="brand-defs" aria-hidden="true" focusable="false"><defs><g id="brand-icon-path"><path fill-rule="evenodd" d="M400 320H580V220H620V320H800A200 200 0 0 1 1000 520V540H1060A30 30 0 0 1 1090 570V690A30 30 0 0 1 1060 720H1000V780A200 200 0 0 1 800 980H400A200 200 0 0 1 200 780V720H140A30 30 0 0 1 110 690V570A30 30 0 0 1 140 540H200V520A200 200 0 0 1 400 320ZM550 150A50 50 0 1 0 650 150A50 50 0 1 0 550 150ZM360 450H840A90 90 0 0 1 930 540V710A90 90 0 0 1 840 800H360A90 90 0 0 1 270 710V540A90 90 0 0 1 360 450ZM395 565A55 55 0 1 0 505 565A55 55 0 1 0 395 565ZM695 565A55 55 0 1 0 805 565A55 55 0 1 0 695 565ZM480 675H480A18 18 0 0 1 498 693V707A18 18 0 0 1 480 725H480A18 18 0 0 1 462 707V693A18 18 0 0 1 480 675ZM540 650H540A18 18 0 0 1 558 668V732A18 18 0 0 1 540 750H540A18 18 0 0 1 522 732V668A18 18 0 0 1 540 650ZM600 630H600A18 18 0 0 1 618 648V752A18 18 0 0 1 600 770H600A18 18 0 0 1 582 752V648A18 18 0 0 1 600 630ZM660 650H660A18 18 0 0 1 678 668V732A18 18 0 0 1 660 750H660A18 18 0 0 1 642 732V668A18 18 0 0 1 660 650ZM720 675H720A18 18 0 0 1 738 693V707A18 18 0 0 1 720 725H720A18 18 0 0 1 702 707V693A18 18 0 0 1 720 675Z"/></g></defs></svg>
   <a class="skip-link" href="#main" id="skip-link" data-i18n="skip_link">Skip to workspace</a>
   <header class="app-header">
     <div class="header-inner">
       <div class="brand" aria-label="Apex Local Cut">
-        <span class="brand-badge" aria-hidden="true"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 26 15 5h3l-6 12h7l-4 9H4Zm17-14 7 14h-8l4-8-3-6Z" fill="currentColor"/></svg></span>
+        <span class="brand-badge" aria-hidden="true"><svg class="brand-mark" viewBox="60 0 1080 1080" aria-hidden="true"><use href="#brand-icon-path"/></svg></span>
         <span>Apex Local Cut</span>
       </div>
       <nav id="offline-nav" class="navigation" aria-label="Workspace" data-i18n-aria="nav_aria">
-        <a href="landing.html" class="nav-portal-link" data-i18n="nav_portal">✦ Portal</a>
+        <a href="landing.html" class="nav-portal-link"><svg class="nav-portal-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2L12 3z"/></svg><span data-i18n="nav_portal">Portal</span></a>
         <button id="nav-analysis" aria-current="page" data-i18n="nav_analysis">Clip</button>
         <button id="nav-exports" data-i18n="nav_exports">Exports</button>
       </nav>
-      <div id="global-session-controls" class="global-session-controls" role="group" aria-label="Live Monitoring and Watch Folder" data-i18n-aria="topbar_session_aria">
-        <div id="topbar-live-monitor" class="topbar-pill topbar-live-pill" data-live-status="off" data-silence-warning="false" data-source-kind="system">
-          <button id="topbar-live-toggle" class="topbar-pill-main" type="button" aria-pressed="false" title="Start or stop audio-only Live Monitoring" data-i18n-title="topbar_live_toggle_title">
-            <span class="topbar-pill-dot" aria-hidden="true"></span>
-            <span class="topbar-pill-label" data-i18n="library_live_label">Live Monitor</span>
-            <span id="topbar-live-status" class="topbar-pill-value" data-i18n="library_live_status_off">Off</span>
-            <span id="topbar-live-alert" class="topbar-pill-alert" hidden aria-hidden="true">!</span>
-          </button>
-          <button id="topbar-live-settings-btn" class="topbar-pill-caret" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="topbar-live-popover" title="Live Monitoring audio source & gate settings" aria-label="Live Monitoring audio source & gate settings" data-i18n-title="topbar_live_settings_title" data-i18n-aria="topbar_live_settings_title">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div id="topbar-live-popover" class="topbar-popover" role="dialog" aria-label="Live Monitoring settings" data-i18n-aria="topbar_live_popover_aria" hidden>
-            <div class="topbar-popover-head">
-              <strong data-i18n="library_live_label">Live Monitor</strong>
-              <span id="topbar-popover-status" class="topbar-popover-status" data-live-status="off" data-i18n="library_live_status_off">Off</span>
-            </div>
-            <p id="topbar-popover-notice" class="topbar-popover-notice" hidden></p>
-            <div class="topbar-popover-section">
-              <span class="topbar-popover-label" data-i18n="live_source_label">Audio source</span>
-              <div class="topbar-source-switch" role="radiogroup" aria-label="Audio source" data-i18n-aria="live_source_label">
-                <button id="topbar-source-system" type="button" role="radio" aria-checked="true" data-source-kind="system" data-i18n="live_source_system">System Audio</button>
-                <button id="topbar-source-device" type="button" role="radio" aria-checked="false" data-source-kind="device" data-i18n="live_source_device">Audio Device</button>
-              </div>
-            </div>
-            <div id="topbar-device-group" class="topbar-popover-section" hidden>
-              <div class="topbar-device-row">
-                <label class="topbar-popover-label" for="topbar-device-select" data-i18n="live_device_label">Input device</label>
-                <button id="topbar-device-refresh" class="quiet topbar-mini-btn" type="button" data-i18n="live_device_refresh">Refresh</button>
-              </div>
-              <select id="topbar-device-select" aria-label="Input device" data-i18n-aria="live_device_label"></select>
-              <label class="topbar-gate-bypass">
-                <input id="topbar-gate-bypass" type="checkbox" disabled>
-                <span data-i18n="live_gate_bypass_label">Keep listening during unmuted playback (isolated virtual device only)</span>
-              </label>
-            </div>
-            <p class="topbar-popover-hint" data-i18n="live_audio_only_hint">Captures game audio only (no video preview or capture). Auto-pauses during unmuted playback.</p>
-            <div class="topbar-popover-section topbar-notify-section">
-              <label class="topbar-gate-bypass">
-                <input id="topbar-ready-notify" type="checkbox">
-                <span data-i18n="ready_notify_toggle_label">Silent browser notification when a recording is ready</span>
-              </label>
-              <span id="topbar-ready-notify-hint" class="topbar-popover-hint" hidden></span>
-            </div>
-            <div class="topbar-popover-actions">
-              <button id="topbar-popover-toggle" class="primary" type="button" data-i18n="library_live_start">Start</button>
-            </div>
-          </div>
-        </div>
-        <div id="topbar-watch-dir" class="topbar-pill topbar-watch-pill" data-watch-status="unset">
-          <button id="topbar-watch-btn" class="topbar-pill-main" type="button" title="Choose read-only Watch Folder for auto-intake" data-i18n-title="topbar_watch_choose_title">
-            <span class="topbar-pill-dot" aria-hidden="true"></span>
-            <span class="topbar-pill-label" data-i18n="library_watch_label">Watch Folder</span>
-            <span id="topbar-watch-value" class="topbar-pill-value" data-i18n="library_watch_unset">Not set</span>
-          </button>
-          <button id="topbar-watch-restore-cta" class="topbar-watch-restore-cta" type="button" hidden data-i18n="topbar_watch_restore_cta">Restore Watch</button>
-        </div>
-      </div>
-      <div class="session-notice" data-i18n="session_notice">Re-import videos after refresh or close</div>
+      <div id="session-notice" class="session-notice" data-i18n="session_notice">Re-import videos after refresh or close</div>
       <button id="copy-diagnostics" class="quiet diag-toggle" type="button" title="Copy sanitized environment & runtime diagnostics (no file names or paths)" aria-label="Copy diagnostics to clipboard" data-i18n-title="diagnostics_title" data-i18n-aria="diagnostics_aria"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M8 14h2l1.5-3 2 6 1.5-3h1"/></svg><span class="diag-label" data-i18n="diagnostics_btn">Diagnostics</span></button>
       <button id="lang-toggle" class="quiet lang-toggle" type="button" disabled aria-label="Switch language to Chinese" data-i18n="lang_toggle" data-i18n-aria="lang_toggle_aria">中文</button>
     </div>
   </header>
   <main id="main" tabindex="-1">
-    <p id="status" class="workspace-status" role="status" aria-live="polite" data-i18n="status_ready">Workspace ready</p>
+    <p id="status" class="workspace-status" role="status" aria-live="polite" data-tone="quiet" data-i18n="status_ready">Workspace ready</p>
     <div id="ready-toast" class="ready-toast" role="status" aria-live="polite" data-coarse="false" hidden>
-      <span id="ready-toast-dot" class="ready-toast-dot" aria-hidden="true"></span>
+      <span id="ready-toast-dot" class="ready-toast-dot" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></span>
       <div class="ready-toast-copy">
         <strong id="ready-toast-title" class="ready-toast-title"></strong>
         <span id="ready-toast-meta" class="ready-toast-meta"></span>
@@ -96,10 +40,11 @@
       <button id="ready-toast-open" class="primary ready-toast-open" type="button" data-i18n="ready_toast_open">Open now</button>
       <button id="ready-toast-dismiss" class="quiet ready-toast-dismiss" type="button" aria-label="Dismiss notification" title="Dismiss notification" data-i18n-aria="ready_toast_dismiss_aria" data-i18n-title="ready_toast_dismiss_aria">×</button>
     </div>
-    <div id="clipping-workspace" class="clipping-workspace" data-layout="empty" data-sidebar-collapsed="false" data-drawer-open="false" data-drag-over="false">
+    <div id="clipping-workspace" class="clipping-workspace" data-layout="split" data-sidebar-collapsed="false" data-drawer-open="false" data-drag-over="false">
     <div id="library-drawer-backdrop" class="library-drawer-backdrop" aria-hidden="true"></div>
     <div id="workspace-drop-overlay" class="workspace-drop-overlay" aria-hidden="true">
       <div class="workspace-drop-pill">
+        <span class="workspace-drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m-4-4 4 4 4-4"/><rect x="4" y="17" width="16" height="3" rx="1.5"/></svg></span>
         <strong data-i18n="workspace_drop_hint">Drop videos anywhere to add to Recording Library</strong>
         <span data-i18n="workspace_drop_subhint">Added items appear with a New badge without interrupting your current review</span>
       </div>
@@ -111,47 +56,89 @@
       </div>
       <div class="analysis-layout">
         <section class="panel queue-panel" aria-labelledby="queue-heading">
-          <div class="panel-heading library-topbar">
+          <div id="library-topbar" class="panel-heading library-topbar" data-watch-status="unset">
+            <div class="sidebar-intake-zone">
+              <div class="sidebar-primary-bar">
+                <div class="row queue-heading-actions">
+                  <button id="import-files" class="primary" disabled title="Import Videos" data-i18n-title="import_files"><svg class="import-files-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M12 9v6m-3-3 3-3 3 3"/></svg><span class="import-files-label" data-i18n="import_files">Import Videos</span><span class="import-files-mode-tag" data-i18n="intake_mode_manual_tag">Manual</span></button>
+                </div>
+                <button id="sidebar-collapse-toggle" class="quiet sidebar-collapse-toggle" type="button" aria-expanded="true" aria-controls="queue" title="Collapse library sidebar" aria-label="Collapse library sidebar" data-i18n-title="sidebar_collapse_title" data-i18n-aria="sidebar_collapse_title"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/></svg></button>
+                <button id="library-drawer-close" class="quiet library-drawer-close" type="button" title="Close recording library" aria-label="Close recording library" data-i18n-title="drawer_close_title" data-i18n-aria="drawer_close_title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+              </div>
+              <div id="sidebar-intake-controls" class="sidebar-intake-controls" role="group" aria-label="Watch Folder and Auto-Intake" data-i18n-aria="topbar_session_aria">
+                <div id="sidebar-watch-dir" class="intake-control intake-watch-control" data-watch-status="unset" data-live-status="off" data-silence-warning="false">
+                  <button id="sidebar-watch-btn" class="intake-control-main" type="button" title="Choose read-only Watch Folder for auto-intake" data-i18n-title="topbar_watch_choose_title">
+                    <span class="intake-folder-badge" aria-hidden="true"><span class="intake-folder-ring" aria-hidden="true"></span><svg class="intake-folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path class="intake-folder-waves" d="M14.5 11.5a3 3 0 0 1 0 4.2M17 9.8a5.4 5.4 0 0 1 0 7.6"/></svg><span class="intake-dot" aria-hidden="true"></span></span>
+                    <span id="sidebar-watch-label" class="intake-label" data-i18n="library_watch_short_label">Watch Folder</span>
+                    <span id="sidebar-watch-value" class="intake-value" data-i18n="library_watch_unset">Not set</span>
+                    <span id="sidebar-watch-auto-pill" class="intake-auto-pill" data-i18n="intake_mode_auto_tag" hidden>Auto</span>
+                    <span id="sidebar-live-pill" class="intake-live-pill" hidden><span class="live-eq-bars" aria-hidden="true"><i></i><i></i><i></i></span><span id="sidebar-live-pill-text"></span></span>
+                    <span id="sidebar-live-alert" class="intake-alert" hidden aria-hidden="true">!</span>
+                  </button>
+                  <button id="sidebar-watch-restore-cta" class="intake-restore-cta" type="button" hidden data-i18n="topbar_watch_restore_cta">Restore Watch</button>
+                  <button id="sidebar-intake-settings-btn" class="intake-caret intake-settings-btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="sidebar-intake-popover" title="Auto-intake settings" aria-label="Auto-intake settings" data-i18n-title="intake_settings_title" data-i18n-aria="intake_settings_title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+                  </button>
+                  <div id="sidebar-intake-popover" class="intake-popover" role="dialog" aria-label="Auto-intake settings" data-i18n-aria="intake_popover_aria" hidden>
+                    <div class="intake-popover-head">
+                      <strong data-i18n="intake_popover_heading">Auto-Intake Settings</strong>
+                      <span id="sidebar-popover-watch-status" class="intake-popover-status" data-watch-status="unset" data-i18n="library_watch_unset">Not set</span>
+                    </div>
+                    <div class="intake-popover-section">
+                      <div class="intake-section-row">
+                        <span class="intake-popover-label" data-i18n="library_watch_label">Watch Folder</span>
+                        <span id="sidebar-popover-watch-name" class="intake-popover-folder-name" data-i18n="library_watch_unset">Not set</span>
+                      </div>
+                      <div class="intake-dir-actions">
+                        <button id="sidebar-popover-watch-choose" class="quiet intake-mini-btn" type="button" data-i18n="library_watch_choose">Choose</button>
+                        <button id="sidebar-popover-watch-restore" class="primary intake-mini-btn" type="button" hidden data-i18n="topbar_watch_restore_cta">Restore Watch</button>
+                        <button id="sidebar-popover-watch-stop" class="quiet intake-mini-btn intake-stop-btn" type="button" hidden data-i18n="library_watch_stop">Stop Watching</button>
+                      </div>
+                    </div>
+                    <div class="intake-popover-section intake-divider-section">
+                      <label class="intake-toggle-row">
+                        <input id="sidebar-auto-analyze" type="checkbox">
+                        <span class="intake-toggle-copy">
+                          <strong data-i18n="auto_offline_analyze_label">Auto Offline Analysis</strong>
+                          <small class="intake-popover-hint" data-i18n="auto_offline_analyze_hint">Automatically queue uncovered new recordings for offline analysis. Large files (e.g. 30 GB MKV) may contend for disk &amp; CPU while gaming.</small>
+                        </span>
+                      </label>
+                    </div>
+                    <div id="sidebar-live-section" class="intake-popover-section intake-divider-section" data-disabled="true">
+                      <div class="intake-section-row">
+                        <span class="intake-popover-label" data-i18n="library_live_label">Live Audio Analysis</span>
+                        <span id="sidebar-popover-live-status" class="intake-popover-status" data-live-status="off" data-i18n="library_live_status_off">Off</span>
+                      </div>
+                      <p id="sidebar-popover-notice" class="intake-popover-notice" hidden></p>
+                      <div class="intake-live-action-row">
+                        <button id="sidebar-live-toggle" class="primary intake-live-action-btn" type="button" aria-pressed="false" disabled data-i18n="library_live_start">Start</button>
+                      </div>
+                      <p id="sidebar-live-hint" class="intake-popover-hint" data-i18n="live_requires_watch_dir_hint">Choose or restore a Watch Folder first to enable Live Audio Analysis.</p>
+                    </div>
+                    <div class="intake-popover-section intake-divider-section">
+                      <label class="intake-toggle-row">
+                        <input id="sidebar-ready-notify" type="checkbox">
+                        <span class="intake-toggle-copy">
+                          <span data-i18n="ready_notify_toggle_label">Silent browser notification when a recording is ready</span>
+                          <small id="sidebar-ready-notify-hint" class="intake-popover-hint" hidden></small>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="heading-label">
               <div class="library-heading-title"><h2 id="queue-heading" data-i18n="queue_heading">Recordings</h2><span id="queue-count" class="count" data-i18n="queue_count" data-i18n-count="0">0 recordings</span></div>
-              <button id="sidebar-collapse-toggle" class="quiet sidebar-collapse-toggle" type="button" aria-expanded="true" aria-controls="queue" title="Collapse library sidebar" aria-label="Collapse library sidebar" data-i18n-title="sidebar_collapse_title" data-i18n-aria="sidebar_collapse_title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-              <button id="library-drawer-close" class="quiet library-drawer-close" type="button" title="Close recording library" aria-label="Close recording library" data-i18n-title="drawer_close_title" data-i18n-aria="drawer_close_title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-            </div>
-            <div class="row queue-heading-actions">
-              <button id="import-files" class="primary" disabled title="Import Videos" data-i18n-title="import_files"><span aria-hidden="true">＋</span> <span class="import-files-label" data-i18n="import_files">Import Videos</span></button>
             </div>
             <input id="files" type="file" accept="video/*,.mkv,.webm,.mp4,.mov" multiple hidden>
           </div>
-          <section id="empty-onboarding" class="empty-onboarding" aria-label="Two-step auto-intake setup" data-i18n-aria="onboarding_eyebrow">
-            <p class="onboarding-eyebrow" data-i18n="onboarding_eyebrow">Two-step auto-intake setup</p>
-            <div class="onboarding-steps">
-              <article class="onboarding-step" data-step="watch-dir" data-watch-status="unset">
-                <div class="onboarding-step-head">
-                  <span class="onboarding-step-badge" data-i18n="onboarding_step1_num">Step 1</span>
-                  <span id="onboarding-watch-status" class="onboarding-step-status" data-i18n="onboarding_step1_status_unset">Not set yet</span>
-                </div>
-                <h3 data-i18n="onboarding_step1_title">Choose Watch Folder</h3>
-                <p data-i18n="onboarding_step1_desc">Grant read-only access to your OBS or capture folder so finished match recordings appear here automatically.</p>
-                <button id="onboarding-choose-watch-dir" class="primary onboarding-step-btn" type="button" data-onboarding-action="choose-watch-dir" data-i18n="onboarding_step1_cta">Choose Watch Folder</button>
-              </article>
-              <article class="onboarding-step" data-step="live-monitor" data-live-status="off">
-                <div class="onboarding-step-head">
-                  <span class="onboarding-step-badge" data-i18n="onboarding_step2_num">Step 2</span>
-                  <span id="onboarding-live-status" class="onboarding-step-status" data-i18n="onboarding_step2_status_off">Standby</span>
-                </div>
-                <h3 data-i18n="onboarding_step2_title">Start Live Monitoring</h3>
-                <p data-i18n="onboarding_step2_desc">Capture game audio only while playing so new recordings conform right after each match without offline rescan.</p>
-                <button id="onboarding-toggle-monitoring" class="onboarding-step-btn" type="button" data-onboarding-action="toggle-monitoring" aria-pressed="false" data-i18n="onboarding_step2_cta">Start Live Monitoring</button>
-              </article>
-            </div>
-            <div class="onboarding-divider"><span data-i18n="onboarding_secondary_divider">or import local videos directly</span></div>
-          </section>
           <div id="drop-zone" aria-label="Drop local video files here" data-i18n-aria="drop_zone_aria" aria-disabled="true"><div id="queue" class="queue"></div></div>
           <div class="queue-footer"><span id="queue-summary" class="muted" data-i18n="queue_summary_waiting">Import recordings or choose a watch folder for auto-intake</span><span class="muted" data-i18n="queue_footer_right">Current session only · Recordings stay on device</span></div>
         </section>
       </div>
     </div>
-    <div id="review-page" hidden>
+    <div id="review-page" data-empty="true">
       <div class="page-heading review-heading">
         <div class="row review-title-group">
           <button id="library-drawer-toggle" class="quiet library-drawer-toggle" type="button" aria-controls="analysis-page" aria-expanded="false" title="Open recording library" aria-label="Open recording library" data-i18n-title="drawer_open_title" data-i18n-aria="drawer_open_title">
@@ -164,6 +151,60 @@
         </div>
         <div class="review-header-actions"><button id="review-primary-action" class="review-primary-action" type="button" hidden></button></div>
       </div>
+      <section id="review-welcome" class="review-welcome" data-watch-status="unset" data-live-status="off" aria-labelledby="welcome-greeting">
+        <div class="welcome-center">
+          <div class="welcome-emblem" aria-hidden="true">
+            <span class="welcome-sonar-arc"></span>
+            <span class="welcome-ring welcome-ring-outer"></span>
+            <span class="welcome-ring welcome-ring-inner"></span>
+            <svg class="welcome-mark" viewBox="60 0 1080 1080" aria-hidden="true"><rect class="brand-lens" x="270" y="450" width="660" height="350" rx="90"/><use class="brand-body" href="#brand-icon-path"/></svg>
+          </div>
+          <h2 id="welcome-greeting" class="welcome-greeting" data-i18n="welcome_greeting">Ready to clip your next highlight?</h2>
+          <p id="welcome-subtitle" class="welcome-subtitle" data-i18n="welcome_subtitle">Choose how match recordings enter your workspace—automatic folder watch or manual import.</p>
+          <div id="welcome-methods" class="welcome-methods">
+            <article id="welcome-watch-card" class="welcome-method-card welcome-method-auto">
+              <div class="welcome-method-head">
+                <span class="welcome-method-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M14.5 11.5a3 3 0 0 1 0 4.2M17 9.8a5.4 5.4 0 0 1 0 7.6"/></svg></span>
+                <strong class="welcome-method-title" data-i18n="welcome_auto_title">Watch Recording Folder</strong>
+                <span class="welcome-method-badge welcome-method-badge-auto" data-i18n="welcome_auto_badge">No manual import</span>
+              </div>
+              <p id="welcome-watch-desc" class="welcome-method-desc" data-i18n="welcome_auto_desc">Grant read-only access once to your OBS / NVIDIA capture folder. New recordings appear automatically after you stop recording.</p>
+              <button id="welcome-watch-btn" class="welcome-method-cta" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
+                <span id="welcome-watch-btn-label" data-i18n="welcome_watch_cta">Choose Watch Folder</span>
+              </button>
+            </article>
+            <article id="welcome-import-card" class="welcome-method-card welcome-method-manual">
+              <div class="welcome-method-head">
+                <span class="welcome-method-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 4v16M17 4v16M3 9h4m10 0h4M3 15h4m10 0h4"/></svg></span>
+                <strong class="welcome-method-title" data-i18n="welcome_manual_title">Import Local Videos</strong>
+                <span class="welcome-method-badge welcome-method-badge-manual" data-i18n="welcome_manual_badge">Manual · one-time</span>
+              </div>
+              <p class="welcome-method-desc" data-i18n="welcome_manual_desc">Pick or drag-and-drop existing MP4 / MKV recordings directly. No folder binding required.</p>
+              <button id="welcome-import-btn" class="welcome-method-cta welcome-method-cta-primary" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V5m-4 4 4-4 4 4M4 19h16"/></svg>
+                <span data-i18n="welcome_import_cta">Choose Video Files</span>
+              </button>
+            </article>
+          </div>
+          <div id="welcome-standby" class="welcome-standby-card" hidden>
+            <div class="welcome-standby-status">
+              <span class="welcome-standby-dot" aria-hidden="true"></span>
+              <span data-i18n="welcome_standby_badge">Watching · No manual import needed</span>
+            </div>
+            <h3 id="welcome-standby-title" class="welcome-standby-title"></h3>
+            <p class="welcome-standby-desc" data-i18n="welcome_standby_desc">When your external recorder finishes saving a match, it will appear in the left library automatically. Configure Live Audio or Auto Offline Analysis in settings.</p>
+            <div class="welcome-standby-actions">
+              <button id="welcome-standby-settings-btn" class="welcome-method-cta welcome-method-cta-primary" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+                <span data-i18n="welcome_standby_settings_cta">Auto-Intake Settings</span>
+              </button>
+              <button id="welcome-standby-import-btn" class="quiet welcome-standby-secondary" type="button" data-i18n="welcome_standby_import_cta">Or manually import existing videos</button>
+            </div>
+          </div>
+          <p class="welcome-local-note" data-i18n="welcome_local_note">Runs locally in browser · MP4, MKV, WebM, MOV</p>
+        </div>
+      </section>
       <div class="workspace">
         <section class="panel player-panel review-workbench" aria-label="Source playback & timeline" data-i18n-aria="player_panel_aria">
           <div class="player-frame" id="player-frame">
@@ -182,9 +223,9 @@
                 <span id="overview-position" class="player-overview-readout" hidden></span>
               </div>
               <div class="row player-controls">
-                <div class="row player-transport"><button id="play-pause" disabled title="Play / Pause (Space)" data-i18n-title="play_pause_title" aria-keyshortcuts="Space" data-i18n="play">Play</button><button id="play-selection" disabled title="Play from clip start, pause at end (Shift+Space)" data-i18n-title="audition_clip_title" aria-keyshortcuts="Shift+Space" data-i18n="audition_clip">Audition Clip</button></div>
+                <div class="row player-transport"><button id="play-pause" disabled data-playing="false" title="Play / Pause (Space)" data-i18n-title="play_pause_title" aria-keyshortcuts="Space"><svg class="btn-icon icon-play-state" viewBox="0 0 24 24" aria-hidden="true"><polygon class="icon-play" points="7 5 19 12 7 19 7 5"/><path class="icon-pause" d="M7 5h3.5v14H7Zm6.5 0H17v14h-3.5Z"/></svg><span class="btn-label" data-i18n="play">Play</span></button><button id="play-selection" disabled title="Play from clip start, pause at end (Shift+Space)" data-i18n-title="audition_clip_title" aria-keyshortcuts="Shift+Space"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12M20 6v12"/><polygon points="9 8 16 12 9 16" fill="currentColor" stroke="none"/></svg><span class="btn-label" data-i18n="audition_clip">Audition Clip</span></button></div>
                 <span id="playback-time" class="playback-time"></span>
-                <div class="row candidate-nav"><button id="prev-candidate" class="quiet" disabled title="Previous Clip ([)" data-i18n-title="prev_candidate_title" aria-keyshortcuts="[" data-i18n="prev_candidate">← Previous Clip</button><button id="next-candidate" class="quiet" title="Next Clip (])" data-i18n-title="next_candidate_title" aria-keyshortcuts="]" data-i18n="next_candidate">Next Clip →</button></div>
+                <div class="row candidate-nav"><button id="prev-candidate" class="quiet" disabled title="Previous Clip ([)" data-i18n-title="prev_candidate_title" aria-keyshortcuts="["><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span class="btn-label" data-i18n="prev_candidate">Previous Clip</span></button><button id="next-candidate" class="quiet" title="Next Clip (])" data-i18n-title="next_candidate_title" aria-keyshortcuts="]"><span class="btn-label" data-i18n="next_candidate">Next Clip</span><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>
                 <div class="player-audio" role="group" aria-label="Audition volume" data-i18n-aria="volume_aria">
                   <button id="player-mute" class="quiet" title="Mute (M)" aria-label="Mute (M)" data-i18n-aria="mute_title" data-i18n-title="mute_title" aria-pressed="false" aria-keyshortcuts="M">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 4 5 9H2v6h3l6 5Z"/><path class="speaker-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="speaker-muted" d="m16 9 6 6m0-6-6 6"/></svg>
@@ -205,21 +246,21 @@
             <div class="timeline-toolbar">
               <div class="timeline-tools-left">
                 <span id="selection-readout" data-i18n="click_to_adjust">Click a predicted candidate below to start adjusting</span>
-                <button id="quick-set-start" class="quiet" disabled title="Set current playhead as clip start (I)" data-i18n="quick_set_start" data-i18n-title="quick_set_start_title" aria-keyshortcuts="I">[ Set Start</button>
-                <button id="quick-set-end" class="quiet" disabled title="Set current playhead as clip end (O)" data-i18n="quick_set_end" data-i18n-title="quick_set_end_title" aria-keyshortcuts="O">Set End ]</button>
-                <button id="toggle-current-clip" disabled title="Toggle whether selected clip is included in export (K)" data-i18n="toggle_clip_export" data-i18n-title="toggle_clip_export_title" aria-keyshortcuts="K" aria-pressed="false">Keep for Export</button>
-                <button id="exclude-selection" data-i18n="exclude_btn">Exclude Selected · Del</button>
-                <button id="quick-manual" title="Add a 5s manual clip at current playhead (N)" data-i18n="add_manual" data-i18n-title="quick_manual_title" aria-keyshortcuts="N">＋ Add at Current Time</button>
-                <button id="undo-selection" data-i18n="undo_btn">Undo</button>
-                <button id="redo-selection" data-i18n="redo_btn">Redo</button>
+                <button id="quick-set-start" class="quiet" disabled title="Set current playhead as clip start (I)" data-i18n-title="quick_set_start_title" aria-keyshortcuts="I"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M10 12h8m-4-4-4 4 4 4"/></svg><span class="btn-label" data-i18n="quick_set_start">Start</span></button>
+                <button id="quick-set-end" class="quiet" disabled title="Set current playhead as clip end (O)" data-i18n-title="quick_set_end_title" aria-keyshortcuts="O"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 5v14M14 12H6m4-4 4 4-4 4"/></svg><span class="btn-label" data-i18n="quick_set_end">End</span></button>
+                <button id="toggle-current-clip" disabled title="Toggle whether selected clip is included in export (K)" data-i18n-title="toggle_clip_export_title" aria-keyshortcuts="K" aria-pressed="false"><svg class="btn-icon icon-keep-state" viewBox="0 0 24 24" aria-hidden="true"><path class="icon-keep-on" d="M5 13l4 4L19 7"/><circle class="icon-keep-off" cx="12" cy="12" r="7"/></svg><span class="btn-label" data-i18n="toggle_clip_export">Keep</span></button>
+                <button id="exclude-selection"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m7 7 10 10"/></svg><span class="btn-label" data-i18n="exclude_btn">Exclude · Del</span></button>
+                <button id="quick-manual" title="Add a 5s manual clip at current playhead (N)" data-i18n-title="quick_manual_title" aria-keyshortcuts="N"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label" data-i18n="add_manual">Manual</span></button>
+                <button id="undo-selection"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg><span class="btn-label" data-i18n="undo_btn">Undo</span></button>
+                <button id="redo-selection"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg><span class="btn-label" data-i18n="redo_btn">Redo</span></button>
                 <label class="show-excluded-toggle"><input id="show-excluded" type="checkbox"> <span data-i18n="show_excluded">Show excluded</span></label>
               </div>
               <div class="timeline-tools-right">
                 <span id="scope-pill" class="scope-pill"></span>
-                <button id="quick-fit-clip" class="quiet" disabled data-i18n="fit_selection">Zoom to Clip</button>
-                <button id="prediction-zoom-out" class="quiet" aria-label="Zoom out" data-i18n="zoom_out">Zoom Out</button>
-                <button id="prediction-zoom" class="quiet" data-i18n="zoom_in">Zoom In</button>
-                <button id="source-fit" class="quiet" data-i18n="fit_all">Fit All</button>
+                <button id="quick-fit-clip" class="quiet" disabled><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="btn-label" data-i18n="fit_selection">Fit Clip</span></button>
+                <button id="prediction-zoom-out" class="quiet" aria-label="Zoom out"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8 11h6"/></svg><span class="btn-label" data-i18n="zoom_out">Zoom Out</span></button>
+                <button id="prediction-zoom" class="quiet"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg><span class="btn-label" data-i18n="zoom_in">Zoom In</span></button>
+                <button id="source-fit" class="quiet"><svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4"/></svg><span class="btn-label" data-i18n="fit_all">Fit All</span></button>
               </div>
             </div>
             <div class="waveform-group-bar">
@@ -245,6 +286,15 @@
           </div>
         </section>
       </div>
+    </div>
+    <div id="library-row-hover-card" class="library-row-hover-card" role="tooltip" aria-hidden="true" hidden>
+      <strong id="library-hover-title" class="library-hover-title"></strong>
+      <div class="library-hover-details">
+        <span id="library-hover-status" class="library-hover-status"></span>
+        <span id="library-hover-source" class="library-hover-source" hidden></span>
+        <span id="library-hover-meta" class="library-hover-meta"></span>
+      </div>
+      <span id="library-hover-summary" class="library-hover-summary"></span>
     </div>
     </div>
     <section id="exports-section" hidden class="panel exports-panel" aria-labelledby="exports-heading">

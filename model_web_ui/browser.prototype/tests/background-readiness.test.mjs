@@ -18,7 +18,7 @@ import {
   pickFirstReviewableCandidate,
   createBackgroundReadinessController,
 } from '../../../site/background-readiness-controller.mjs';
-import { createGlobalTopbarControls } from '../../../site/global-topbar-controls.mjs';
+import { createLibraryIntakeControls } from '../../../site/library-intake-controls.mjs';
 import { translations } from '../../../site/i18n.js';
 import { createReviewWorkspace } from '../../../site/review-workspace.mjs';
 import { createWorkspaceUxController } from '../../../site/split-workspace-controller.mjs';
@@ -321,14 +321,14 @@ test('Slice 1 regression: denied/failed restore still allows switching Watch Fol
     byId.set(id, node);
     return node;
   };
-  makeBtn('div', 'topbar-watch-dir');
-  makeBtn('button', 'topbar-watch-btn');
-  makeBtn('span', 'topbar-watch-value');
-  makeBtn('button', 'topbar-watch-restore-cta');
+  makeBtn('div', 'sidebar-watch-dir');
+  makeBtn('button', 'sidebar-watch-btn');
+  makeBtn('span', 'sidebar-watch-value');
+  makeBtn('button', 'sidebar-watch-restore-cta');
 
   let restoreClicks = 0;
   let chooseClicks = 0;
-  const controls = createGlobalTopbarControls({
+  const controls = createLibraryIntakeControls({
     doc: {
       getElementById: (id) => byId.get(id) || null,
       addEventListener() {},
@@ -340,12 +340,12 @@ test('Slice 1 regression: denied/failed restore still allows switching Watch Fol
   t.after(() => controls.dispose());
   controls.render(sessionA.bridge.getState());
 
-  // Clicking #topbar-watch-restore-cta triggers restore; clicking #topbar-watch-btn triggers choose!
-  byId.get('topbar-watch-restore-cta').click();
+  // Clicking #sidebar-watch-restore-cta triggers restore; clicking #sidebar-watch-btn triggers choose!
+  byId.get('sidebar-watch-restore-cta').click();
   assert.equal(restoreClicks, 1, 'Restore CTA must route to restoreWatchDirectory');
   assert.equal(chooseClicks, 0);
 
-  byId.get('topbar-watch-btn').click();
+  byId.get('sidebar-watch-btn').click();
   assert.equal(chooseClicks, 1, 'Main watch button must route to chooseWatchDirectory even during needs-permission');
   assert.equal(restoreClicks, 1);
 
@@ -1059,7 +1059,7 @@ test('Slice 4 regression: AudioWorklet heartbeat continues polling after 60-min 
   assert.equal(pollExecutions, pollsAtCap + 2, 'Heartbeat must continue polling indefinitely at cap');
 });
 
-test('Slice 5: global topbar exposes one-click Restore Watch CTA and opt-in ready notification checkbox inside live popover', async () => {
+test('Slice 5: sidebar intake controls expose one-click Restore Watch CTA and opt-in ready notification checkbox inside live popover', async () => {
   const byId = new Map();
   function makeNode(tag, id = null) {
     const node = {
@@ -1087,33 +1087,34 @@ test('Slice 5: global topbar exposes one-click Restore Watch CTA and opt-in read
   }
 
   for (const [tag, id] of [
-    ['div', 'global-session-controls'],
-    ['div', 'topbar-live-monitor'],
-    ['button', 'topbar-live-toggle'],
-    ['span', 'topbar-live-status'],
-    ['span', 'topbar-live-alert'],
-    ['button', 'topbar-live-settings-btn'],
-    ['div', 'topbar-live-popover'],
-    ['span', 'topbar-popover-status'],
-    ['p', 'topbar-popover-notice'],
-    ['button', 'topbar-source-system'],
-    ['button', 'topbar-source-device'],
-    ['div', 'topbar-device-group'],
-    ['select', 'topbar-device-select'],
-    ['button', 'topbar-device-refresh'],
-    ['input', 'topbar-gate-bypass'],
-    ['input', 'topbar-ready-notify'],
-    ['span', 'topbar-ready-notify-hint'],
-    ['button', 'topbar-popover-toggle'],
-    ['div', 'topbar-watch-dir'],
-    ['button', 'topbar-watch-btn'],
-    ['span', 'topbar-watch-value'],
-    ['span', 'topbar-watch-restore-cta'],
+    ['div', 'sidebar-intake-controls'],
+    ['div', 'sidebar-watch-dir'],
+    ['button', 'sidebar-watch-btn'],
+    ['span', 'sidebar-watch-label'],
+    ['span', 'sidebar-watch-value'],
+    ['span', 'sidebar-live-pill'],
+    ['span', 'sidebar-live-alert'],
+    ['button', 'sidebar-watch-restore-cta'],
+    ['button', 'sidebar-intake-settings-btn'],
+    ['div', 'sidebar-intake-popover'],
+    ['span', 'sidebar-popover-watch-status'],
+    ['span', 'sidebar-popover-watch-name'],
+    ['button', 'sidebar-popover-watch-choose'],
+    ['button', 'sidebar-popover-watch-restore'],
+    ['button', 'sidebar-popover-watch-stop'],
+    ['input', 'sidebar-auto-analyze'],
+    ['div', 'sidebar-live-section'],
+    ['span', 'sidebar-popover-live-status'],
+    ['p', 'sidebar-popover-notice'],
+    ['button', 'sidebar-live-toggle'],
+    ['p', 'sidebar-live-hint'],
+    ['input', 'sidebar-ready-notify'],
+    ['small', 'sidebar-ready-notify-hint'],
   ]) {
     makeNode(tag, id);
   }
-  byId.get('topbar-watch-restore-cta').hidden = true;
-  byId.get('topbar-ready-notify-hint').hidden = true;
+  byId.get('sidebar-watch-restore-cta').hidden = true;
+  byId.get('sidebar-ready-notify-hint').hidden = true;
 
   const doc = {
     getElementById: (id) => byId.get(id) || null,
@@ -1130,7 +1131,7 @@ test('Slice 5: global topbar exposes one-click Restore Watch CTA and opt-in read
     return text;
   };
 
-  const controls = createGlobalTopbarControls({
+  const controls = createLibraryIntakeControls({
     doc,
     translate,
     onActivateWatchDir: () => { activateCalls++; },
@@ -1143,12 +1144,12 @@ test('Slice 5: global topbar exposes one-click Restore Watch CTA and opt-in read
     readyNotifications: { enabled: false, permission: 'default' },
   });
 
-  assert.equal(byId.get('topbar-watch-dir').dataset.watchStatus, 'needs-permission');
-  assert.equal(byId.get('topbar-watch-value').textContent, 'OBS Captures');
-  assert.equal(byId.get('topbar-watch-restore-cta').hidden, false);
-  assert.equal(byId.get('topbar-watch-restore-cta').textContent, '恢复监听');
+  assert.equal(byId.get('sidebar-watch-dir').dataset.watchStatus, 'needs-permission');
+  assert.equal(byId.get('sidebar-watch-value').textContent, 'OBS Captures');
+  assert.equal(byId.get('sidebar-watch-restore-cta').hidden, false);
+  assert.equal(byId.get('sidebar-watch-restore-cta').textContent, '恢复监听');
 
-  byId.get('topbar-watch-btn').click();
+  byId.get('sidebar-watch-btn').click();
   assert.equal(activateCalls, 1);
 
   // Restored watching state hides Restore Watch CTA
@@ -1157,13 +1158,13 @@ test('Slice 5: global topbar exposes one-click Restore Watch CTA and opt-in read
     watchDirectory: { status: 'watching', name: 'OBS Captures', canChoose: true },
     readyNotifications: { enabled: true, permission: 'granted' },
   });
-  assert.equal(byId.get('topbar-watch-restore-cta').hidden, true);
-  assert.equal(byId.get('topbar-ready-notify').checked, true);
-  assert.equal(byId.get('topbar-ready-notify-hint').hidden, true);
+  assert.equal(byId.get('sidebar-watch-restore-cta').hidden, true);
+  assert.equal(byId.get('sidebar-ready-notify').checked, true);
+  assert.equal(byId.get('sidebar-ready-notify-hint').hidden, true);
 
   // Toggling opt-in ready notification checkbox fires callback cleanly
-  byId.get('topbar-ready-notify').checked = false;
-  byId.get('topbar-ready-notify').onchange();
+  byId.get('sidebar-ready-notify').checked = false;
+  byId.get('sidebar-ready-notify').onchange();
   assert.deepEqual(notifyToggles, [false]);
 
   // Denied permission displays hint inside popover
@@ -1172,8 +1173,8 @@ test('Slice 5: global topbar exposes one-click Restore Watch CTA and opt-in read
     watchDirectory: { status: 'watching', name: 'OBS Captures', canChoose: true },
     readyNotifications: { enabled: false, permission: 'denied' },
   });
-  assert.equal(byId.get('topbar-ready-notify-hint').hidden, false);
-  assert.ok(byId.get('topbar-ready-notify-hint').textContent.length > 0);
+  assert.equal(byId.get('sidebar-ready-notify-hint').hidden, false);
+  assert.ok(byId.get('sidebar-ready-notify-hint').textContent.length > 0);
   controls.dispose();
 });
 
@@ -1183,8 +1184,8 @@ test('Slice 5: index.html and i18n wire #62 restore CTA, ready toast, favicon, a
   const html = readFileSync(path.join(siteDir, 'index.html'), 'utf8');
 
   assert.match(html, /id="app-favicon"/);
-  assert.match(html, /id="topbar-watch-restore-cta"/);
-  assert.match(html, /id="topbar-ready-notify"/);
+  assert.match(html, /id="sidebar-watch-restore-cta"/);
+  assert.match(html, /id="sidebar-ready-notify"/);
   assert.match(html, /id="ready-toast"/);
   assert.match(html, /id="ready-toast-open"/);
   assert.match(html, /id="ready-toast-dismiss"/);

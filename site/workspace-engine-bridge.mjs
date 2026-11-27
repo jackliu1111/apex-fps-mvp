@@ -15,7 +15,10 @@ import {
 import { extractBasename } from './recording-library-projection.mjs';
 import { dispatchReviewPrimaryAction } from './split-workspace-controller.mjs';
 import { identifyFile } from './media-identity.mjs';
+import { readBoolPref, writeBoolPref } from './pref-storage.mjs';
 import { restorePersistedWatchDirectory as restorePersistedWatchDir } from './watch-dir-store.mjs';
+
+export const AUTO_ANALYZE_UNCOVERED_KEY = 'apex_local_cut_auto_analyze_uncovered';
 
 export function mapLiveEngineStatus(engineStatus) {
   if (engineStatus === LIVE_MONITOR_STATES.IDLE || !engineStatus) return 'off';
@@ -51,6 +54,7 @@ export function createWorkspaceEngineBridge({
   liveMonitorOptions = {},
   autoIntakeOptions = {},
   watchDirStore = null,
+  storage,
   heartbeatPollIntervalMs = autoIntakeOptions.pollIntervalMs ?? 2000,
   now = () => Date.now(),
   isSecureContext = () => Boolean(globalThis.window?.isSecureContext ?? globalThis.isSecureContext),
@@ -71,10 +75,9 @@ export function createWorkspaceEngineBridge({
   const intakeWasEmptyById = new Map();
 
   let disposed = false;
-  let preferredSourceKind = AUDIO_SOURCE_KINDS.SYSTEM;
-  let preferredDeviceId = null;
-  let desiredGateBypass = false;
-  let audioDevices = [];
+  let autoAnalyzeUncovered = autoIntakeOptions.autoAnalyzeUncovered !== undefined
+    ? Boolean(autoIntakeOptions.autoAnalyzeUncovered)
+    : readBoolPref(AUTO_ANALYZE_UNCOVERED_KEY, storage);
 
   let watchDirHandle = null;
   let watchDirRestorePending = false;
@@ -109,6 +112,7 @@ export function createWorkspaceEngineBridge({
     identify,
     now,
     ...autoIntakeOptions,
+    autoAnalyzeUncovered,
     async beforeImport(file, identity) {
       if (identified && file && identity) identified.set(file, identity);
       if (identity?.id) {
@@ -138,6 +142,8 @@ export function createWorkspaceEngineBridge({
         onNotice(msg('note_intake_exact', `Auto-ingested & ready: ${basename}`, { name: basename }), 'info');
       } else if (event?.kind === INTAKE_EVENT_KINDS.CONFORMED_COARSE) {
         onNotice(msg('note_intake_coarse', `Auto-ingested (coarse alignment): ${basename}`, { name: basename }), 'info');
+      } else if (event?.kind === INTAKE_EVENT_KINDS.QUEUED_OFFLINE) {
+        onNotice(msg('note_intake_queued_offline', `Auto-ingested & queued for analysis: ${basename}`, { name: basename }), 'info');
       } else if (event?.kind === INTAKE_EVENT_KINDS.UNANALYZED) {
         onNotice(msg('note_intake_unanalyzed', `Auto-ingested (unanalyzed): ${basename}`, { name: basename }), 'info');
       }
@@ -176,25 +182,14 @@ export function createWorkspaceEngineBridge({
     const raw = liveMonitor.getState();
     const status = mapLiveEngineStatus(raw.status);
     const active = status === 'listening' || status === 'paused-loopback' || status === 'starting';
-    const effectiveSourceKind = raw.sourceKind || preferredSourceKind;
-    const effectiveDeviceId = effectiveSourceKind === AUDIO_SOURCE_KINDS.DEVICE
-      ? (raw.deviceId || preferredDeviceId)
-      : null;
-    const allowGateBypass = effectiveSourceKind === AUDIO_SOURCE_KINDS.DEVICE
-      ? Boolean(active ? raw.allowGateBypass : desiredGateBypass)
-      : false;
+    const watchActive = Boolean(autoIntake.getState().watching);
     return Object.freeze({
       status,
       active,
-      canToggle: true,
-      sourceKind: raw.sourceKind,
-      preferredSourceKind,
-      effectiveSourceKind,
-      deviceId: effectiveDeviceId,
-      preferredDeviceId,
+      canToggle: active || watchActive,
+      requiresWatchDir: !watchActive,
+      sourceKind: raw.sourceKind || AUDIO_SOURCE_KINDS.SYSTEM,
       audioLabel: raw.audioLabel || null,
-      audioDevices: Object.freeze(audioDevices.map((d) => Object.freeze({ ...d }))),
-      allowGateBypass,
       gateActive: Boolean(raw.gateActive),
       gateReason: raw.gateReason || null,
       silentSeconds: Number(raw.silentSeconds) || 0,
@@ -225,6 +220,7 @@ export function createWorkspaceEngineBridge({
       watching: Boolean(raw.watching),
       needsRestore: status === 'needs-permission',
       canChoose: true,
+      autoAnalyzeUncovered: Boolean(raw.autoAnalyzeUncovered ?? autoAnalyzeUncovered),
       error: watchDirError || raw.error || null,
       processingCount: Number(raw.processingCount) || 0,
       intakeCount: Number(raw.intakeCount) || 0,
@@ -249,11 +245,11 @@ export function createWorkspaceEngineBridge({
   const unsubLive = liveMonitor.subscribe((raw) => {
     const mapped = mapLiveEngineStatus(raw.status);
     if (mapped === 'disconnected' && lastLiveStatus !== 'disconnected') {
-      onNotice(raw.disconnectReason || msg('note_live_disconnected', 'Audio stream disconnected; Live Monitoring stopped.'), 'error');
+      onNotice(raw.disconnectReason || msg('note_live_disconnected', 'Audio stream disconnected; Live Audio Analysis stopped.'), 'error');
     } else if (mapped === 'error' && lastLiveStatus !== 'error' && raw.error) {
       onNotice(raw.error, 'error');
     } else if (raw.silenceWarning && !lastSilenceWarning && mapped === 'listening') {
-      onNotice(msg('note_live_silence_warning', 'No game audio detected for 10+ seconds. Check shared audio or input device.'), 'info');
+      onNotice(msg('note_live_silence_warning', 'No game audio detected for 10+ seconds. Check shared system audio.'), 'info');
     }
     const latestEpochMs = Number(raw.latestEpochMs) || 0;
     const bucketCount = Number(raw.envelopeBucketCount) || 0;
@@ -287,6 +283,13 @@ export function createWorkspaceEngineBridge({
     }
   });
 
+  function cascadeStopLiveIfActive() {
+    if (disposed) return;
+    if (buildLiveState().active) {
+      void stopLiveMonitor().catch(() => {});
+    }
+  }
+
   const unsubIntake = autoIntake.subscribe((raw) => {
     if (raw.watching) {
       if (lastHeartbeatPollMs === 0) lastHeartbeatPollMs = now();
@@ -297,48 +300,17 @@ export function createWorkspaceEngineBridge({
       if (base) watchDirName = base;
     } else {
       lastHeartbeatPollMs = 0;
+      cascadeStopLiveIfActive();
     }
     emit();
   });
 
-  async function refreshAudioDevices() {
-    if (disposed) return [];
-    try {
-      const list = await liveMonitor.listAudioDevices();
-      audioDevices = Array.isArray(list) ? list : [];
-      if (preferredDeviceId && !audioDevices.some((d) => d.deviceId === preferredDeviceId)) {
-        preferredDeviceId = audioDevices[0]?.deviceId || null;
-      }
-      emit();
-      return audioDevices;
-    } catch {
-      return audioDevices;
-    }
-  }
-
-  async function startLiveMonitor(options = {}) {
+  async function startLiveMonitor() {
     if (disposed) return snapshot().liveMonitor;
-    const requestedKind = options.sourceKind ?? preferredSourceKind;
-    const requestedDeviceId = requestedKind === AUDIO_SOURCE_KINDS.DEVICE
-      ? (options.deviceId !== undefined ? options.deviceId : preferredDeviceId)
-      : null;
-
-    preferredSourceKind = requestedKind;
-    if (requestedKind === AUDIO_SOURCE_KINDS.DEVICE) {
-      preferredDeviceId = requestedDeviceId;
-    } else {
-      desiredGateBypass = false;
+    if (!autoIntake.getState().watching) {
+      throw new Error(msg('err_live_requires_watch_dir', 'Choose or restore a Watch Folder before starting Live Audio Analysis.'));
     }
-
-    const started = await liveMonitor.start({
-      sourceKind: requestedKind,
-      deviceId: requestedDeviceId,
-    });
-    if (requestedKind === AUDIO_SOURCE_KINDS.DEVICE) {
-      if (started?.deviceId) preferredDeviceId = started.deviceId;
-      if (desiredGateBypass) liveMonitor.setAllowGateBypass(true);
-      void refreshAudioDevices();
-    }
+    await liveMonitor.start({ sourceKind: AUDIO_SOURCE_KINDS.SYSTEM });
     emit();
     return snapshot().liveMonitor;
   }
@@ -358,52 +330,15 @@ export function createWorkspaceEngineBridge({
     return startLiveMonitor();
   }
 
-  async function setAudioSourcePreference({ sourceKind, deviceId } = {}) {
-    if (disposed) return snapshot().liveMonitor;
-    const nextKind = sourceKind === AUDIO_SOURCE_KINDS.DEVICE
-      ? AUDIO_SOURCE_KINDS.DEVICE
-      : AUDIO_SOURCE_KINDS.SYSTEM;
-    const nextDeviceId = nextKind === AUDIO_SOURCE_KINDS.DEVICE
-      ? (deviceId !== undefined ? (deviceId || null) : preferredDeviceId)
-      : null;
-
-    preferredSourceKind = nextKind;
-    if (nextKind === AUDIO_SOURCE_KINDS.DEVICE) {
-      preferredDeviceId = nextDeviceId;
-      await refreshAudioDevices();
-    } else {
-      desiredGateBypass = false;
-    }
-
-    const current = buildLiveState();
-    if (current.active) {
-      const switched = await liveMonitor.switchAudioSource({
-        sourceKind: nextKind,
-        deviceId: nextDeviceId,
-      });
-      if (nextKind === AUDIO_SOURCE_KINDS.DEVICE) {
-        if (switched?.deviceId) preferredDeviceId = switched.deviceId;
-        if (desiredGateBypass) liveMonitor.setAllowGateBypass(true);
-      }
+  function setAutoAnalyzeUncovered(enabled) {
+    if (disposed) return autoAnalyzeUncovered;
+    autoAnalyzeUncovered = Boolean(enabled);
+    writeBoolPref(AUTO_ANALYZE_UNCOVERED_KEY, autoAnalyzeUncovered, storage);
+    if (typeof autoIntake.setAutoAnalyzeUncovered === 'function') {
+      autoIntake.setAutoAnalyzeUncovered(autoAnalyzeUncovered);
     }
     emit();
-    return snapshot().liveMonitor;
-  }
-
-  function setAllowGateBypass(allow) {
-    if (disposed) return false;
-    const current = buildLiveState();
-    if (current.effectiveSourceKind !== AUDIO_SOURCE_KINDS.DEVICE) {
-      desiredGateBypass = false;
-      emit();
-      return false;
-    }
-    desiredGateBypass = Boolean(allow);
-    if (current.sourceKind === AUDIO_SOURCE_KINDS.DEVICE) {
-      liveMonitor.setAllowGateBypass(desiredGateBypass);
-    }
-    emit();
-    return true;
+    return autoAnalyzeUncovered;
   }
 
   function notifyPlayerState(playerState) {
@@ -461,12 +396,14 @@ export function createWorkspaceEngineBridge({
     if (autoIntake.getState().watching) {
       autoIntake.stopWatching();
     }
+    cascadeStopLiveIfActive();
     emit();
     return snapshot().watchDirectory;
   }
 
   async function clearStaleWatchDirectory() {
     autoIntake.stopWatching();
+    cascadeStopLiveIfActive();
     watchDirHandle = null;
     watchDirName = null;
     watchDirRestorePending = false;
@@ -544,6 +481,7 @@ export function createWorkspaceEngineBridge({
   function stopWatchingDirectory() {
     if (disposed) return snapshot().watchDirectory;
     autoIntake.stopWatching();
+    cascadeStopLiveIfActive();
     watchDirHandle = null;
     watchDirName = null;
     watchDirRestorePending = false;
@@ -614,9 +552,7 @@ export function createWorkspaceEngineBridge({
     startLiveMonitor,
     stopLiveMonitor,
     toggleLiveMonitor,
-    setAudioSourcePreference,
-    refreshAudioDevices,
-    setAllowGateBypass,
+    setAutoAnalyzeUncovered,
     notifyPlayerState,
     chooseWatchDirectory,
     activateWatchDirectory,

@@ -18,6 +18,7 @@ const DELETED_SITE_FILES = [
   'live-companion.css',
   'live-session.mjs',
   'live-resource-monitor.mjs',
+  'global-topbar-controls.mjs',
 ];
 
 const DELETED_TEST_FILES = [
@@ -102,9 +103,11 @@ test('index.html exposes a single Local Clipping Workspace with strictly 2 works
   assert.match(navButtons[0], /\bid="nav-analysis"/);
   assert.match(navButtons[1], /\bid="nav-exports"/);
 
-  // Global topbar session controls remain mounted in the single workspace
-  assert.match(html, /id="global-session-controls"/);
+  // Sidebar intake controls live inside Recording Library sidebar; removed global topbar pills & full-page empty onboarding stay absent
+  assert.match(html, /id="sidebar-intake-controls"/);
   assert.match(html, /id="clipping-workspace"/);
+  assert.equal(/id="global-session-controls"/.test(html), false, 'superseded #global-session-controls must be removed from app header');
+  assert.equal(/id="empty-onboarding"/.test(html), false, 'superseded full-page #empty-onboarding must be removed from index.html');
   assert.equal(/id="library-topbar-slots"/.test(html), false, 'superseded static #library-topbar-slots must be removed from index.html');
 
   // Every data-i18n / data-i18n-title / data-i18n-aria key resolves in both en and zh
@@ -149,7 +152,7 @@ test('index.html exposes a single Local Clipping Workspace with strictly 2 works
 });
 
 test('single-workspace layout and drop guards have no legacy live workspace mode', () => {
-  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 0 }), 'empty');
+  assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 0 }), 'split');
   assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 2 }), 'split');
   assert.equal(resolveClippingLayout({ page: 'exports', itemCount: 2 }), 'exports');
   assert.equal(resolveClippingLayout({ page: 'clipping', itemCount: 2, forceStandaloneLibrary: true }), 'standalone-library');

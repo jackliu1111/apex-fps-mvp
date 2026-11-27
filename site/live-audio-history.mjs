@@ -5,7 +5,7 @@ export const DEFAULT_MAX_HISTORY_SECONDS = 3600; // 60 minutes rolling lightweig
 const INITIAL_CAPACITY_BUCKETS = 4096;
 
 /**
- * Pure wall-clock rolling audio history store for live monitoring (对局监听).
+ * Pure wall-clock rolling audio history store for Live Audio Analysis (实时音频分析).
  * Retains up to 60 minutes of 20 ms peak/RMS energy envelopes and gunshot/4-group
  * prediction score windows for master recording alignment & conforming (原片升格).
  * Contains zero video proxy, filmstrip, manual marking, or live pre-decision state.

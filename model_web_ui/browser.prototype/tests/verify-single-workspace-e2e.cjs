@@ -164,70 +164,79 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
     await assertHeaderInvariant(page, widths, 'topbar-zh');
 
-    // Verify floating popover opens without changing 54px header height and supports source/device/bypass switching
+    // Verify floating Auto-Intake Settings popover opens without clipping or changing 54px header height
+    assert.equal(await page.locator('#global-session-controls').count(), 0, 'Global topbar session controls must be removed (ADR 0011)');
+    assert.equal(await page.locator('#sidebar-live-monitor').count(), 0, 'Separate sibling live bar must be removed (ADR 0012)');
+    assert.equal(await page.locator('#sidebar-device-select').count(), 0, 'Virtual audio device dropdown must be removed (ADR 0012)');
     await page.setViewportSize({ width: 1280, height: 800 });
     await settleFrames(page);
-    await page.locator('#topbar-live-settings-btn').click();
-    assert.equal(await page.locator('#topbar-live-popover').isVisible(), true);
-    assert.equal(
-      await page.evaluate(() => document.querySelector('.header-inner').getBoundingClientRect().height),
-      54,
-      'Opening live monitor popover must NOT expand header height beyond 54px',
-    );
-    assert.equal(await page.locator('#topbar-device-group').isHidden(), true);
-
-    await page.locator('#topbar-source-device').click();
-    await page.waitForFunction(() => !document.getElementById('topbar-device-group').hidden);
-    assert.equal(await page.locator('#topbar-device-select option').count(), 2);
-    assert.equal(await page.locator('#topbar-gate-bypass').isDisabled(), false);
-
-    // Switch back to system audio -> device group hides and bypass disables
-    await page.locator('#topbar-source-system').click();
-    await page.waitForFunction(() => document.getElementById('topbar-device-group').hidden);
-    assert.equal(await page.locator('#topbar-gate-bypass').isDisabled(), true);
+    await page.locator('#sidebar-intake-settings-btn').click();
+    assert.equal(await page.locator('#sidebar-intake-popover').isVisible(), true);
+    const popoverMetrics = await page.evaluate(() => {
+      const pop = document.getElementById('sidebar-intake-popover').getBoundingClientRect();
+      return {
+        headerHeight: document.querySelector('.header-inner').getBoundingClientRect().height,
+        width: pop.width,
+        right: pop.right,
+        innerWidth: window.innerWidth,
+      };
+    });
+    assert.equal(popoverMetrics.headerHeight, 54, 'Opening Auto-Intake Settings popover must NOT expand header height beyond 54px');
+    assert.ok(popoverMetrics.width >= 290 && popoverMetrics.right <= popoverMetrics.innerWidth, 'Sidebar popover must render unclipped inside viewport');
+    // Before watch folder is selected, Live Audio Analysis is disabled and Auto Offline Analysis defaults off
+    assert.equal(await page.locator('#sidebar-live-toggle').isDisabled(), true);
+    assert.equal(await page.locator('#sidebar-auto-analyze').isChecked(), false);
+    assert.equal(await page.locator('#sidebar-popover-watch-stop').isHidden(), true);
 
     // Escape closes popover
     await page.keyboard.press('Escape');
-    assert.equal(await page.locator('#topbar-live-popover').isHidden(), true);
+    assert.equal(await page.locator('#sidebar-intake-popover').isHidden(), true);
 
     // -------------------------------------------------------------------------
-    // 2. Empty-state 2-step onboarding wired to real services + visible on Exports page
+    // 2. Always-split sidebar intake wired to real services + survives Exports navigation
     // -------------------------------------------------------------------------
-    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'empty');
-    assert.equal(await page.locator('#empty-onboarding').isVisible(), true);
+    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'split');
+    assert.equal(await page.locator('#empty-onboarding').count(), 0);
+    assert.equal(await page.locator('#sidebar-intake-controls').isVisible(), true);
 
-    // Step 1: Choose read-only watch folder via onboarding button
-    await page.locator('#onboarding-choose-watch-dir').click();
+    // Choose read-only watch folder via sidebar intake button
+    await page.locator('#sidebar-watch-btn').click();
     await page.waitForFunction(() => window.reviewApp.watchDirState.status === 'watching');
     assert.equal(await page.evaluate(() => window.__testPickerCalls[0]?.mode), 'read');
-    assert.equal(await page.locator('#topbar-watch-value').textContent(), 'OBS Captures');
-    assert.match(await page.locator('#onboarding-watch-status').textContent(), /OBS Captures/);
+    assert.equal(await page.locator('#sidebar-watch-value').textContent(), 'OBS Captures');
 
-    // Step 2: Start pure-audio live monitoring via onboarding button
-    await page.locator('#onboarding-toggle-monitoring').click();
+    // Open Auto-Intake Settings popover and start system-audio Live Audio Analysis
+    await page.locator('#sidebar-intake-settings-btn').click();
+    assert.equal(await page.locator('#sidebar-intake-popover').isVisible(), true);
+    assert.equal(await page.locator('#sidebar-live-toggle').isDisabled(), false);
+    assert.equal(await page.locator('#sidebar-popover-watch-stop').isVisible(), true);
+    await page.locator('#sidebar-live-toggle').click();
     await page.waitForFunction(() => window.reviewApp.liveMonitor.getState().status === 'listening');
-    assert.equal(await page.locator('#topbar-live-monitor').getAttribute('data-live-status'), 'listening');
-    assert.equal(await page.locator('#topbar-live-status').textContent(), '监听中');
-    assert.equal(await page.locator('#onboarding-toggle-monitoring').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#sidebar-watch-dir').getAttribute('data-live-status'), 'listening');
+    assert.equal(await page.locator('#sidebar-live-pill').textContent(), '实时中');
+    assert.equal(await page.locator('#sidebar-popover-live-status').textContent(), '分析中');
+    assert.equal(await page.locator('#sidebar-live-toggle').getAttribute('aria-pressed'), 'true');
     assert.ok(
       await page.evaluate(() => window.__getStoppedVideoTracks() >= 1),
       'Pure-audio system capture must immediately stop video tracks',
     );
+    await page.keyboard.press('Escape');
 
-    // Global topbar controls stay visible & live on Exports page too!
+    // Switching to Exports keeps live analysis running in background; returning to Clip preserves sidebar state
     await page.locator('#nav-exports').click();
     assert.equal(await page.locator('#exports-section').isVisible(), true);
-    assert.equal(await page.locator('#global-session-controls').isVisible(), true);
-    assert.equal(await page.locator('#topbar-live-status').textContent(), '监听中');
-    assert.equal(await page.locator('#topbar-watch-value').textContent(), 'OBS Captures');
+    assert.equal(await page.evaluate(() => window.reviewApp.liveMonitor.getState().status), 'listening');
     await page.locator('#nav-analysis').click();
+    assert.equal(await page.locator('#sidebar-intake-controls').isVisible(), true);
+    assert.equal(await page.locator('#sidebar-live-pill').textContent(), '实时中');
+    assert.equal(await page.locator('#sidebar-watch-value').textContent(), 'OBS Captures');
 
-    // Verify playback loopback gate auto-pauses & resumes live monitor in topbar
+    // Verify playback loopback gate auto-pauses & resumes live analysis in sidebar
     await page.evaluate(() => window.reviewApp.engineBridge.notifyPlayerState({ playing: true, muted: false, volume: 0.6 }));
-    assert.equal(await page.locator('#topbar-live-monitor').getAttribute('data-live-status'), 'paused-loopback');
-    assert.equal(await page.locator('#topbar-live-status').textContent(), '回放暂停');
+    assert.equal(await page.locator('#sidebar-watch-dir').getAttribute('data-live-status'), 'paused-loopback');
+    assert.equal(await page.locator('#sidebar-live-pill').textContent(), '回放暂停');
     await page.evaluate(() => window.reviewApp.engineBridge.notifyPlayerState({ playing: false, muted: false, volume: 0.6 }));
-    assert.equal(await page.locator('#topbar-live-monitor').getAttribute('data-live-status'), 'listening');
+    assert.equal(await page.locator('#sidebar-watch-dir').getAttribute('data-live-status'), 'listening');
 
     // -------------------------------------------------------------------------
     // 3. Path B: Uncovered recording finalizes in watch folder -> unanalyzed -> manual Start Analysis
@@ -341,10 +350,12 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     await assertDesktopZeroScroll(page, 1440, 900, 'e2e-split-1440-zh');
     await assertDesktopZeroScroll(page, 1280, 800, 'e2e-split-1280-zh');
 
-    // Stop live monitor via topbar pill
-    await page.locator('#topbar-live-toggle').click();
-    await page.waitForFunction(() => window.reviewApp.liveMonitor.getState().status === 'idle');
-    assert.equal(await page.locator('#topbar-live-monitor').getAttribute('data-live-status'), 'off');
+    // Stop Watching inside Auto-Intake Settings popover -> cascades stop to Live Audio Analysis!
+    await page.locator('#sidebar-intake-settings-btn').click();
+    await page.locator('#sidebar-popover-watch-stop').click();
+    await page.waitForFunction(() => window.reviewApp.watchDirState.status === 'unset' && window.reviewApp.liveMonitor.getState().status === 'idle');
+    assert.equal(await page.locator('#sidebar-watch-dir').getAttribute('data-live-status'), 'off');
+    assert.equal(await page.locator('#sidebar-live-toggle').isDisabled(), true);
 
     assert.deepEqual(pageErrors, [], `Unexpected page errors: ${pageErrors.join('; ')}`);
     console.log('PASS: single-workspace end-to-end topbar, onboarding, pure-audio monitor, and auto-intake paths');

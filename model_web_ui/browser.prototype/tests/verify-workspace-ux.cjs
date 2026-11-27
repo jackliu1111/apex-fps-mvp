@@ -62,46 +62,50 @@ async function dispatchSyntheticFileDrop(page, targetSelector, { name, bytes, mi
     };
 
     // -------------------------------------------------------------------------
-    // 1. Empty-state full-page 2-step onboarding (?workspacePreview=empty)
+    // 1. Empty always-split workspace with sidebar intake controls (?workspacePreview=empty)
     // -------------------------------------------------------------------------
     await page.goto(previewUrl('?workspacePreview=empty'));
     await page.locator('#workspace-preview-banner[data-ready="true"]').waitFor({ timeout: 15000 });
-    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'empty');
-    assert.equal(await page.locator('#empty-onboarding').isVisible(), true);
-    assert.equal(await page.locator('#onboarding-choose-watch-dir').textContent(), 'Choose Watch Folder');
-    assert.equal(await page.locator('#onboarding-toggle-monitoring').textContent(), 'Start Live Monitoring');
+    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'split');
+    assert.equal(await page.locator('#empty-onboarding').count(), 0);
+    assert.equal(await page.locator('#global-session-controls').count(), 0);
+    assert.equal(await page.locator('#sidebar-intake-controls').isVisible(), true);
+    assert.equal(await page.locator('#review-page').isVisible(), true);
+    assert.equal(await page.locator('#sidebar-watch-value').textContent(), 'Not set');
+    assert.equal(await page.locator('#sidebar-intake-settings-btn').isVisible(), true);
     assert.equal(await page.locator('#import-files').isVisible(), true);
     assert.equal(await page.locator('#queue .empty').isVisible(), true);
 
-    await assertDesktopZeroScroll(page, 1440, 900, 'empty-onboarding-en');
-    await assertDesktopZeroScroll(page, 1280, 800, 'empty-onboarding-en');
+    await assertDesktopZeroScroll(page, 1440, 900, 'empty-split-en');
+    await assertDesktopZeroScroll(page, 1280, 800, 'empty-split-en');
 
-    // Toggle to Chinese and verify 2-step onboarding labels & mock callbacks
+    // Toggle to Chinese and verify sidebar intake labels & mock callbacks
     await page.locator('#lang-toggle').click();
-    assert.equal(await page.locator('#onboarding-choose-watch-dir').textContent(), '选择录像监听目录');
-    assert.equal(await page.locator('#onboarding-toggle-monitoring').textContent(), '开启对局监听');
+    assert.equal(await page.locator('#sidebar-watch-value').textContent(), '未选择');
     assert.equal(await page.locator('#import-files .import-files-label').textContent(), '导入视频');
 
-    await assertDesktopZeroScroll(page, 1440, 900, 'empty-onboarding-zh');
-    await assertDesktopZeroScroll(page, 1280, 800, 'empty-onboarding-zh');
+    await assertDesktopZeroScroll(page, 1440, 900, 'empty-split-zh');
+    await assertDesktopZeroScroll(page, 1280, 800, 'empty-split-zh');
     if (process.env.REVIEW_SCREENSHOT_DIR) {
       await page.setViewportSize({ width: 1440, height: 900 });
       await settleFrames(page);
-      await page.screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/ux-empty-onboarding-1440-zh.png` });
+      await page.screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/ux-empty-split-1440-zh.png` });
     }
 
-    // Click Step 1 and Step 2 onboarding buttons (callback slots)
-    await page.locator('#onboarding-choose-watch-dir').click();
-    assert.match(await page.locator('#onboarding-watch-status').textContent(), /Apex Captures/);
-    await page.locator('#onboarding-toggle-monitoring').click();
-    assert.equal(await page.locator('#onboarding-toggle-monitoring').getAttribute('aria-pressed'), 'true');
-    assert.equal(await page.locator('#onboarding-toggle-monitoring').textContent(), '停止对局监听');
+    // Click sidebar Watch Folder and toggle Live Audio Analysis inside unified Auto-Intake Settings popover
+    await page.locator('#sidebar-watch-btn').click();
+    assert.match(await page.locator('#sidebar-watch-value').textContent(), /Apex Captures/);
+    await page.locator('#sidebar-intake-settings-btn').click();
+    await page.locator('#sidebar-live-toggle').click();
+    assert.equal(await page.locator('#sidebar-live-toggle').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#sidebar-live-pill').textContent(), '实时中');
+    await page.keyboard.press('Escape');
 
-    // Narrow viewport zero horizontal overflow on empty onboarding
-    await assertNarrowZeroHorizontalOverflow(page, 768, 900, 'empty-onboarding-768');
-    await assertNarrowZeroHorizontalOverflow(page, 390, 844, 'empty-onboarding-390');
+    // Narrow viewport zero horizontal overflow on empty always-split workspace
+    await assertNarrowZeroHorizontalOverflow(page, 768, 900, 'empty-split-768');
+    await assertNarrowZeroHorizontalOverflow(page, 390, 844, 'empty-split-390');
     if (process.env.REVIEW_SCREENSHOT_DIR) {
-      await page.screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/ux-empty-onboarding-390-zh.png`, fullPage: true });
+      await page.screenshot({ path: `${process.env.REVIEW_SCREENSHOT_DIR}/ux-empty-split-390-zh.png`, fullPage: true });
     }
 
     // -------------------------------------------------------------------------
@@ -159,8 +163,17 @@ async function dispatchSyntheticFileDrop(page, targetSelector, { name, bytes, mi
         railDotStatus: row.querySelector('.library-rail-dot')?.dataset.status,
         railNewDotHidden: row.querySelector('.library-rail-new-dot')?.hidden,
       }));
-      return { sidebarWidth: sidebarRect.width, reviewWidth: reviewRect.width, rows };
+      const intakeRail = {
+        watchDotVisible: getComputedStyle(document.querySelector('#sidebar-watch-btn .intake-dot')).display !== 'none',
+        watchLabelVisible: getComputedStyle(document.querySelector('#sidebar-watch-btn .intake-label')).display !== 'none',
+        settingsVisible: getComputedStyle(document.querySelector('#sidebar-intake-settings-btn')).display !== 'none',
+      };
+      return { sidebarWidth: sidebarRect.width, reviewWidth: reviewRect.width, rows, intakeRail };
     });
+
+    assert.equal(collapsedCheck.intakeRail.watchDotVisible, true, 'Collapsed rail must retain unified intake status dot');
+    assert.equal(collapsedCheck.intakeRail.watchLabelVisible, false, 'Collapsed rail must hide Watch Folder text label');
+    assert.equal(collapsedCheck.intakeRail.settingsVisible, false, 'Collapsed rail must hide settings gear button');
 
     assert.ok(collapsedCheck.sidebarWidth <= 84, `Collapsed rail should be slim (<= 84px), got ${collapsedCheck.sidebarWidth}`);
     assert.ok(
@@ -321,7 +334,7 @@ async function dispatchSyntheticFileDrop(page, targetSelector, { name, bytes, mi
     await page.goto(baseUrl.href);
     await page.waitForFunction(() => Boolean(window.reviewApp));
     await page.evaluate(() => window.reviewApp.ready);
-    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'empty');
+    assert.equal(await page.locator('#clipping-workspace').getAttribute('data-layout'), 'split');
 
     const mediaBytes1 = await page.evaluate(async () => {
       const { createSyntheticFile } = await import('./tests/synthetic-media.mjs');
@@ -329,8 +342,8 @@ async function dispatchSyntheticFileDrop(page, targetSelector, { name, bytes, mi
       return Array.from(new Uint8Array(await file.arrayBuffer()));
     });
 
-    // Drop 1st video directly onto #empty-onboarding (outside #drop-zone!) -> auto-selects 1st recording, NO 新 badge
-    await dispatchSyntheticFileDrop(page, '#empty-onboarding', {
+    // Drop 1st video directly onto #source-canvas (outside #drop-zone!) -> auto-selects 1st recording, NO 新 badge
+    await dispatchSyntheticFileDrop(page, '#source-canvas', {
       name: 'match-first-drop.mp4',
       bytes: mediaBytes1,
     });

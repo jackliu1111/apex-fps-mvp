@@ -167,6 +167,7 @@ function buildItem({
   canReanalyze = true,
   selected = false,
   isNew = false,
+  intakeSource = null,
   orderIndex = 0,
 }) {
   const status = projectRecordingStatus(rawStatus, alignment);
@@ -211,6 +212,7 @@ function buildItem({
       canReanalyze: Boolean(canReanalyze),
       selected: Boolean(selected),
       isNew: Boolean(isNew),
+      intakeSource: intakeSource === 'auto' || intakeSource === 'manual' ? intakeSource : null,
     }),
   };
 }
@@ -222,11 +224,21 @@ export function projectRecordingLibrary({
   items: directItems = null,
   activeSourceId = null,
   newIds = null,
+  autoIngestedIds = null,
+  manualImportedIds = null,
   sortOrder = 'newest-first',
   liveMonitor = null,
   watchDirectory = null,
 } = {}) {
   const isNewId = (id) => (newIds instanceof Set ? newIds.has(id) : Array.isArray(newIds) ? newIds.includes(id) : false);
+  const hasId = (collection, id) => (collection instanceof Set ? collection.has(id) : Array.isArray(collection) ? collection.includes(id) : false);
+  const resolveIntakeSource = (id, rawSource, record) => {
+    if (rawSource === 'auto' || rawSource === 'manual') return rawSource;
+    if (record?.intakeSource === 'auto' || record?.intakeSource === 'manual') return record.intakeSource;
+    if (hasId(autoIngestedIds, id)) return 'auto';
+    if (hasId(manualImportedIds, id)) return 'manual';
+    return null;
+  };
   const projectedEntries = [];
 
   if (Array.isArray(directItems)) {
@@ -251,6 +263,7 @@ export function projectRecordingLibrary({
         canReanalyze: raw.canReanalyze !== undefined ? raw.canReanalyze : true,
         selected: raw.selected !== undefined ? raw.selected : id === activeSourceId,
         isNew: raw.isNew !== undefined ? raw.isNew : isNewId(id),
+        intakeSource: resolveIntakeSource(id, raw.intakeSource, null),
         orderIndex: index,
       }));
     });
@@ -287,6 +300,7 @@ export function projectRecordingLibrary({
         canReanalyze: Boolean(record),
         selected: saved.id === activeSourceId,
         isNew: isNewId(saved.id),
+        intakeSource: resolveIntakeSource(saved.id, saved.intakeSource, record),
         orderIndex: orderIndex++,
       }));
     }
@@ -313,6 +327,7 @@ export function projectRecordingLibrary({
         canReanalyze: true,
         selected: key === activeSourceId,
         isNew: isNewId(key),
+        intakeSource: resolveIntakeSource(key, null, record),
         orderIndex: orderIndex++,
       }));
     }

@@ -61,7 +61,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     cachedWaveColor = resolveWaveColorFromCanvas(canvas, '#7b8391');
     return cachedWaveColor;
   };
-  const clipFor = (source) => source.clips.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional && !clip.excluded);
+  const clipFor = (source) => source?.clips?.find((clip) => clip.id === source.review.selectedClipId && !clip.provisional && !clip.excluded) || null;
   const windowFor = (source) => [source.review.zoomStart, source.review.zoomEnd];
   const visibleBounds = (source) => {
     const [canonicalLow, canonicalHigh] = windowFor(source);
@@ -439,7 +439,39 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   const run = (fn) => { try { Promise.resolve(fn()).catch(report); } catch (error) { report(error); } };
   function render(source) {
     syncGroupToggles();
-    if (!source) return;
+    if (!source) {
+      stopTransition(false);
+      drag = null; overviewDrag = null; overviewTarget = null; overviewMarkerKey = null; markerRenderKey = null; sourceId = null;
+      evidenceKey = null; waveKey = null; overviewWaveKey = null; frames = [];
+      evidence.cancel();
+      for (const canvasId of ['prediction-wave', 'player-overview-distribution']) {
+        const canvas = $(canvasId);
+        canvas?.getContext?.('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      if ($('source-filmstrip') && !$('source-filmstrip').dataset.previewFrames) $('source-filmstrip').replaceChildren();
+      if ($('overview-markers')) $('overview-markers').replaceChildren();
+      if ($('player-overview-markers')) $('player-overview-markers').replaceChildren();
+      if ($('source-ticks')) $('source-ticks').replaceChildren();
+      if ($('selection-overlay')) $('selection-overlay').hidden = true;
+      if ($('source-hover')) $('source-hover').hidden = true;
+      if ($('prediction-source-window')) $('prediction-source-window').hidden = true;
+      if ($('player-overview-progress')) $('player-overview-progress').style.width = '0%';
+      if ($('prediction-playhead')) $('prediction-playhead').style.left = '0%';
+      if ($('source-head')) $('source-head').style.left = '0%';
+      if ($('overview')) { $('overview').max = 1; $('overview').value = 0; $('overview').disabled = true; }
+      if ($('scope-pill')) $('scope-pill').textContent = '';
+      if ($('waveform-status')) $('waveform-status').textContent = '';
+      if ($('prediction-empty')) $('prediction-empty').textContent = '';
+      if ($('selection-readout')) $('selection-readout').textContent = t('click_to_adjust');
+      if ($('source-fit')) $('source-fit').disabled = true;
+      if ($('prediction-zoom-out')) $('prediction-zoom-out').disabled = true;
+      if ($('prediction-zoom')) $('prediction-zoom').disabled = true;
+      if ($('exclude-selection')) $('exclude-selection').disabled = true;
+      if ($('undo-selection')) $('undo-selection').disabled = true;
+      if ($('redo-selection')) $('redo-selection').disabled = true;
+      return;
+    }
+    if ($('overview')) $('overview').disabled = false;
     const [low, high] = windowFor(source);
     if (sourceId !== source.id) {
       stopTransition(false);
@@ -575,14 +607,16 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     overviewBar.onlostpointercapture = (event) => endOverviewDrag(event, true);
   }
   $('overview').oninput = () => {
+    const source = getSource(); if (!source) return;
     overviewTarget = Number($('overview').value);
     pause();
-    paintSelection(getSource());
+    paintSelection(source);
   };
   $('overview').onchange = () => commitOverviewSeek(Number($('overview').value));
-  $('overview').onpointercancel = () => { overviewTarget = null; paintSelection(getSource()); };
+  $('overview').onpointercancel = () => { overviewTarget = null; const source = getSource(); if (source) paintSelection(source); };
   const exclude = () => {
-    const source = getSource(), clip = clipFor(source);
+    const source = getSource(); if (!source) return;
+    const clip = clipFor(source);
     if (clip) {
       workspace.exclude(source.id, clip.id);
       $('selection-player-axis').focus({ preventScroll: true });
@@ -658,7 +692,8 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
   axis.onpointerdown = (event) => run(() => {
     if (event.button !== 0 || drag) return;
     if (event.target.closest?.('#overview-markers button')) return;
-    const source = getSource(), clip = clipFor(source);
+    const source = getSource(); if (!source) return;
+    const clip = clipFor(source);
     if (transition) {
       stopTransition(true);
       paintTrack(source);
@@ -738,7 +773,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     paintSelection(getSource());
   }
   axis.onpointerup = () => finish(); axis.onpointercancel = () => finish(true); axis.onlostpointercapture = () => finish(true);
-  for (const [id, action] of Object.entries({ 'exclude-selection': exclude, 'undo-selection': () => workspace.undo(getSource().id), 'redo-selection': () => workspace.redo(getSource().id) })) if ($(id)) $(id).onclick = () => run(action);
+  for (const [id, action] of Object.entries({ 'exclude-selection': exclude, 'undo-selection': () => { const s = getSource(); if (s) workspace.undo(s.id); }, 'redo-selection': () => { const s = getSource(); if (s) workspace.redo(s.id); } })) if ($(id)) $(id).onclick = () => run(action);
   if ($('show-excluded')) $('show-excluded').onchange = () => render(getSource());
   const handleWheelGesture = ({ event, element, low, high, duration, onUpdate }) => {
     if (!isActive() || !duration) return;

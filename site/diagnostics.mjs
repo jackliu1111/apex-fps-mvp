@@ -302,9 +302,8 @@ function summarizeLiveMonitor(live) {
   return {
     status: live.status || 'off',
     active: Boolean(live.active),
-    sourceKind: live.sourceKind || live.effectiveSourceKind || null,
+    sourceKind: live.sourceKind || 'system',
     gateActive: Boolean(live.gateActive),
-    allowGateBypass: Boolean(live.allowGateBypass),
     silenceWarning: Boolean(live.silenceWarning),
     modelStatus: live.modelStatus || null,
     inferenceCount: Number.isFinite(live.inferenceCount) ? live.inferenceCount : 0,
@@ -320,6 +319,7 @@ function summarizeAutoIntake(intake) {
     status: intake.status || 'unset',
     watching: Boolean(intake.watching),
     needsRestore: Boolean(intake.needsRestore),
+    autoAnalyzeUncovered: Boolean(intake.autoAnalyzeUncovered),
     processingCount: Number.isFinite(intake.processingCount) ? intake.processingCount : 0,
     intakeCount: Number.isFinite(intake.intakeCount) ? intake.intakeCount : 0,
     lastIntakeKind: intake.lastIntake?.kind || intake.lastIntakeKind || null,

@@ -168,26 +168,40 @@ export function createRecordingLibraryView({
     topbarRefs.watchBtn.disabled = !watch.canChoose;
   }
 
-  function ensureEmptyState() {
+  function ensureEmptyState(watchDirectory = null) {
+    const watchStatus = watchDirectory?.status || 'unset';
+    const watchName = watchDirectory?.name || '';
+    let titleText = translate('empty_drop_title');
+    let descText = translate('empty_drop_desc');
+    let stateAttr = 'unset';
+    if (watchStatus === 'watching' && watchName) {
+      titleText = translate('empty_watching_title');
+      descText = translate('empty_watching_desc', { name: watchName });
+      stateAttr = 'watching';
+    } else if (watchStatus === 'needs-permission' && watchName) {
+      titleText = translate('empty_restore_title');
+      descText = translate('empty_restore_desc');
+      stateAttr = 'needs-permission';
+    }
+
     if (!emptyNode) {
       const empty = createNode(doc, 'div', 'empty');
       if (typeof createEmptyGraphic === 'function') {
         const graphic = createEmptyGraphic();
         if (graphic) empty.append(graphic);
       }
-      const title = createNode(doc, 'strong', undefined, translate('empty_drop_title'));
-      title.dataset.i18n = 'empty_drop_title';
-      const desc = createNode(doc, 'span', undefined, translate('empty_drop_desc'));
-      desc.dataset.i18n = 'empty_drop_desc';
+      const title = createNode(doc, 'strong', undefined, titleText);
+      const desc = createNode(doc, 'span', undefined, descText);
       const types = createNode(doc, 'small', undefined, translate('empty_drop_types'));
       types.dataset.i18n = 'empty_drop_types';
       empty.append(title, desc, types);
       emptyNode = { root: empty, title, desc, types };
     } else {
-      setText(emptyNode.title, translate('empty_drop_title'));
-      setText(emptyNode.desc, translate('empty_drop_desc'));
+      setText(emptyNode.title, titleText);
+      setText(emptyNode.desc, descText);
       setText(emptyNode.types, translate('empty_drop_types'));
     }
+    emptyNode.root.dataset.watchStatus = stateAttr;
     return emptyNode.root;
   }
 
@@ -310,6 +324,7 @@ export function createRecordingLibraryView({
     row.dataset.reviewable = String(Boolean(item.canReview));
     row.dataset.selected = String(Boolean(item.selected));
     row.dataset.new = String(Boolean(item.isNew));
+    row.dataset.intakeSource = item.intakeSource || '';
     row.classList.toggle('is-selected', Boolean(item.selected));
     const statusLabel = formatStatusLabel(item, translate);
     if (!showActions) {
@@ -392,7 +407,7 @@ export function createRecordingLibraryView({
       if (!showActions) listContainer.removeAttribute?.('role');
       for (const row of rowsById.values()) row.remove();
       rowsById.clear();
-      const empty = ensureEmptyState();
+      const empty = ensureEmptyState(snapshot?.watchDirectory);
       if (listContainer.children.length !== 1 || listContainer.children[0] !== empty) {
         listContainer.replaceChildren(empty);
       }

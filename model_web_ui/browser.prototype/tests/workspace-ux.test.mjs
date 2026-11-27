@@ -488,7 +488,7 @@ test('sidebar library rows render collapsed rail cell (HH:MM + status dot + New 
   assert.equal(rows[1].querySelector('.library-rail-new-dot').hidden, true);
 });
 
-test('index.html and i18n provide collapsible sidebar, narrow drawer, whole-workspace drop cue, and 2-step empty onboarding without forbidden terms', () => {
+test('index.html and i18n provide collapsible sidebar, narrow drawer, whole-workspace drop cue, and sidebar intake controls without forbidden terms', () => {
   const testDir = path.dirname(fileURLToPath(import.meta.url));
   const siteDir = path.resolve(testDir, '../../../site');
   const html = readFileSync(path.join(siteDir, 'index.html'), 'utf8');
@@ -498,20 +498,41 @@ test('index.html and i18n provide collapsible sidebar, narrow drawer, whole-work
   assert.match(html, /id="library-drawer-backdrop"/);
   assert.match(html, /id="library-drawer-close"/);
   assert.match(html, /id="workspace-drop-overlay"/);
-  assert.match(html, /id="empty-onboarding"/);
-  assert.match(html, /id="onboarding-choose-watch-dir"/);
-  assert.match(html, /id="onboarding-toggle-monitoring"/);
-  assert.match(html, /data-onboarding-action="choose-watch-dir"/);
-  assert.match(html, /data-onboarding-action="toggle-monitoring"/);
+  assert.match(html, /id="sidebar-intake-controls"/);
+  assert.match(html, /id="sidebar-watch-btn"/);
+  assert.match(html, /id="sidebar-intake-settings-btn"/);
+  assert.match(html, /id="sidebar-intake-popover"/);
+  assert.match(html, /id="sidebar-auto-analyze"/);
+  assert.match(html, /id="sidebar-live-toggle"/);
+  assert.match(html, /id="review-welcome"/);
+  assert.match(html, /id="welcome-methods"/);
+  assert.match(html, /id="welcome-watch-card"/);
+  assert.match(html, /id="welcome-import-card"/);
+  assert.match(html, /id="welcome-standby"/);
+  assert.match(html, /id="library-topbar"/);
+  assert.match(html, /id="sidebar-watch-auto-pill"/);
+  assert.match(html, /id="library-row-hover-card"/);
+  assert.match(html, /id="library-hover-source"/);
+  assert.equal(/id="sidebar-source-device"/.test(html), false, 'Virtual audio device source switcher must be removed (ADR 0012)');
+  assert.equal(/id="sidebar-device-select"/.test(html), false, 'Virtual audio device dropdown must be removed (ADR 0012)');
+  assert.equal(/id="sidebar-gate-bypass"/.test(html), false, 'Virtual audio device gate bypass must be removed (ADR 0012)');
+  assert.equal(/id="empty-onboarding"/.test(html), false, 'Full-page #empty-onboarding must be removed (ADR 0011)');
+  assert.equal(/id="global-session-controls"/.test(html), false, 'Global topbar #global-session-controls must be removed (ADR 0011)');
   assert.equal(/class="[^"]*\bworkflow-guide\b/.test(html), false, 'Must not introduce legacy .workflow-guide class');
 
-  // Verify bilingual copy matches Ticket #65 & ADR 0010 terminology
+  // Verify bilingual copy matches ADR 0010/0011/0012 terminology
   assert.equal(translations.zh.import_files, '导入视频');
   assert.equal(translations.en.import_files, 'Import Videos');
-  assert.equal(translations.zh.onboarding_step1_cta, '选择录像监听目录');
-  assert.equal(translations.en.onboarding_step1_cta, 'Choose Watch Folder');
-  assert.equal(translations.zh.onboarding_step2_cta, '开启对局监听');
-  assert.equal(translations.en.onboarding_step2_cta, 'Start Live Monitoring');
+  assert.equal(translations.zh.library_watch_label, '录像监听目录');
+  assert.equal(translations.en.library_watch_label, 'Watch Folder');
+  assert.equal(translations.zh.library_live_label, '实时音频分析');
+  assert.equal(translations.en.library_live_label, 'Live Audio Analysis');
+  assert.equal(translations.zh.auto_offline_analyze_label, '自动离线分析');
+  assert.equal(translations.en.auto_offline_analyze_label, 'Auto Offline Analysis');
+  assert.ok(translations.zh.review_empty_hint);
+  assert.ok(translations.en.review_empty_hint);
+  assert.ok(translations.zh.player_empty_hint);
+  assert.ok(translations.en.player_empty_hint);
   assert.ok(translations.zh.sidebar_collapse_title);
   assert.ok(translations.en.sidebar_collapse_title);
   assert.ok(translations.zh.sidebar_expand_title);
@@ -532,7 +553,7 @@ test('index.html and i18n provide collapsible sidebar, narrow drawer, whole-work
   }
 });
 
-test('mountSplitWorkspacePreview marks non-active recordings as New, supports simulating new drops without switching, and wires empty onboarding slots', async () => {
+test('mountSplitWorkspacePreview marks non-active recordings as New, supports simulating new drops without switching, and wires sidebar intake slots', async () => {
   const doc = createFakeDocument();
   const main = doc.createElement('main');
   main.id = 'main';
@@ -549,8 +570,8 @@ test('mountSplitWorkspacePreview marks non-active recordings as New, supports si
   const bindings = new Map();
   const ux = createWorkspaceUxController({ storage: createMemoryStorage() });
   let activeId = null;
-  let onboardingHandlers = null;
-  let onboardingState = null;
+  let intakeHandlers = null;
+  let intakeState = null;
 
   const fakeApp = {
     workspace,
@@ -571,11 +592,11 @@ test('mountSplitWorkspacePreview marks non-active recordings as New, supports si
     openLibraryDrawer() {
       return ux.openDrawer();
     },
-    setOnboardingHandlers(handlers) {
-      onboardingHandlers = handlers;
+    setIntakeHandlers(handlers) {
+      intakeHandlers = handlers;
     },
-    setOnboardingState(state) {
-      onboardingState = state;
+    setIntakeState(state) {
+      intakeState = state;
     },
     get activeSourceId() { return activeId; },
     render() {},
@@ -601,10 +622,10 @@ test('mountSplitWorkspacePreview marks non-active recordings as New, supports si
   assert.equal(ux.isRecordingNew(droppedId), true, 'Newly added recording receives New badge');
   mixedHarness.dispose();
 
-  // Empty scenario wires interactive mock onboarding handlers for Step 1 & Step 2
+  // Empty scenario wires interactive mock sidebar intake handlers for Watch Folder & Live Monitor
   const emptyWorkspace = createReviewWorkspace();
-  onboardingHandlers = null;
-  onboardingState = null;
+  intakeHandlers = null;
+  intakeState = null;
   const emptyApp = {
     ...fakeApp,
     workspace: emptyWorkspace,
@@ -615,12 +636,73 @@ test('mountSplitWorkspacePreview marks non-active recordings as New, supports si
     search: '?workspacePreview=empty',
     doc,
   });
-  assert.equal(typeof onboardingHandlers?.onChooseWatchDir, 'function');
-  assert.equal(typeof onboardingHandlers?.onToggleMonitoring, 'function');
-  onboardingHandlers.onChooseWatchDir();
-  assert.equal(onboardingState?.watchDirectory?.status, 'watching');
-  assert.ok(onboardingState?.watchDirectory?.name);
-  onboardingHandlers.onToggleMonitoring();
-  assert.equal(onboardingState?.liveMonitor?.status, 'listening');
+  assert.equal(typeof intakeHandlers?.onChooseWatchDir, 'function');
+  assert.equal(typeof intakeHandlers?.onToggleMonitoring, 'function');
+  intakeHandlers.onChooseWatchDir();
+  assert.equal(intakeState?.watchDirectory?.status, 'watching');
+  assert.ok(intakeState?.watchDirectory?.name);
+  intakeHandlers.onToggleMonitoring();
+  assert.equal(intakeState?.liveMonitor?.status, 'listening');
   emptyHarness.dispose();
+});
+
+test('sidebar library empty state and row origin distinguish Watch Folder auto-intake vs manual local import (Scheme A)', () => {
+  const doc = createFakeDocument();
+  const listContainer = doc.createElement('div');
+  const translate = (key, params = {}) => {
+    let text = translations.zh[key] || translations.en[key] || key;
+    for (const [k, v] of Object.entries(params)) text = text.replaceAll(`{${k}}`, String(v));
+    return text;
+  };
+  const view = createRecordingLibraryView({
+    listContainer,
+    doc,
+    translate,
+    showActions: false,
+    showSize: false,
+  });
+
+  // 1. Empty with Watch Folder unset -> manual drop/import prompt
+  view.render(projectRecordingLibrary({
+    items: [],
+    watchDirectory: { status: 'unset', name: null },
+  }));
+  let emptyEl = listContainer.children[0];
+  assert.equal(emptyEl.dataset.watchStatus, 'unset');
+  assert.equal(emptyEl.children[0].textContent, translations.zh.empty_drop_title);
+
+  // 2. Empty with Watch Folder actively watching -> auto-intake standby prompt
+  view.render(projectRecordingLibrary({
+    items: [],
+    watchDirectory: { status: 'watching', name: 'OBS Captures' },
+  }));
+  emptyEl = listContainer.children[0];
+  assert.equal(emptyEl.dataset.watchStatus, 'watching');
+  assert.equal(emptyEl.children[0].textContent, translations.zh.empty_watching_title);
+  assert.match(emptyEl.children[1].textContent, /OBS Captures/);
+  assert.match(emptyEl.children[1].textContent, /无需手动导入/);
+
+  // 3. Empty with Watch Folder needing restore -> restore prompt
+  view.render(projectRecordingLibrary({
+    items: [],
+    watchDirectory: { status: 'needs-permission', name: 'OBS Captures' },
+  }));
+  emptyEl = listContainer.children[0];
+  assert.equal(emptyEl.dataset.watchStatus, 'needs-permission');
+  assert.equal(emptyEl.children[0].textContent, translations.zh.empty_restore_title);
+
+  // 4. Populated rows carry intakeSource ('auto' vs 'manual') on dataset without mutating .library-meta
+  const snapshot = projectRecordingLibrary({
+    items: [
+      { id: 'auto-1', filename: 'match-auto.mkv', recordedAtMs: new Date(2026, 10, 27, 15, 20).getTime(), durationSeconds: 600, status: 'ready' },
+      { id: 'man-1', filename: 'match-manual.mp4', recordedAtMs: new Date(2026, 10, 27, 15, 10).getTime(), durationSeconds: 500, status: 'ready' },
+    ],
+    autoIngestedIds: new Set(['auto-1']),
+    manualImportedIds: new Set(['man-1']),
+  });
+  assert.equal(snapshot.items[0].intakeSource, 'auto');
+  assert.equal(snapshot.items[1].intakeSource, 'manual');
+  view.render(snapshot);
+  assert.equal(listContainer.children[0].dataset.intakeSource, 'auto');
+  assert.equal(listContainer.children[1].dataset.intakeSource, 'manual');
 });
