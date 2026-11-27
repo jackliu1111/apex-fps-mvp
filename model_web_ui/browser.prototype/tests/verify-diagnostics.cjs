@@ -19,8 +19,12 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       window.reviewApp.diagnosticLog.record('export', 'Failed writing C:\\Users\\Gamer\\Videos\\secret_match.mp4');
     });
 
+    assert.equal(await page.locator('#mode-live').count(), 0, 'Legacy live mode switcher must be removed');
+    assert.equal(await page.locator('#mode-offline').count(), 0, 'Legacy offline mode switcher must be removed');
+    assert.equal(await page.locator('#live-workspace').count(), 0, 'Legacy live workspace container must be removed');
+
     const diagBtn = page.locator('#copy-diagnostics');
-    assert.equal(await diagBtn.isVisible(), true, 'Diagnostics button should be visible on Local page');
+    assert.equal(await diagBtn.isVisible(), true, 'Diagnostics button should be visible on Clipping workspace');
     await diagBtn.click();
 
     await page.waitForFunction(() => document.querySelector('#copy-diagnostics')?.dataset.copied === 'true');
@@ -28,7 +32,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     const report = JSON.parse(copiedText);
 
     assert.equal(report.schemaVersion, 1);
-    assert.equal(report.app.mode, 'offline');
+    assert.equal('mode' in report.app, false, 'Legacy app.mode must be removed');
+    assert.equal('liveCompanion' in report, false, 'Legacy liveCompanion report section must be removed');
     assert.equal(report.app.isLocalhost, true);
     assert.equal(report.securityAndCapabilities.isSecureContext, true);
     assert.equal(report.securityAndCapabilities.crossOriginIsolated, true);
@@ -38,16 +43,22 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(typeof report.codecs.videoDecode.h264_1080p.supported, 'boolean');
     assert.equal(typeof report.codecs.videoEncode.h264_1080p60.supported, 'boolean');
     assert.equal(typeof report.codecs.audioEncode.aac.supported, 'boolean');
+    assert.equal(report.liveMonitor.status, 'off');
+    assert.equal(report.liveMonitor.active, false);
+    assert.equal(report.autoIntake.status, 'unset');
+    assert.equal(report.autoIntake.watching, false);
     assert.equal(report.recentErrors.length >= 1, true);
     assert.doesNotMatch(copiedText, /Gamer|secret_match\.mp4/);
     assert.match(copiedText, /<win-path>/);
 
-    // Switch to Live Companion mode and verify diagnostics button stays visible and reports mode='live'.
-    await page.locator('#mode-live').click();
-    assert.equal(await diagBtn.isVisible(), true, 'Diagnostics button should remain visible in Live mode');
-    const liveReport = await page.evaluate(() => window.reviewApp.collectDiagnostics());
-    assert.equal(liveReport.app.mode, 'live');
-    assert.equal(typeof liveReport.liveCompanion.active, 'boolean');
+    // Switch to Exports tab and verify diagnostics button stays visible and reports page='exports'.
+    await page.locator('#nav-exports').click();
+    assert.equal(await diagBtn.isVisible(), true, 'Diagnostics button should remain visible on Exports tab');
+    const exportsReport = await page.evaluate(() => window.reviewApp.collectDiagnostics());
+    assert.equal(exportsReport.app.page, 'exports');
+    assert.equal(typeof exportsReport.liveMonitor.active, 'boolean');
+    assert.equal(typeof exportsReport.autoIntake.watching, 'boolean');
+    await page.locator('#nav-analysis').click();
 
     // Switch language to Chinese and verify translated label and status toast.
     await page.getByRole('button', { name: /Switch language to Chinese/ }).click();

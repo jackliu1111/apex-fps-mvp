@@ -167,9 +167,6 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
         return { supported: cfg.codec === 'mp4a.40.2' || cfg.codec === 'opus' };
       },
     },
-    MediaRecorder: {
-      isTypeSupported: (mime) => mime.includes('webm'),
-    },
   };
 
   const log = createDiagnosticLog();
@@ -180,7 +177,6 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
     log,
     nowMs: 1700000005000,
     getState: () => ({
-      mode: 'live',
       page: 'review',
       language: 'zh',
       workspace: {
@@ -209,36 +205,40 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
           error: null,
         }],
       },
-      liveCompanion: {
+      liveMonitor: {
+        status: 'listening',
         active: true,
-        watchingDirectory: true,
-        gated: false,
-        candidateCount: 3,
-        decisionCount: 1,
-        conformedCount: 1,
-        resourceSnapshot: {
-          sourceKind: 'display',
-          proxyMode: 'smooth',
-          hopSeconds: 2,
-          totalSeconds: 300,
-          fgSeconds: 60,
-          bgSeconds: 240,
-          overloadCount: 0,
-          conformCount: 1,
-          maxConformMs: 180,
-          proxyBytes: 42 * 1024 * 1024,
-          proxyMaxBytes: 150 * 1024 * 1024,
-          totalMemory: { bytes: 118 * 1024 * 1024 },
-          overall: { inferenceAvgMs: 42.3, dutyPct: 2.1 },
-          background: { inferenceAvgMs: 45.1, dutyPct: 2.3 },
-          foreground: { inferenceAvgMs: 38.0, dutyPct: 1.9 },
+        sourceKind: 'device',
+        audioLabel: 'VB-Cable Secret Device',
+        deviceId: 'secret-device-id',
+        gateActive: false,
+        allowGateBypass: true,
+        silenceWarning: false,
+        modelStatus: 'ready',
+        inferenceCount: 42,
+        historyDurationSec: 300.46,
+        disconnectReason: null,
+        error: null,
+      },
+      autoIntake: {
+        status: 'watching',
+        name: 'OBS_Private_Folder',
+        watching: true,
+        needsRestore: false,
+        processingCount: 1,
+        intakeCount: 3,
+        lastIntake: {
+          kind: 'conformed-exact',
+          name: 'secret_match.mp4',
         },
+        error: 'Skipped C:\\Users\\Gamer\\Videos\\partial.mkv',
       },
     }),
   });
 
   assert.equal(report.schemaVersion, 1);
-  assert.equal(report.app.mode, 'live');
+  assert.equal('mode' in report.app, false, 'legacy dual-mode switcher field must be removed');
+  assert.equal(report.app.page, 'review');
   assert.equal(report.app.isLocalhost, false);
   assert.equal(report.environment.userAgentData.platform, 'Windows');
   assert.equal(report.environment.screen.devicePixelRatio, 1.3);
@@ -254,15 +254,38 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
   assert.equal(report.codecs.videoEncode.h264_1080p60.supported, true);
   assert.equal(report.codecs.videoEncode.vp9_720p30.supported, false);
   assert.equal(report.codecs.audioEncode.aac.supported, true);
+  assert.equal('mediaRecorder' in report.securityAndCapabilities.mediaCapture, false, 'obsolete MediaRecorder capability must be removed');
+  assert.equal('mediaRecorder' in report.codecs, false, 'obsolete MediaRecorder mime probe must be removed');
   assert.equal(report.memory.jsHeapUsedMB, 64);
   assert.equal(report.memory.storageUsageMB, 50);
   assert.equal(report.workspace.sourceCount, 1);
   assert.equal(report.workspace.sources[0].width, 2560);
-  assert.equal(report.liveCompanion.telemetry.backgroundSeconds, 240);
-  assert.equal(report.liveCompanion.telemetry.proxyMB, 42);
+  assert.equal('liveCompanion' in report, false, 'legacy liveCompanion diagnostics section must be removed');
+  assert.deepEqual(report.liveMonitor, {
+    status: 'listening',
+    active: true,
+    sourceKind: 'device',
+    gateActive: false,
+    allowGateBypass: true,
+    silenceWarning: false,
+    modelStatus: 'ready',
+    inferenceCount: 42,
+    historyDurationSec: 300.5,
+    disconnectReason: null,
+    error: null,
+  });
+  assert.deepEqual(report.autoIntake, {
+    status: 'watching',
+    watching: true,
+    needsRestore: false,
+    processingCount: 1,
+    intakeCount: 3,
+    lastIntakeKind: 'conformed-exact',
+    error: 'Skipped <win-path>',
+  });
 
   const serialized = JSON.stringify(report);
-  assert.doesNotMatch(serialized, /ApexClips|secret_match\.mp4/);
+  assert.doesNotMatch(serialized, /ApexClips|secret_match\.mp4|OBS_Private_Folder|VB-Cable Secret Device|secret-device-id|partial\.mkv/);
 });
 
 test('collectDiagnostics handles missing or throwing browser APIs gracefully', async () => {

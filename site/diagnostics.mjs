@@ -2,9 +2,9 @@
  * Local-only, privacy-safe environment & runtime diagnostics collector.
  *
  * Collects browser/OS/GPU/audio/WebCodecs/WASM capabilities, anonymized workspace
- * metrics, Live Companion telemetry summaries, and recent sanitized error logs
- * for one-click clipboard copy. Never reads or includes file names, folder names,
- * local paths, or media bytes.
+ * metrics, pure-audio Live Monitor & auto-intake status summaries, and recent
+ * sanitized error logs for one-click clipboard copy. Never reads or includes file
+ * names, folder names, local paths, or media bytes.
  */
 
 const DEFAULT_MAX_LOG_ENTRIES = 30;
@@ -37,12 +37,6 @@ const VIDEO_ENCODE_PROBES = [
 const AUDIO_ENCODE_PROBES = [
   { key: 'aac', codec: 'mp4a.40.2', sampleRate: 48000, numberOfChannels: 2, bitrate: 192_000 },
   { key: 'opus', codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 128_000 },
-];
-
-const MEDIA_RECORDER_MIME_PROBES = [
-  'video/webm;codecs=vp9,opus',
-  'video/webm;codecs=vp8,opus',
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
 ];
 
 function round1(value) {
@@ -256,19 +250,6 @@ export async function probeWebCodecs(env = globalThis) {
   return { videoDecode, videoEncode, audioEncode };
 }
 
-export function probeMediaRecorder(env = globalThis) {
-  const MR = env?.MediaRecorder;
-  if (!MR || typeof MR.isTypeSupported !== 'function') {
-    return { supported: false, mimeTypes: {} };
-  }
-  const mimeTypes = {};
-  for (const mime of MEDIA_RECORDER_MIME_PROBES) {
-    try { mimeTypes[mime] = Boolean(MR.isTypeSupported(mime)); }
-    catch { mimeTypes[mime] = false; }
-  }
-  return { supported: true, mimeTypes };
-}
-
 function summarizeWorkspace(state) {
   if (!state) return null;
   const sources = Array.isArray(state.sources) ? state.sources.map((src) => ({
@@ -316,33 +297,33 @@ function summarizeWorkspace(state) {
   };
 }
 
-function summarizeLiveCompanion(live) {
+function summarizeLiveMonitor(live) {
   if (!live) return null;
-  const res = live.resourceSnapshot || null;
   return {
+    status: live.status || 'off',
     active: Boolean(live.active),
-    sourceKind: res?.sourceKind ?? null,
-    proxyMode: res?.proxyMode ?? null,
-    hopSeconds: res?.hopSeconds ?? null,
-    watchingDirectory: Boolean(live.watchingDirectory),
-    gated: Boolean(live.gated),
-    candidateCount: Number.isFinite(live.candidateCount) ? live.candidateCount : 0,
-    decisionCount: Number.isFinite(live.decisionCount) ? live.decisionCount : 0,
-    conformedCount: Number.isFinite(live.conformedCount) ? live.conformedCount : 0,
-    telemetry: res ? {
-      totalSeconds: res.totalSeconds,
-      foregroundSeconds: res.fgSeconds,
-      backgroundSeconds: res.bgSeconds,
-      overloadCount: res.overloadCount,
-      conformCount: res.conformCount,
-      maxConformMs: res.maxConformMs,
-      proxyMB: bytesToMB(res.proxyBytes),
-      proxyLimitMB: bytesToMB(res.proxyMaxBytes),
-      totalMemoryMB: res.totalMemory ? bytesToMB(res.totalMemory.bytes) : null,
-      overall: res.overall,
-      backgroundOnly: res.background,
-      foregroundOnly: res.foreground,
-    } : null,
+    sourceKind: live.sourceKind || live.effectiveSourceKind || null,
+    gateActive: Boolean(live.gateActive),
+    allowGateBypass: Boolean(live.allowGateBypass),
+    silenceWarning: Boolean(live.silenceWarning),
+    modelStatus: live.modelStatus || null,
+    inferenceCount: Number.isFinite(live.inferenceCount) ? live.inferenceCount : 0,
+    historyDurationSec: round1(live.historyDurationSec),
+    disconnectReason: live.disconnectReason ? sanitizeDiagnosticText(live.disconnectReason, 160) : null,
+    error: live.error ? sanitizeDiagnosticText(live.error, 200) : null,
+  };
+}
+
+function summarizeAutoIntake(intake) {
+  if (!intake) return null;
+  return {
+    status: intake.status || 'unset',
+    watching: Boolean(intake.watching),
+    needsRestore: Boolean(intake.needsRestore),
+    processingCount: Number.isFinite(intake.processingCount) ? intake.processingCount : 0,
+    intakeCount: Number.isFinite(intake.intakeCount) ? intake.intakeCount : 0,
+    lastIntakeKind: intake.lastIntake?.kind || intake.lastIntakeKind || null,
+    error: intake.error ? sanitizeDiagnosticText(intake.error, 200) : null,
   };
 }
 
@@ -377,7 +358,6 @@ export async function collectDiagnostics({
   ]);
 
   const gpu = probeGpuInfo(doc);
-  const mediaRecorder = probeMediaRecorder(env);
   const wasmSimd = probeWasmSimd(env?.WebAssembly);
 
   const mem = perf?.memory;
@@ -402,7 +382,6 @@ export async function collectDiagnostics({
     collectedAt: new Date(nowMs).toISOString(),
     privacyNote: 'Local diagnostics only; file names, folder names, local paths, and media data are excluded.',
     app: {
-      mode: state.mode || 'offline',
       page: state.page || 'analysis',
       language: state.language || null,
       protocol: loc.protocol || null,
@@ -448,20 +427,17 @@ export async function collectDiagnostics({
         getDisplayMedia: typeof nav?.mediaDevices?.getDisplayMedia === 'function',
         getUserMedia: typeof nav?.mediaDevices?.getUserMedia === 'function',
         audioWorklet: typeof env?.AudioWorkletNode === 'function',
-        mediaRecorder: mediaRecorder.supported,
       },
       clipboardWriteText: typeof nav?.clipboard?.writeText === 'function',
       totalMemoryApi: typeof perf?.measureUserAgentSpecificMemory === 'function',
     },
     gpu,
     audio,
-    codecs: {
-      ...codecs,
-      mediaRecorder: mediaRecorder.mimeTypes,
-    },
+    codecs,
     memory,
     workspace: summarizeWorkspace(state.workspace),
-    liveCompanion: summarizeLiveCompanion(state.liveCompanion),
+    liveMonitor: summarizeLiveMonitor(state.liveMonitor),
+    autoIntake: summarizeAutoIntake(state.autoIntake),
     recentErrors: log && typeof log.entries === 'function' ? log.entries() : [],
   };
 }

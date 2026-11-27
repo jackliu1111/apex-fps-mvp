@@ -51,7 +51,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
       setViewport: (width, height) => page.setViewportSize({ width, height }),
       evaluate: (fn, ...args) => page.evaluate(fn, ...args),
       waitFor: (fn, timeoutMs = 120000) => page.waitForFunction(fn, null, { timeout: timeoutMs }),
-      clickSelector: (sel) => page.locator(sel).click(),
+      clickSelector: (sel) => page.locator(sel).first().click(),
       mouseMove: (x, y) => page.mouse.move(x, y),
       mouseDown: (x, y) => page.mouse.move(x, y).then(() => page.mouse.down()),
       mouseUp: () => page.mouse.up(),
@@ -239,7 +239,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     });
     assert.equal(customWorkerResult.status, 'complete', customWorkerResult.error);
     assert.equal(customWorkerResult.model, 'custom-efficientsed-e2e');
-    assert.equal(customWorkerResult.groupCount, 5);
+    assert.equal(customWorkerResult.groupCount, 4);
     assert.equal(customWorkerResult.groupScoreFrames, 250);
 
     // 3. Default EfficientSED single-pass analysis on real combat sample (or synthetic fallback)
@@ -284,7 +284,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     assert.equal(analysisSummary.status, 'complete', analysisSummary.error);
     assert.equal(analysisSummary.model, 'efficientsed');
     assert.equal(analysisSummary.decoderPasses, 1);
-    assert.equal(analysisSummary.groupCount, 5);
+    assert.equal(analysisSummary.groupCount, 4);
     assert.ok(analysisSummary.groupScoreFrames > 0);
     assert.ok(analysisSummary.pyramidLevels > 0);
     assert.ok(analysisSummary.peakLevels > 0);
@@ -293,7 +293,7 @@ async function createBrowserDriver({ rootDir, assetsDir, samplePath }) {
     }
 
     // 4. Open review & verify #player-overview-distribution + 5-group layered #prediction-wave rendering
-    await driver.clickSelector('#queue [data-action="review"]');
+    await driver.clickSelector('#queue .file');
     await driver.waitFor(() => window.reviewApp?.player.state.status === 'paused', 20000);
     await driver.waitFor(() => {
       const w = document.getElementById('prediction-wave');

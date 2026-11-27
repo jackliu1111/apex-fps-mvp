@@ -17,7 +17,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       await reviewApp.importFiles([await createSyntheticFile()]);
     });
     await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 120000 });
-    await page.locator('#queue [data-action=review]').first().click();
+    await page.locator('#queue .file').first().click();
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     await page.evaluate(() => reviewApp.workspace.publishCandidates(reviewApp.activeSourceId, [{ id: 'one', start: 2, end: 5 }, { id: 'two', start: 8, end: 10 }]));
     await page.locator('#overview-markers button').first().click();
@@ -83,13 +83,17 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.locator('button').evaluateAll(nodes => nodes.some(node => node.textContent.includes('↗'))), false);
 
     // Even an entirely excluded source remains recoverable from the timeline.
-    await page.locator('#overview-markers button').first().click();
+    await page.locator('#overview-markers button:not(.excluded)').first().click();
     await page.locator('#exclude-selection').click();
-    await page.locator('#overview-markers button').first().click();
+    await page.locator('#overview-markers button:not(.excluded)').first().click();
     await page.locator('#exclude-selection').click();
     await page.locator('#show-excluded').uncheck();
     assert.equal(await page.locator('#overview-markers button').count(), 0);
     await page.locator('#show-excluded').check();
+    if (await page.locator('#source-fit').isEnabled()) {
+      await page.locator('#source-fit').click();
+      await page.waitForFunction(() => !document.getElementById('selection-player-axis').dataset.transitioning);
+    }
     assert.equal(await page.locator('#overview-markers .excluded').count(), 2);
     await page.locator('#overview-markers .excluded').first().click();
     await page.locator('#overview-markers .excluded').first().click();

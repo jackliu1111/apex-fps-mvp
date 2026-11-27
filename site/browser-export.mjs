@@ -18,7 +18,7 @@ async function newOutputFile(directory, proposedName) {
 }
 
 /** Each conversion owns its input/encoder; cancelling export cannot cancel analysis or preview. */
-export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID(), maxBufferedBytes = MAX_EXPORT_BUFFER_BYTES }) {
+export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID(), maxBufferedBytes = MAX_EXPORT_BUFFER_BYTES, onOutputFileCreated = () => {} }) {
   if (!Number.isFinite(maxBufferedBytes) || maxBufferedBytes < 1) throw new Error('写入缓冲预算无效');
   const bufferLimit = Math.floor(Math.min(maxBufferedBytes, MAX_EXPORT_BUFFER_BYTES));
   return async function convert({ batch, clip, source, index = 0, signal = new AbortController().signal,
@@ -38,6 +38,7 @@ export function createBrowserConverter({ MB, makeId = () => crypto.randomUUID(),
         : Number.isInteger(batch.audio?.trackIndex) ? tracks[batch.audio.trackIndex] : await input.getPrimaryAudioTrack();
       if (!video || !audio) throw new Error('提交时指定的声画轨不可用');
       diskFile = await directoryOperation(() => newOutputFile(source.directoryHandle, name)); name = diskFile.name;
+      onOutputFileCreated(name);
       diskWriter = await directoryOperation(() => diskFile.handle.createWritable());
       const writable = new WritableStream({
         async write({ position, data }) {

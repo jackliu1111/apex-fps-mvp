@@ -64,7 +64,7 @@ export function createSelectionEvidence({ MB, onResult, isBusy }) {
   function request(record, start, end) {
     abortPending();
     const own = revision;
-    if (!record) {
+    if (!record || !record.file) {
       closeSession();
       onResult({ frames: [], provisional: false, status: '关联原录像后显示参考画面' });
       return;

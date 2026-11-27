@@ -41,8 +41,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await toggle.click({ timeout: 3000 });
     assert.equal(await page.evaluate(() => Boolean(window.reviewApp)), false);
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN');
-    assert.equal(await page.getByRole('heading', { level: 1 }).textContent(), '录像工作区');
-    assert.equal(await nav.locator('#nav-analysis').textContent(), '分析队列');
+    assert.equal(await page.getByRole('heading', { level: 1 }).textContent(), '录像库');
+    assert.equal(await nav.locator('#nav-analysis').textContent(), '选片');
     assert.equal(await page.locator('#queue-count').textContent(), '0 份录像');
 
     releaseVendor();

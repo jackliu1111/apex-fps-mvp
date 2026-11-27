@@ -1,4 +1,22 @@
 import { preview, mountReviewPreview, renderReviewPreview } from './review-preview.mjs';
+import { projectRecordingLibrary, extractBasename } from './recording-library-projection.mjs';
+import { createRecordingLibraryView } from './recording-library-view.mjs';
+import { isLibraryPreview, mountLibraryPreview } from './recording-library-preview.mjs';
+import {
+  resolveReviewPrimaryAction,
+  resolveClippingLayout,
+  reconcileSplitSelection,
+  createSplitPlayerSync,
+  createWorkspaceUxController,
+  resolveRecordingShortcutTarget,
+  resolveDrawerEscape,
+  canAcceptWorkspaceDrop,
+} from './split-workspace-controller.mjs';
+import {
+  isWorkspacePreview,
+  mountSplitWorkspacePreview,
+  renderWorkspacePreviewCanvas,
+} from './split-workspace-preview.mjs';
 import { createSelectionTimeline, selectionWindow } from './selection-timeline.mjs';
 import { batchSummary, justCompleted, taskFeedback, createFrameSignal } from './task-feedback.mjs';
 import * as MB from '/assets/vendor/mediabunny.mjs';
@@ -11,49 +29,140 @@ import { createExportQueue } from './export-queue.mjs';
 import { createBrowserConverter } from './browser-export.mjs';
 import { DEFAULT_EXPORT_SETTINGS, sourceExportSettings, exportSettings } from './export-policy.mjs';
 import { t, getLang, onLanguageChange } from './i18n.js';
-import { createLiveCompanionWorkspace } from './live-companion-ui.mjs';
+import { createWorkspaceEngineBridge } from './workspace-engine-bridge.mjs';
+import { createGlobalTopbarControls } from './global-topbar-controls.mjs';
+import { createWatchDirStore } from './watch-dir-store.mjs';
+import { createReadyNotifier } from './ready-notifier.mjs';
+import {
+  createBackgroundReadinessController,
+  pickFirstReviewableCandidate,
+} from './background-readiness-controller.mjs';
 import { createDiagnosticLog, collectDiagnostics, copyTextToClipboard } from './diagnostics.mjs';
 
 const $ = (id) => document.getElementById(id);
+const libraryPreview = isLibraryPreview();
+const workspacePreview = isWorkspacePreview();
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Map();
-const queueRows = new Map(), batchRows = new Map();
+const batchRows = new Map();
 const seenCandidates = new Map();
-const presentedRecords = new WeakSet();
 const startingExports = new Set();
 const recordedErrors = new Map();
 const diagnosticLog = createDiagnosticLog();
 diagnosticLog.attachGlobalListeners(window);
-let workspaceMode = 'offline', liveCompanion = null;
-let currentPage = 'analysis', activeSourceId = null, playerSourceId = null, loadingSource = false, loadToken = 0;
-let directoryHandle = null, exportQueue, selectionTimeline;
+let libraryPreviewHarness = null, workspacePreviewHarness = null;
+let currentPage = 'clipping', activeSourceId = null, activeRecordId = null;
+let directoryHandle = null, exportQueue, selectionTimeline, engineBridge = null, globalTopbarControls = null;
 let view = { sources: [], batches: [] }, playerState = { position: 0, playing: false, status: 'empty' };
-
-const getStatuses = () => ({
-  preparing: t('status_preparing'),
-  queued: t('status_queued'),
-  analyzing: t('status_analyzing'),
-  complete: t('status_completed'),
-  completed: t('status_completed'),
-  stopped: t('status_stopped'),
-  failed: t('status_failed'),
-  interrupted: t('status_interrupted')
+let latestLibrarySnapshot = null;
+let isRendering = false;
+let lastRenderedCollapsed = null;
+const onboardingStateOverride = {
+  liveMonitor: null,
+  watchDirectory: null,
+};
+const onboardingHandlers = {
+  onChooseWatchDir: null,
+  onToggleMonitoring: null,
+  onStartMonitoring: null,
+};
+const uxController = createWorkspaceUxController({
+  onChange() {
+    if (!isRendering) render();
+  },
 });
+const watchDirStore = createWatchDirStore();
+const formatCandidateCountLabel = (count) => (
+  count === 1 ? t('library_candidates_one') : t('library_candidates_count', { count })
+);
+const readyNotifier = createReadyNotifier({
+  doc: document,
+  getBaseTitle: () => t('page_title'),
+  formatNotification({ name, candidateCount, isCoarse }) {
+    const candidates = formatCandidateCountLabel(candidateCount);
+    return {
+      title: t('ready_notification_title'),
+      body: t(isCoarse ? 'ready_notification_body_coarse' : 'ready_notification_body', {
+        name: extractBasename(name || ''),
+        candidates,
+      }),
+    };
+  },
+  onNotificationClick({ sourceId }) {
+    if (sourceId) safely(() => openReview(sourceId, { focusFirstCandidate: true }));
+  },
+  onChange() {
+    if (!isRendering) render();
+  },
+});
+const backgroundReadiness = createBackgroundReadinessController({
+  getVisibilityState: () => document.visibilityState,
+  getActiveSourceId: () => activeSourceId,
+  getCurrentPage: () => currentPage,
+  hasRecording: (id) => view.sources.some((item) => item.id === id) || bindings.has(id),
+  readyNotifier,
+  uxController,
+  openRecording: (id, opts) => openReview(id, opts),
+  onPollWatchDirectory: () => engineBridge?.pollWatchDirectory(),
+  onToastChange() {
+    renderReadyToast();
+  },
+  onBackgroundSwitch({ name }) {
+    if (name) note(t('note_visibility_switched', { name }), 'info');
+  },
+});
+
+function setOnboardingHandlers(handlers = {}) {
+  if ('onChooseWatchDir' in handlers) onboardingHandlers.onChooseWatchDir = handlers.onChooseWatchDir || null;
+  if ('onToggleMonitoring' in handlers) onboardingHandlers.onToggleMonitoring = handlers.onToggleMonitoring || null;
+  if ('onStartMonitoring' in handlers) onboardingHandlers.onStartMonitoring = handlers.onStartMonitoring || null;
+}
+
+function setOnboardingState({ watchDirectory, liveMonitor } = {}) {
+  if (watchDirectory !== undefined) onboardingStateOverride.watchDirectory = watchDirectory ? { ...watchDirectory } : null;
+  if (liveMonitor !== undefined) onboardingStateOverride.liveMonitor = liveMonitor ? { ...liveMonitor } : null;
+  render();
+}
+
+function getEffectiveSessionState() {
+  const base = engineBridge ? engineBridge.getState() : {
+    liveMonitor: { status: 'off', active: false, canToggle: true },
+    watchDirectory: { status: 'unset', name: null, canChoose: true },
+  };
+  return {
+    liveMonitor: onboardingStateOverride.liveMonitor
+      ? { ...base.liveMonitor, ...onboardingStateOverride.liveMonitor }
+      : base.liveMonitor,
+    watchDirectory: onboardingStateOverride.watchDirectory
+      ? { ...base.watchDirectory, ...onboardingStateOverride.watchDirectory }
+      : base.watchDirectory,
+    readyNotifications: {
+      enabled: readyNotifier.notificationsEnabled,
+      permission: readyNotifier.notificationPermission,
+    },
+  };
+}
 
 const time = (seconds = 0) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
 const errorText = (error) => error?.message || String(error);
 const source = () => view.sources.find((item) => item.id === activeSourceId);
 const selectedClip = () => source()?.clips.find((clip) => clip.id === source().review.selectedClipId && !clip.excluded);
+const reportedPage = () => {
+  if (currentPage === 'exports') return 'exports';
+  const itemCount = latestLibrarySnapshot?.items.length ?? (view.sources.length + queue.records.length);
+  return !libraryPreview && itemCount > 0 ? 'review' : 'analysis';
+};
 let noteTimer = null;
 const note = (message, tone = 'info') => {
   if (tone === 'error') diagnosticLog.record('ui.error', message);
+  const pageKey = reportedPage();
   $('status').textContent = message;
   $('status').dataset.tone = tone;
-  $('status').dataset.page = currentPage;
+  $('status').dataset.page = pageKey;
   $('status').hidden = false;
   clearTimeout(noteTimer);
-  if (currentPage === 'review') {
+  if (pageKey === 'review') {
     noteTimer = setTimeout(() => {
-      if (currentPage === 'review') $('status').hidden = true;
+      if (reportedPage() === 'review') $('status').hidden = true;
     }, tone === 'error' ? 6000 : 3500);
   }
 };
@@ -68,6 +177,7 @@ const queue = createBrowserAnalysis({ MB,
     const identity = identified.get(record.file) || await identifyFile(record.file);
     record.sourceId = workspace.addSource({ ...identity, duration: record.duration });
     bindings.set(record.sourceId, record);
+    uxController.promoteRecordingNew(`runtime:${record.id}`, record.sourceId, { activeSourceId });
   },
   onCandidates(record, candidates) { if (record.sourceId) workspace.publishCandidates(record.sourceId, candidates); },
   onChange(record) {
@@ -76,15 +186,20 @@ const queue = createBrowserAnalysis({ MB,
       diagnosticLog.record('analysis', record.error, { status: record.status, model: record.model });
     }
     let workspaceUpdated = false;
+    let becameReady = false;
     if (record.sourceId) {
       const next = { status: record.status === 'complete' ? 'completed' : record.status, processedUntil: Math.min(record.duration, Math.max(0, record.processedUntil || 0)), error: record.error || null };
       const prior = workspace.getSource(record.sourceId).analysis;
+      becameReady = prior.status !== 'completed' && next.status === 'completed';
       if (Object.keys(next).some((key) => next[key] !== prior[key])) {
         workspace.updateAnalysis(record.sourceId, next);
         workspaceUpdated = true;
       }
     }
     if (!workspaceUpdated) render();
+    if (becameReady && record.sourceId) {
+      notifyRecordingReady(record.sourceId, record);
+    }
     exportQueue?.pump();
   },
 });
@@ -104,6 +219,19 @@ function resetPlayerIdle(event) {
     }, 2500);
   }
 }
+const playerSync = createSplitPlayerSync({
+  getRecord: (id) => bindings.get(id) || null,
+  getPosition: (id) => workspace.getSource(id).review.position,
+  pausePlayer: () => player.pause(),
+  loadPlayer: (params) => player.load(params),
+  disposePlayer: () => player.dispose(),
+  clearCanvas: () => {
+    const canvas = $('source-canvas');
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+  },
+  onStateChange: () => renderPlayer(),
+  onError: (error) => note(errorText(error)),
+});
 const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next) {
   playerState = next;
   const frame = $('player-frame');
@@ -116,17 +244,23 @@ const player = createSourcePlayer({ MB, canvas: $('source-canvas'), onState(next
       resetPlayerIdle();
     }
   }
-  if (!loadingSource && playerSourceId && playerSourceId === activeSourceId) {
-    const saved = workspace.getSource(playerSourceId).review.position;
-    if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(playerSourceId, { position: next.position });
+  const loadedId = playerSync.loadedSourceId;
+  if (!playerSync.isLoading && loadedId && loadedId === activeSourceId) {
+    const saved = workspace.getSource(loadedId).review.position;
+    if (Math.abs(saved - next.position) >= 0.25 || (!next.playing && saved !== next.position)) workspace.setReview(loadedId, { position: next.position });
   }
-  liveCompanion?.notifyExternalPlayback(!!(next.playing && !next.muted && next.volume > 0));
+  engineBridge?.notifyPlayerState(next);
   renderPlayer();
 } });
 
 let outputSettings = DEFAULT_EXPORT_SETTINGS;
 exportQueue = createExportQueue({
-  convert: createBrowserConverter({ MB }),
+  convert: createBrowserConverter({
+    MB,
+    onOutputFileCreated(name) {
+      engineBridge?.registerExportedFilename(name);
+    },
+  }),
   onChange({ id, status, outputs, error, progress, clipResults, destination }) {
     if (error && recordedErrors.get(`export:${id}`) !== error) {
       recordedErrors.set(`export:${id}`, error);
@@ -134,7 +268,36 @@ exportQueue = createExportQueue({
     }
     workspace.updateBatch(id, { status, outputs, error, progress, clipResults, destination });
   },
-  onOutput(_batchId, output) { if (output?.name) liveCompanion?.registerExportedFilename(output.name); },
+  onOutput(_batchId, output) {
+    if (output?.name) {
+      engineBridge?.registerExportedFilename(output.name);
+    }
+  },
+});
+
+engineBridge = createWorkspaceEngineBridge({
+  MB,
+  queue,
+  uxController,
+  watchDirStore,
+  identified,
+  identify: identifyFile,
+  getActiveSourceId: () => activeSourceId,
+  isLibraryEmpty: () => view.sources.length === 0 && queue.records.length === 0,
+  translate: t,
+  onStateChange() {
+    if (!isRendering) render();
+  },
+  onIntake() {
+    if (!isRendering) render();
+  },
+  onNotice(message, tone) {
+    note(message, tone);
+  },
+  onError(err) {
+    diagnosticLog.record('auto-intake', err);
+    note(errorText(err), 'error');
+  },
 });
 function directoryCapabilityError() {
   if (!window.isSecureContext) return t('err_dir_secure');
@@ -198,37 +361,31 @@ function trackImport(sourceId, promise) {
   return pending;
 }
 
-async function importLiveMaster(sourceId, conformed) {
-  let record = bindings.get(sourceId);
-  // Keep existing offline evidence when the live session has no mapped windows.
-  if (!record || conformed.windowScores?.length) {
-    record = await queue.importPrecomputed(conformed.file, conformed, record?.id);
-    if (record.status !== 'complete') throw new Error('录像导入已停止');
-  }
-  const prior = workspace.getSource(sourceId).decisions;
-  const currentMaster = liveCompanion.session.getConformed(conformed.id);
-  if (!currentMaster) throw new Error('实时会话已结束，请重新选择录像');
-  for (const dec of currentMaster.liveDecisions) {
-    if (prior.some(d => [d.range, d.originRange].some(r => r.start === dec.start && r.end === dec.end))) continue;
-    const id = workspace.addManual(sourceId, { start: dec.start, end: dec.end }, { preserveExportChoice: true });
-    if (dec.kind === 'exclude') workspace.exclude(sourceId, id);
-  }
-  record.liveHandoffComplete = true;
-}
-
 async function importFiles(files, options = {}) {
   await ready;
+  const fileList = [...files];
+  if (!fileList.length) return;
+  const wasEmpty = view.sources.length === 0 && queue.records.length === 0;
   const importOptions = { model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2 };
   const failures = [];
-  const importMessage = t('note_prep_files', { count: files.length });
+  const importMessage = t('note_prep_files', { count: fileList.length });
   note(importMessage);
-  await Promise.all([...files].map(async (file) => {
+  let claimedEmptyFirst = false;
+  await Promise.all(fileList.map(async (file) => {
+    let identity = null;
     try {
-      const identity = await identifyFile(file);
+      identity = await identifyFile(file);
       identified.set(file, identity);
       if (bindings.has(identity.id) || pendingImports.has(identity.id)) { note(t('note_file_exists', { name: file.name })); return; }
-      await trackImport(identity.id, queue.importFiles([file], importOptions));
+      const shouldMarkNew = !(wasEmpty && !claimedEmptyFirst);
+      if (!shouldMarkNew) claimedEmptyFirst = true;
+      const pending = trackImport(identity.id, queue.importFiles([file], importOptions));
+      if (shouldMarkNew) {
+        uxController.markRecordingNew(identity.id, { activeSourceId });
+      }
+      await pending;
     } catch (error) {
+      if (identity?.id) uxController.clearRecordingNew(identity.id);
       failures.push(`${file.name}: ${errorText(error)}`);
     } finally {
       render();
@@ -237,164 +394,224 @@ async function importFiles(files, options = {}) {
   if (failures.length) note(t('note_import_failed', { list: failures.join('; ') }), 'error');
   else if ($('status').textContent === importMessage) note(t('note_files_added'), 'quiet');
 }
-async function openReview(id) {
-  if (!view.sources.some((item) => item.id === id)) return;
-  if (currentPage === 'review') player.pause();
-  activeSourceId = id; currentPage = 'review';
-  seenCandidates.set(id, workspace.getSource(id).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
-  render();
-  const record = bindings.get(id), token = ++loadToken;
-  playerSourceId = null; loadingSource = true;
-  $('source-canvas').getContext('2d').clearRect(0, 0, $('source-canvas').width, $('source-canvas').height);
-  try {
-    if (record) {
-      const saved = workspace.getSource(id);
-      await player.load({ file: record.file, origin: record.origin, duration: record.duration, position: saved.review.position });
-    } else await player.dispose();
-    if (token !== loadToken) return;
-    playerSourceId = record ? id : null;
-  } catch (error) { if (token === loadToken) note(errorText(error)); }
-  finally { if (token === loadToken) { loadingSource = false; renderPlayer(); } }
+function buildLibrarySnapshot(selectedId = activeSourceId) {
+  const combinedRecords = [...queue.records];
+  const seenSourceIds = new Set(combinedRecords.map((record) => record?.sourceId).filter(Boolean));
+  for (const [sourceId, record] of bindings) {
+    if (record && !seenSourceIds.has(sourceId)) {
+      combinedRecords.push(record);
+      seenSourceIds.add(sourceId);
+    }
+  }
+  const effectiveNewIds = new Set(uxController.getNewRecordingIds());
+  for (const record of combinedRecords) {
+    if (!record || record.sourceId) continue;
+    const pendingIdentity = record.file ? identified.get(record.file) : null;
+    if (pendingIdentity && effectiveNewIds.has(pendingIdentity.id)) {
+      effectiveNewIds.add(`runtime:${record.id}`);
+    }
+  }
+  const sessionState = getEffectiveSessionState();
+  return projectRecordingLibrary({
+    sources: view.sources,
+    records: combinedRecords,
+    batches: view.batches,
+    activeSourceId: selectedId,
+    newIds: effectiveNewIds,
+    liveMonitor: sessionState.liveMonitor,
+    watchDirectory: sessionState.watchDirectory,
+    sortOrder: 'newest-first',
+  });
 }
+
+function notifyRecordingReady(sourceId, record = null) {
+  if (!sourceId || !view.sources.some((item) => item.id === sourceId)) return;
+  const saved = workspace.getSource(sourceId);
+  const rec = record || bindings.get(sourceId) || null;
+  const name = extractBasename(rec?.file?.name || saved?.identity?.name || '');
+  const candidateCount = saved.clips.filter((clip) => !clip.provisional && !clip.excluded).length;
+  const isCoarse = rec?.alignment?.confidence === 'coarse';
+  backgroundReadiness.onRecordingReady({
+    sourceId,
+    name,
+    candidateCount,
+    isCoarse,
+  });
+}
+
+function renderReadyToast() {
+  const toastNode = $('ready-toast');
+  if (!toastNode) return;
+  const toast = backgroundReadiness.activeToast;
+  if (!toast || libraryPreview) {
+    toastNode.hidden = true;
+    toastNode.dataset.sourceId = '';
+    return;
+  }
+  toastNode.hidden = false;
+  toastNode.dataset.sourceId = toast.sourceId;
+  toastNode.dataset.coarse = String(Boolean(toast.isCoarse));
+  const titleEl = $('ready-toast-title');
+  const metaEl = $('ready-toast-meta');
+  if (titleEl) {
+    titleEl.textContent = toast.name;
+    titleEl.title = toast.name;
+  }
+  if (metaEl) {
+    if (toast.candidateCount > 0) {
+      const candidates = formatCandidateCountLabel(toast.candidateCount);
+      metaEl.textContent = t(toast.isCoarse ? 'ready_toast_meta_coarse' : 'ready_toast_meta_ready', { candidates });
+    } else {
+      metaEl.textContent = t(toast.isCoarse ? 'ready_toast_meta_coarse_no_candidates' : 'ready_toast_meta_no_candidates');
+    }
+  }
+  const openBtn = $('ready-toast-open');
+  if (openBtn) openBtn.textContent = t('ready_toast_open');
+  const dismissBtn = $('ready-toast-dismiss');
+  if (dismissBtn) {
+    const label = t('ready_toast_dismiss_aria');
+    dismissBtn.title = label;
+    dismissBtn.setAttribute('aria-label', label);
+  }
+}
+
+async function openReview(id, { focusFirstCandidate = false } = {}) {
+  const snapshot = buildLibrarySnapshot();
+  const hasItem = snapshot.items.some((item) => item.id === id) || view.sources.some((item) => item.id === id);
+  if (!hasItem) return;
+
+  const wasExports = currentPage === 'exports';
+  currentPage = 'clipping';
+
+  const loaded = playerSync.effectiveLoaded();
+  const rec = reconcileSplitSelection({
+    items: snapshot.items,
+    activeSourceId,
+    activeRecordId,
+    requestedSourceId: id,
+    loadedSourceId: loaded.sourceId,
+    loadedFile: loaded.file,
+    getFileForId: (sourceId) => bindings.get(sourceId)?.file || null,
+  });
+
+  const switched = rec.activeSourceId !== activeSourceId;
+  let targetFirstClip = null;
+
+  playerSync.withDeferredSync(() => {
+    activeSourceId = rec.activeSourceId;
+    activeRecordId = rec.activeRecordId;
+    uxController.onRecordingOpened(activeSourceId);
+    backgroundReadiness.onRecordingOpened(activeSourceId);
+
+    if (activeSourceId && view.sources.some((item) => item.id === activeSourceId)) {
+      const savedTarget = workspace.getSource(activeSourceId);
+      seenCandidates.set(activeSourceId, savedTarget.clips.filter((clip) => !clip.provisional && !clip.excluded).length);
+      if (focusFirstCandidate) {
+        targetFirstClip = pickFirstReviewableCandidate(savedTarget);
+        if (targetFirstClip) {
+          workspace.setReview(activeSourceId, {
+            selectedClipId: targetFirstClip.id,
+            ...selectionWindow(savedTarget.duration, targetFirstClip),
+            position: targetFirstClip.start,
+          });
+        }
+      }
+    }
+    if (switched && !wasExports) {
+      player.pause();
+    }
+    render();
+  });
+
+  const syncPromise = playerSync.syncSelection(rec);
+  if (syncPromise) {
+    await syncPromise;
+  } else {
+    if (playerSync.isLoading && playerSync.activeLoadPromise) {
+      await playerSync.activeLoadPromise;
+    }
+    if (focusFirstCandidate && targetFirstClip && activeSourceId === rec.activeSourceId && bindings.get(activeSourceId)?.file) {
+      await player.seek(targetFirstClip.start);
+    }
+    renderPlayer();
+  }
+}
+
 function showAnalysis() {
-  player.pause(); loadToken++; loadingSource = false; currentPage = 'analysis'; selectionTimeline?.suspend(); render();
+  currentPage = 'clipping';
+  render();
 }
+
 function showExports() {
-  player.pause(); loadToken++; loadingSource = false; currentPage = 'exports'; selectionTimeline?.suspend(); render();
+  player.pause();
+  playerSync.invalidate();
+  currentPage = 'exports';
+  selectionTimeline?.suspend();
+  render();
 }
-function renderQueue() {
-  const rows = view.sources.map((saved) => ({ key: saved.id, saved, record: bindings.get(saved.id) }));
-  for (const record of queue.records) if (!record.sourceId) rows.push({ key: `runtime:${record.id}`, record });
-  const populated = rows.length > 0;
-  $('analysis-page').classList.toggle('has-recordings', populated);
-  const analyzing = rows.filter(({ record, saved }) => (record?.status || saved?.analysis?.status) === 'analyzing').length;
-  const waiting = rows.filter(({ record, saved }) => ['preparing', 'queued'].includes(record?.status || saved?.analysis?.status)).length;
-  $('queue-count').textContent = t('queue_count', { count: rows.length });
-  $('queue-summary').textContent = analyzing || waiting
-    ? t('queue_summary_analyzing', { analyzing, waiting })
-    : view.sources.length ? t('queue_summary_idle')
-      : rows.length ? t('queue_summary_failed') : t('queue_summary_empty');
-  const keys = new Set(rows.map((row) => row.key));
-  for (const [key, node] of queueRows) if (!keys.has(key)) { node.remove(); queueRows.delete(key); }
-  if (rows.length) $('queue').querySelector('.empty')?.remove();
-  if (!rows.length && !$('queue').querySelector('.empty')) {
-    const empty = element('div', undefined, 'empty');
-    const title = element('strong', t('empty_drop_title')); title.dataset.i18n = 'empty_drop_title';
-    const desc = element('span', t('empty_drop_desc')); desc.dataset.i18n = 'empty_drop_desc';
-    const types = element('small', t('empty_drop_types')); types.dataset.i18n = 'empty_drop_types';
-    empty.append(createFrameSignal(), title, desc, types);
-    $('queue').append(empty);
-  }
-  const statusDict = getStatuses();
-  for (const item of rows) {
-    let row = queueRows.get(item.key);
-    if (!row) {
-      row = element('div', undefined, 'file'); row.dataset.sourceId = item.key;
-      const fileInfo = element('div', undefined, 'file-info');
-      const filename = element('strong');
-      const fileMeta = element('small');
-      fileInfo.append(createFrameSignal(), filename, fileMeta);
 
-      const fileProgress = element('div', undefined, 'file-progress');
-      const statusSpan = element('span', undefined, 'file-status');
-      const countSmall = element('small');
-      const meter = element('progress', undefined, 'file-meter');
-      const errorSmall = element('small', undefined, 'error');
-      const messageSmall = element('small');
-      fileProgress.append(statusSpan, countSmall, meter);
-
-      const actions = element('div', undefined, 'row file-actions');
-      const reviewBtn = button(t('action_browse_source'), () => openReview(row.item.saved.id)); reviewBtn.dataset.action = 'review';
-      const stopBtn = button(t('action_stop'), () => queue.stop(row.item.record.id)); stopBtn.dataset.action = 'stop';
-      const retryBtn = button(t('action_retry'), () => queue.retry(row.item.record.id)); retryBtn.dataset.action = 'retry';
-      actions.append(reviewBtn, stopBtn, retryBtn);
-
-      row.append(fileInfo, fileProgress, actions);
-      row.refs = { filename, fileMeta, fileProgress, statusSpan, countSmall, meter, errorSmall, messageSmall, reviewBtn, stopBtn, retryBtn };
-      queueRows.set(item.key, row); $('queue').append(row);
-    }
-    row.item = item;
-    const { record, saved } = item;
-    const identity = saved?.identity || record.file;
-    const status = record?.status || saved.analysis.status;
-    const completedNow = justCompleted(row.dataset.status, status);
-    row.dataset.status = status;
-    const duration = saved?.duration || record.duration;
-    const processedUntil = record?.processedUntil ?? saved?.analysis.processedUntil ?? 0;
-    const count = saved?.clips.filter((clip) => !clip.provisional && !clip.excluded).length || 0;
-
-    const { filename, fileMeta, fileProgress, statusSpan, countSmall, meter, errorSmall, messageSmall, reviewBtn, stopBtn, retryBtn } = row.refs;
-    if (filename.textContent !== identity.name) {
-      filename.textContent = identity.name;
-      filename.title = identity.name;
-    }
-    const metaText = `${duration ? time(duration) : t('status_preparing')} · ${(identity.size / 1048576).toFixed(1)} MiB`;
-    if (fileMeta.textContent !== metaText) fileMeta.textContent = metaText;
-
-    const statusText = `${statusDict[status] || status}`;
-    if (statusSpan.textContent !== statusText) statusSpan.textContent = statusText;
-
-    const countText = `${t('source_analyzed_until', { time: time(processedUntil) })}${duration ? ` / ${time(duration)}` : ''} · ${t('source_clips_count', { count })}`;
-    if (countSmall.textContent !== countText) countSmall.textContent = countText;
-
-    const meterMax = duration > 0 ? duration : 1;
-    if (meter.max !== meterMax) meter.max = meterMax;
-    const meterVal = Math.max(0, Math.min(processedUntil, meterMax));
-    if (meter.value !== meterVal) meter.value = meterVal;
-    meter.setAttribute('aria-label', `${identity.name} ${t('status_analyzing')}`);
-    meter.setAttribute('aria-valuetext', duration > 0 ? `${t('source_analyzed_until', { time: time(processedUntil) })}, ${time(duration)}` : t('status_preparing'));
-
-    const err = record?.error || saved?.analysis.error;
-    if (err) {
-      if (!errorSmall.isConnected) fileProgress.append(errorSmall);
-      if (errorSmall.textContent !== err) errorSmall.textContent = err;
-    } else if (errorSmall.isConnected) {
-      errorSmall.remove();
-    }
-
-    if (record?.status === 'analyzing' && record.message) {
-      if (!messageSmall.isConnected) fileProgress.append(messageSmall);
-      if (messageSmall.textContent !== record.message) messageSmall.textContent = record.message;
-    } else if (messageSmall.isConnected) {
-      messageSmall.remove();
-    }
-
-    reviewBtn.hidden = !saved;
-    const reviewText = count ? t('action_review_count', { count }) : t('action_browse_source');
-    if (reviewBtn.textContent !== reviewText) reviewBtn.textContent = reviewText;
-
-    stopBtn.hidden = !record || !['preparing', 'queued', 'analyzing'].includes(status);
-    const stopText = status === 'queued' ? t('action_remove_queue') : t('action_stop');
-    if (stopBtn.textContent !== stopText) stopBtn.textContent = stopText;
-
-    retryBtn.hidden = !record || !['stopped', 'failed', 'complete'].includes(status);
-    const retryText = status === 'complete' ? t('action_reanalyze') : t('action_retry');
-    if (retryBtn.textContent !== retryText) retryBtn.textContent = retryText;
-
-    if (completedNow) taskFeedback(row, 'completed');
-    else if (record && !presentedRecords.has(record)) taskFeedback(row, 'added');
-    if (record) presentedRecords.add(record);
-  }
+function findLibraryRecord(id, item) {
+  return bindings.get(id) || queue.records.find((record) => record.id === item?.recordId || record.sourceId === id) || null;
 }
-function renderSources() {
-  const select = $('source-select');
-  const ids = view.sources.map((item) => item.id);
-  if ([...select.options].map((option) => option.value).join('|') !== ids.join('|')) {
-    select.replaceChildren(...view.sources.map((item) => new Option(item.identity.name, item.id)));
+
+function invokeChooseWatchDir() {
+  if (typeof onboardingHandlers.onChooseWatchDir === 'function') {
+    return onboardingHandlers.onChooseWatchDir();
   }
-  if (activeSourceId && !ids.includes(activeSourceId)) {
-    activeSourceId = ids[0] || null;
-  }
-  select.value = activeSourceId || '';
+  return engineBridge.chooseWatchDirectory();
 }
+
+function invokeRestoreWatchDir() {
+  if (typeof onboardingHandlers.onChooseWatchDir === 'function') {
+    return onboardingHandlers.onChooseWatchDir();
+  }
+  return engineBridge.restoreWatchDirectory();
+}
+
+function invokeToggleMonitoring() {
+  const handler = onboardingHandlers.onStartMonitoring || onboardingHandlers.onToggleMonitoring;
+  if (typeof handler === 'function') {
+    return handler();
+  }
+  return engineBridge.toggleLiveMonitor();
+}
+
+globalTopbarControls = createGlobalTopbarControls({
+  doc: document,
+  translate: t,
+  onToggleLive: () => safely(invokeToggleMonitoring),
+  onSelectSourceKind: (sourceKind) => safely(() => engineBridge.setAudioSourcePreference({ sourceKind })),
+  onSelectDevice: (deviceId) => safely(() => engineBridge.setAudioSourcePreference({ sourceKind: 'device', deviceId })),
+  onRefreshDevices: () => engineBridge.refreshAudioDevices(),
+  onToggleGateBypass: (allow) => { engineBridge.setAllowGateBypass(allow); },
+  onToggleReadyNotifications: (enabled) => safely(() => readyNotifier.setNotificationsEnabled(enabled)),
+  onChooseWatchDir: () => safely(invokeChooseWatchDir),
+  onRestoreWatchDir: () => safely(invokeRestoreWatchDir),
+});
+
+const libraryView = createRecordingLibraryView({
+  listContainer: $('queue'),
+  topbarContainer: null,
+  countNode: $('queue-count'),
+  summaryNode: $('queue-summary'),
+  pageNode: $('analysis-page'),
+  showActions: false,
+  showSize: false,
+  createEmptyGraphic: createFrameSignal,
+  onReview: (id) => safely(() => openReview(id)),
+  onSelect: (id) => safely(() => openReview(id)),
+  onRowTransition: (row, kind) => taskFeedback(row, kind),
+});
+
 function selectRange(clip, jump = true) {
-  const shouldMove = jump && (bindings.has(activeSourceId) || preview);
+  const hasMedia = Boolean(bindings.get(activeSourceId)?.file);
+  const shouldMove = jump && (hasMedia || preview || workspacePreview);
   workspace.setReview(activeSourceId, {
     selectedClipId: clip.id,
     ...selectionWindow(source().duration, clip),
     ...(shouldMove ? { position: clip.start } : {}),
   });
-  if (jump && bindings.has(activeSourceId)) return player.seek(clip.start);
+  if (jump && hasMedia) return player.seek(clip.start);
 }
 function renderRange(saved) {
   const clip = selectedClip(), valid = !!clip && !clip.provisional;
@@ -411,10 +628,14 @@ function renderRange(saved) {
   }
 }
 function renderPlayer() {
-  if (currentPage === 'review') selectionTimeline?.render(source());
-  const saved = source(); if (!saved) return;
-  const bound = bindings.has(saved.id);
-  $('play-pause').disabled = !bound || loadingSource || playerState.status === 'loading' || playerState.status === 'error';
+  const saved = source();
+  if (currentPage === 'clipping' && saved && !$('review-page').hidden) selectionTimeline?.render(saved);
+  if (!saved) return;
+  const record = bindings.get(saved.id);
+  const bound = Boolean(record?.file);
+  const isLoading = playerSync.isLoading;
+  const loadedId = playerSync.loadedSourceId;
+  $('play-pause').disabled = !bound || isLoading || playerState.status === 'loading' || playerState.status === 'error';
   $('play-pause').textContent = playerState.playing ? t('pause') : t('play');
   const clip = selectedClip();
   $('play-selection').disabled = $('play-pause').disabled || !clip || clip.provisional || !(clip.end > clip.start);
@@ -428,34 +649,95 @@ function renderPlayer() {
   $('player-mute').dataset.silent = String(muted || volume === 0);
   $('player-mute').title = muted ? t('unmute_title') : t('mute_title');
   $('player-mute').setAttribute('aria-label', $('player-mute').title);
-  const position = playerSourceId === saved.id ? playerState.position : saved.review.position;
-  $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && playerSourceId === saved.id ? ` · ${t('frame_text')} ${time(playerState.actual)}` : ''}`;
+  const position = loadedId === saved.id ? playerState.position : saved.review.position;
+  $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && loadedId === saved.id ? ` · ${t('frame_text')} ${time(playerState.actual)}` : ''}`;
   const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
   $('prev-candidate').disabled = !stable.some((item) => item.start < position - 0.01);
   $('next-candidate').disabled = !stable.some((item) => item.start > position + 0.01) && saved.analysis.status !== 'analyzing';
   const fsBtn = $('player-fullscreen');
   if (fsBtn) {
-    fsBtn.disabled = !bound || loadingSource || playerState.status === 'error';
+    fsBtn.disabled = !bound || isLoading || playerState.status === 'error';
     const isFull = document.fullscreenElement === $('player-frame') || document.webkitFullscreenElement === $('player-frame');
     fsBtn.title = isFull ? t('exit_fullscreen_title') : t('fullscreen_title');
     fsBtn.setAttribute('aria-label', fsBtn.title);
   }
-  $('player-status').textContent = !bound ? t('player_select_hint') : loadingSource || ['loading', 'seeking'].includes(playerState.status) ? (getLang() === 'zh' ? '正在准备该位置…' : 'Preparing position...') : playerState.status === 'error' ? playerState.error : '';
+  if (record?.isPreviewMock) {
+    renderWorkspacePreviewCanvas(saved, record);
+    $('player-status').textContent = '';
+  } else {
+    $('player-status').textContent = !bound ? t('player_select_hint') : isLoading || ['loading', 'seeking'].includes(playerState.status) ? (getLang() === 'zh' ? '正在准备该位置…' : 'Preparing position...') : playerState.status === 'error' ? playerState.error : '';
+  }
   renderReviewPreview(saved, bound);
 }
-function renderReview() {
+function formatReviewProgressText(saved, activeItem) {
+  if (!saved) return t('review_preparing_source');
+  const status = activeItem?.status || 'unanalyzed';
+  const total = time(saved.duration);
+  if (status === 'ready') return t('review_progress_compact_ready', { total });
+  if (status === 'conformed-coarse') return t('review_progress_compact_coarse', { total });
+  if (status === 'analyzing') {
+    return t('review_progress_compact_analyzing', {
+      percent: activeItem?.progressPercent ?? 0,
+      current: time(saved.analysis.processedUntil),
+      total,
+    });
+  }
+  return t('review_progress_compact_unanalyzed', { total });
+}
+function renderReviewPrimaryAction(activeItem) {
+  const btn = $('review-primary-action');
+  if (!btn) return;
+  const action = resolveReviewPrimaryAction(activeItem);
+  if (!action) {
+    btn.hidden = true;
+    btn.disabled = false;
+    btn.dataset.action = '';
+    btn.dataset.tone = '';
+    btn.textContent = '';
+    return;
+  }
+  btn.hidden = false;
+  btn.disabled = action.disabled;
+  btn.dataset.action = action.kind;
+  btn.dataset.tone = action.tone;
+  btn.className = action.tone === 'primary'
+    ? 'primary review-primary-action'
+    : action.tone === 'warning'
+      ? 'review-primary-action review-primary-action-warning'
+      : 'quiet review-primary-action';
+  btn.textContent = t(action.labelKey);
+}
+function renderReview(activeItem = null) {
   const saved = source();
-  if (!saved) return;
+  const titleNode = $('review-source-title');
+  const displayName = activeItem?.filename || extractBasename(saved?.identity?.name || '') || t('review_heading');
+  if (titleNode) {
+    if (titleNode.textContent !== displayName) titleNode.textContent = displayName;
+    if (titleNode.title !== displayName) titleNode.title = displayName;
+  }
+  renderReviewPrimaryAction(activeItem);
+  $('review-progress').textContent = formatReviewProgressText(saved, activeItem);
+
+  if (!saved) {
+    if ($('new-candidates')) $('new-candidates').textContent = '';
+    $('selection-summary').textContent = '';
+    $('export').disabled = true;
+    $('play-pause').disabled = true;
+    $('play-selection').disabled = true;
+    $('prev-candidate').disabled = true;
+    $('next-candidate').disabled = true;
+    $('player-status').textContent = t('review_preparing_source');
+    return;
+  }
   const record = bindings.get(saved.id), selected = saved.clips.filter((clip) => clip.selected && !clip.provisional);
-  const analyzing = ['analyzing', 'queued', 'preparing'].includes(saved.analysis.status);
-  $('review-progress').textContent = t('review_progress_text', { name: saved.identity.name, current: time(saved.analysis.processedUntil), total: time(saved.duration), status: getStatuses()[saved.analysis.status] || saved.analysis.status, analyzing: analyzing ? t('analyzing_ongoing') : '' });
   const added = saved.clips.filter((clip) => !clip.provisional && !clip.excluded).length - (seenCandidates.get(saved.id) || 0);
   if ($('new-candidates')) $('new-candidates').textContent = added > 0 ? t('new_candidates_badge', { count: added }) : '';
   const selectionSummary = t('selection_summary_text', { count: selected.length, duration: selected.reduce((total, clip) => total + clip.end - clip.start, 0).toFixed(2), unexported: saved.hasUnexportedChanges ? t('unexported_changes_tag') : '' });
   if ($('selection-summary').textContent !== selectionSummary) $('selection-summary').textContent = selectionSummary;
-  $('export').disabled = !selected.length || !record;
+  $('export').disabled = !selected.length || !record?.file;
   $('export').textContent = t('submit_export');
-  renderRange(saved); renderPlayer();
+  renderRange(saved);
+  renderPlayer();
 }
 function renderExports() {
   const batchStatusMap = {
@@ -564,46 +846,203 @@ function renderExports() {
     }
   }
 }
-function switchWorkspaceMode(mode) {
-  if (mode !== 'offline' && mode !== 'live') return;
-  if (mode === 'live') {
-    player.pause();
-    selectionTimeline?.suspend();
-  }
-  workspaceMode = mode;
-  render();
-}
-function render() {
-  const isLive = workspaceMode === 'live';
-  if ($('mode-offline')) $('mode-offline').setAttribute('aria-pressed', String(!isLive));
-  if ($('mode-live')) $('mode-live').setAttribute('aria-pressed', String(isLive));
-  if ($('offline-nav')) $('offline-nav').hidden = isLive;
-  if ($('live-workspace')) $('live-workspace').hidden = !isLive;
-  if (isLive) {
-    $('analysis-page').hidden = true;
-    $('review-page').hidden = true;
-    $('exports-section').hidden = true;
-    $('status').hidden = true;
-    return;
-  }
-  $('exports-section').hidden = currentPage !== 'exports';
-  $('nav-exports').setAttribute('aria-current', currentPage === 'exports' ? 'page' : 'false');
-  const activeExports = view.batches.filter((batch) => ['awaiting-destination', 'queued', 'running'].includes(batch.status)).length;
-  $('nav-exports').textContent = activeExports ? t('nav_exports_badge', { count: activeExports }) : t('nav_exports');
-  $('analysis-page').hidden = currentPage !== 'analysis'; $('review-page').hidden = currentPage !== 'review';
-  $('status').hidden = $('status').dataset.page !== currentPage && $('status').dataset.tone !== 'error';
-  $('nav-analysis').setAttribute('aria-current', currentPage === 'analysis' ? 'page' : 'false');
-  $('nav-review').setAttribute('aria-current', currentPage === 'review' ? 'page' : 'false'); $('nav-review').disabled = !view.sources.length;
-  $('drop-zone').setAttribute('aria-disabled', String(currentPage !== 'analysis'));
-  if (currentPage !== 'analysis') $('drop-zone').classList.remove('drag-over');
+function renderOnboarding(snapshot) {
+  const onboarding = $('empty-onboarding');
+  if (!onboarding) return;
+  const watch = snapshot?.watchDirectory || { status: 'unset', name: null, canChoose: true };
+  const live = snapshot?.liveMonitor || { status: 'off', active: false, canToggle: true };
 
-  if (currentPage === 'analysis') {
-    renderQueue();
-  } else if (currentPage === 'review') {
-    renderSources();
-    renderReview();
-  } else if (currentPage === 'exports') {
-    renderExports();
+  const watchStep = onboarding.querySelector('[data-step="watch-dir"]');
+  if (watchStep) watchStep.dataset.watchStatus = watch.status;
+  const watchStatusNode = $('onboarding-watch-status');
+  if (watchStatusNode) {
+    watchStatusNode.textContent = watch.status === 'watching' && watch.name
+      ? t('onboarding_step1_status_watching', { name: watch.name })
+      : watch.status === 'needs-permission' && watch.name
+        ? t('onboarding_step1_status_restore', { name: watch.name })
+        : watch.status === 'error'
+          ? t('onboarding_step1_status_error')
+          : t('onboarding_step1_status_unset');
+  }
+  const watchBtn = $('onboarding-choose-watch-dir');
+  if (watchBtn) {
+    watchBtn.disabled = !watch.canChoose;
+    watchBtn.textContent = watch.status === 'needs-permission'
+      ? t('topbar_watch_restore_cta')
+      : watch.name
+        ? t('onboarding_step1_change')
+        : t('onboarding_step1_cta');
+  }
+
+  const liveStep = onboarding.querySelector('[data-step="live-monitor"]');
+  if (liveStep) liveStep.dataset.liveStatus = live.status;
+  const liveStatusNode = $('onboarding-live-status');
+  if (liveStatusNode) {
+    liveStatusNode.textContent = live.status === 'listening'
+      ? t('onboarding_step2_status_active')
+      : live.status === 'paused-loopback'
+        ? t('onboarding_step2_status_paused')
+        : live.status === 'starting'
+          ? t('onboarding_step2_status_starting')
+          : live.status === 'disconnected'
+            ? t('onboarding_step2_status_disconnected')
+            : live.status === 'error'
+              ? t('onboarding_step2_status_error')
+              : t('onboarding_step2_status_off');
+  }
+  const liveBtn = $('onboarding-toggle-monitoring');
+  if (liveBtn) {
+    liveBtn.disabled = !live.canToggle;
+    liveBtn.setAttribute('aria-pressed', String(Boolean(live.active)));
+    liveBtn.textContent = live.active ? t('onboarding_step2_stop') : t('onboarding_step2_cta');
+  }
+}
+
+function renderWorkspaceUxChrome(snapshot, layout) {
+  const clippingWorkspace = $('clipping-workspace');
+  const collapsed = uxController.sidebarCollapsed;
+  const drawerOpen = uxController.drawerOpen;
+  if (clippingWorkspace) {
+    clippingWorkspace.dataset.sidebarCollapsed = String(collapsed);
+    clippingWorkspace.dataset.drawerOpen = String(drawerOpen);
+  }
+
+  const collapseBtn = $('sidebar-collapse-toggle');
+  if (collapseBtn) {
+    collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+    const collapseLabel = t(collapsed ? 'sidebar_expand_title' : 'sidebar_collapse_title');
+    collapseBtn.title = collapseLabel;
+    collapseBtn.setAttribute('aria-label', collapseLabel);
+  }
+
+  const drawerToggle = $('library-drawer-toggle');
+  if (drawerToggle) {
+    drawerToggle.setAttribute('aria-expanded', String(drawerOpen));
+    drawerToggle.dataset.hasNew = String(uxController.newCount > 0);
+  }
+  const drawerCount = $('library-drawer-count');
+  if (drawerCount) {
+    drawerCount.textContent = String(snapshot?.items?.length || 0);
+  }
+  const drawerNewDot = $('library-drawer-new-dot');
+  if (drawerNewDot) {
+    drawerNewDot.hidden = uxController.newCount === 0;
+  }
+  const backdrop = $('library-drawer-backdrop');
+  if (backdrop) {
+    backdrop.setAttribute('aria-hidden', String(!drawerOpen));
+  }
+
+  if (layout === 'split' && lastRenderedCollapsed !== null && lastRenderedCollapsed !== collapsed) {
+    requestAnimationFrame(() => {
+      const saved = source();
+      if (currentPage === 'clipping' && saved && !$('review-page').hidden) {
+        selectionTimeline?.render(saved);
+      }
+    });
+  }
+  lastRenderedCollapsed = collapsed;
+}
+
+function render() {
+  isRendering = true;
+  try {
+    globalTopbarControls?.render(getEffectiveSessionState(), { hidden: libraryPreview });
+    const clippingWorkspace = $('clipping-workspace');
+
+    const baseSnapshot = libraryPreview ? null : buildLibrarySnapshot();
+    const layout = resolveClippingLayout({
+      page: currentPage,
+      itemCount: baseSnapshot ? baseSnapshot.items.length : 0,
+      forceStandaloneLibrary: libraryPreview,
+    });
+    uxController.handleLayoutChange(layout);
+
+    $('exports-section').hidden = layout !== 'exports';
+    if (clippingWorkspace) {
+      clippingWorkspace.hidden = layout === 'exports';
+      clippingWorkspace.dataset.layout = layout === 'split'
+        ? 'split'
+        : layout === 'standalone-library'
+          ? 'standalone-library'
+          : 'empty';
+    }
+    $('analysis-page').hidden = layout === 'exports';
+    $('review-page').hidden = layout !== 'split';
+
+    $('nav-exports').setAttribute('aria-current', layout === 'exports' ? 'page' : 'false');
+    const activeExports = view.batches.filter((batch) => ['awaiting-destination', 'queued', 'running'].includes(batch.status)).length;
+    $('nav-exports').textContent = activeExports ? t('nav_exports_badge', { count: activeExports }) : t('nav_exports');
+    $('nav-analysis').setAttribute('aria-current', layout !== 'exports' ? 'page' : 'false');
+
+    const canDrop = layout === 'empty' || layout === 'split' || layout === 'standalone-library';
+    $('drop-zone').setAttribute('aria-disabled', String(!canDrop));
+    if (!canDrop) {
+      $('drop-zone').classList.remove('drag-over');
+      if (clippingWorkspace) {
+        clippingWorkspace.dataset.dragOver = 'false';
+        clippingWorkspace.classList.remove('drag-over');
+      }
+    }
+
+    if (layout === 'standalone-library') {
+      latestLibrarySnapshot = libraryPreviewHarness ? libraryPreviewHarness.rerender() : null;
+    } else if (layout === 'split') {
+      const loaded = playerSync.effectiveLoaded();
+      const rec = reconcileSplitSelection({
+        items: baseSnapshot.items,
+        activeSourceId,
+        activeRecordId,
+        loadedSourceId: loaded.sourceId,
+        loadedFile: loaded.file,
+        getFileForId: (sourceId) => bindings.get(sourceId)?.file || null,
+      });
+      activeSourceId = rec.activeSourceId;
+      activeRecordId = rec.activeRecordId;
+      if (rec.changed && activeSourceId) {
+        uxController.clearRecordingNew(activeSourceId);
+      }
+      if (rec.changed && activeSourceId && view.sources.some((item) => item.id === activeSourceId) && !seenCandidates.has(activeSourceId)) {
+        seenCandidates.set(activeSourceId, workspace.getSource(activeSourceId).clips.filter((clip) => !clip.provisional && !clip.excluded).length);
+      }
+      const validIds = [
+        ...baseSnapshot.items.map((item) => item.id),
+        ...pendingImports.keys(),
+        ...(engineBridge?.getPendingIntakeIds() || []),
+      ];
+      uxController.pruneNewIds(validIds);
+      readyNotifier.prune(validIds);
+      latestLibrarySnapshot = buildLibrarySnapshot(activeSourceId);
+      const activeItem = latestLibrarySnapshot.items.find((item) => item.id === activeSourceId) || rec.activeItem;
+      libraryView.render(latestLibrarySnapshot);
+      renderReview(activeItem);
+      void playerSync.syncSelection(rec);
+    } else if (layout === 'empty') {
+      latestLibrarySnapshot = baseSnapshot;
+      const hadLoaded = playerSync.loadedSourceId !== null || playerSync.isLoading;
+      activeSourceId = null;
+      activeRecordId = null;
+      const validIds = [
+        ...pendingImports.keys(),
+        ...(engineBridge?.getPendingIntakeIds() || []),
+      ];
+      uxController.pruneNewIds(validIds);
+      readyNotifier.prune(validIds);
+      libraryView.render(baseSnapshot);
+      renderOnboarding(baseSnapshot);
+      if (hadLoaded) void playerSync.loadSource(null, { forceDispose: true });
+    } else if (layout === 'exports') {
+      latestLibrarySnapshot = baseSnapshot;
+      renderExports();
+    }
+
+    renderWorkspaceUxChrome(latestLibrarySnapshot, layout);
+    renderReadyToast();
+
+    const pageKey = reportedPage();
+    $('status').hidden = $('status').dataset.page !== pageKey && $('status').dataset.tone !== 'error';
+  } finally {
+    isRendering = false;
   }
 }
 
@@ -612,34 +1051,93 @@ $('choose-directory').onclick = () => { chooseOutputDirectory().catch((error) =>
 $('import-files').onclick = () => { $('files').click(); };
 $('drop-zone').addEventListener('click', (event) => {
   if (event.target.closest('button')) return;
-  if (currentPage === 'analysis' && !$('import-files').disabled && event.target.closest('.empty')) {
+  if (currentPage === 'clipping' && !$('import-files').disabled && event.target.closest('.empty')) {
     $('import-files').click();
   }
 });
 $('files').onchange = () => { const files = [...$('files').files]; $('files').value = ''; safely(() => importFiles(files)); };
+if ($('sidebar-collapse-toggle')) {
+  $('sidebar-collapse-toggle').onclick = () => { uxController.toggleSidebarCollapsed(); };
+}
+if ($('library-drawer-toggle')) {
+  $('library-drawer-toggle').onclick = () => { uxController.toggleDrawer(); };
+}
+if ($('library-drawer-close')) {
+  $('library-drawer-close').onclick = () => { uxController.closeDrawer(); };
+}
+if ($('library-drawer-backdrop')) {
+  $('library-drawer-backdrop').onclick = () => { uxController.closeDrawer(); };
+}
+if ($('onboarding-choose-watch-dir')) {
+  $('onboarding-choose-watch-dir').onclick = () => safely(invokeChooseWatchDir);
+}
+if ($('onboarding-toggle-monitoring')) {
+  $('onboarding-toggle-monitoring').onclick = () => safely(invokeToggleMonitoring);
+}
+window.addEventListener('resize', () => {
+  uxController.handleViewportResize(window.innerWidth);
+});
+
 const isFileDrag = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+let workspaceDragDepth = 0;
+function setWorkspaceDragOver(active) {
+  const workspaceEl = $('clipping-workspace');
+  if (workspaceEl) {
+    workspaceEl.dataset.dragOver = String(Boolean(active));
+    workspaceEl.classList.toggle('drag-over', Boolean(active));
+  }
+  $('drop-zone')?.classList.toggle('drag-over', Boolean(active));
+}
+document.addEventListener('dragenter', (event) => {
+  if (!isFileDrag(event)) return;
+  if (!canAcceptWorkspaceDrop({ page: currentPage, hasFiles: true })) return;
+  event.preventDefault();
+  workspaceDragDepth += 1;
+  setWorkspaceDragOver(true);
+});
 document.addEventListener('dragover', (event) => {
   if (!isFileDrag(event)) return;
   event.preventDefault();
-  const canImport = currentPage === 'analysis' && $('drop-zone').contains(event.target);
-  event.dataTransfer.dropEffect = canImport ? 'copy' : 'none';
-  $('drop-zone').classList.toggle('drag-over', canImport);
+  const canImport = canAcceptWorkspaceDrop({ page: currentPage, hasFiles: true });
+  if (event.dataTransfer) event.dataTransfer.dropEffect = canImport ? 'copy' : 'none';
+  setWorkspaceDragOver(canImport);
 });
-$('drop-zone').addEventListener('dragleave', (event) => {
-  if (!$('drop-zone').contains(event.relatedTarget)) $('drop-zone').classList.remove('drag-over');
+document.addEventListener('dragleave', (event) => {
+  if (!isFileDrag(event)) return;
+  workspaceDragDepth = Math.max(0, workspaceDragDepth - 1);
+  if (workspaceDragDepth === 0 || !event.relatedTarget) {
+    workspaceDragDepth = 0;
+    setWorkspaceDragOver(false);
+  }
 });
 document.addEventListener('drop', (event) => {
   if (!isFileDrag(event)) return;
   event.preventDefault();
-  $('drop-zone').classList.remove('drag-over');
-  if (currentPage !== 'analysis' || !$('drop-zone').contains(event.target)) return;
-  const files = Array.from(event.dataTransfer.files);
+  workspaceDragDepth = 0;
+  setWorkspaceDragOver(false);
+  if (!canAcceptWorkspaceDrop({ page: currentPage, hasFiles: true })) return;
+  const files = Array.from(event.dataTransfer?.files || []);
   if (files.length) safely(() => importFiles(files));
 });
+window.addEventListener('dragend', () => {
+  workspaceDragDepth = 0;
+  setWorkspaceDragOver(false);
+});
 $('nav-exports').onclick = $('view-exports').onclick = showExports;
-$('nav-analysis').onclick = $('back-analysis').onclick = showAnalysis;
-$('nav-review').onclick = () => safely(() => openReview(activeSourceId || view.sources[0].id));
-$('source-select').onchange = () => safely(() => openReview($('source-select').value));
+$('nav-analysis').onclick = showAnalysis;
+if ($('review-primary-action')) {
+  $('review-primary-action').onclick = () => safely(async () => {
+    const item = latestLibrarySnapshot?.items.find((entry) => entry.id === activeSourceId) || null;
+    const action = resolveReviewPrimaryAction(item);
+    if (!action || action.disabled) return;
+    if (workspacePreviewHarness && workspacePreviewHarness.runPreviewAction(activeSourceId, action.kind)) {
+      render();
+      return;
+    }
+    const record = findLibraryRecord(activeSourceId, item);
+    await engineBridge.dispatchPrimaryAction({ item, record, action });
+  });
+}
 $('play-pause').onclick = () => { if (playerState.playing) player.pause(); else player.play().catch((error) => note(errorText(error))); };
 $('play-selection').onclick = () => safely(() => {
   const clip = selectedClip();
@@ -690,11 +1188,11 @@ async function seek(value) {
   const position = Math.max(0, Math.min(saved.duration, Number(value)));
   if (!Number.isFinite(position)) return;
   workspace.setReview(saved.id, { position });
-  if (bindings.has(saved.id)) await player.seek(position);
+  if (bindings.get(saved.id)?.file) await player.seek(position);
 }
 function stepCandidate(direction) {
   const saved = source(); if (!saved) return;
-  const position = playerSourceId === saved.id ? playerState.position : saved.review.position;
+  const position = playerSync.loadedSourceId === saved.id ? playerState.position : saved.review.position;
   const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
   const clip = direction < 0
     ? [...stable].reverse().find((item) => item.start < position - 0.01)
@@ -728,22 +1226,73 @@ for (const key of ['start', 'end']) {
   const quickSet = $(`quick-set-${key}`);
   if (quickSet) quickSet.onclick = () => safely(() => trimBoundary(key, source().review.position));
 }
+// Register workspace-level keyboard shortcuts BEFORE selectionTimeline so Escape closes
+// the narrow library drawer cleanly without simultaneously resetting timeline zoom.
+window.addEventListener('keydown', (event) => {
+  const layout = resolveClippingLayout({
+    page: currentPage,
+    itemCount: latestLibrarySnapshot?.items.length ?? 0,
+    forceStandaloneLibrary: libraryPreview,
+  });
+  const hasOpenDialog = Boolean(document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]:not([hidden])'));
+
+  const esc = resolveDrawerEscape({
+    event,
+    drawerOpen: uxController.drawerOpen,
+    layout,
+    hasOpenDialog,
+  });
+  if (esc.handled && esc.shouldClose) {
+    event.preventDefault();
+    uxController.closeDrawer();
+    return;
+  }
+
+  const nav = resolveRecordingShortcutTarget({
+    event,
+    items: latestLibrarySnapshot?.items || [],
+    activeSourceId,
+    layout,
+    hasOpenDialog,
+  });
+  if (nav.handled) {
+    event.preventDefault();
+    if (nav.targetId && !event.repeat) {
+      safely(() => openReview(nav.targetId));
+    }
+  }
+});
+
 selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, getRecord: (id) => bindings.get(id), selectRange, seek, pause: () => player.pause(),
-  isActive: () => workspaceMode === 'offline' && currentPage === 'review' && !loadingSource,
+  isActive: () => currentPage === 'clipping' && Boolean(source()) && !playerSync.isLoading,
   playPause: () => { if (!$('play-pause').disabled) $('play-pause').click(); },
   playRange: () => { if (!$('play-selection').disabled) $('play-selection').click(); },
   toggleMute: () => player.toggleMute(),
   toggleFullscreen: () => { if (!$('player-fullscreen').disabled) $('player-fullscreen').click(); },
-  isPlayerBusy: () => loadingSource || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
+  isPlayerBusy: () => playerSync.isLoading || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
 const fitSelectedClip = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
 if ($('quick-fit-clip')) $('quick-fit-clip').onclick = fitSelectedClip;
 $('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); };
 
-onLanguageChange(render);
+if ($('ready-toast-open')) {
+  $('ready-toast-open').onclick = () => safely(() => backgroundReadiness.openToastTarget());
+}
+if ($('ready-toast-dismiss')) {
+  $('ready-toast-dismiss').onclick = () => { backgroundReadiness.dismissToast(); };
+}
+document.addEventListener('visibilitychange', () => {
+  safely(() => backgroundReadiness.handleVisibilityChange(document.visibilityState));
+});
+
+onLanguageChange(() => {
+  readyNotifier.syncTitle();
+  render();
+});
 
 // Session state is intentionally not written to browser storage.
-const shouldWarnOnLeave = () => !preview && (
-  pendingImports.size > 0 || queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
+const shouldWarnOnLeave = () => !preview && !libraryPreview && !workspacePreview && (
+  pendingImports.size > 0 || (engineBridge?.watchDirState.processingCount || 0) > 0 ||
+  queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
   view.sources.some(item => item.hasUnexportedChanges) ||
   view.batches.some(batch => ['awaiting-destination', 'queued', 'running'].includes(batch.status))
 );
@@ -753,34 +1302,6 @@ window.addEventListener('beforeunload', event => {
 });
 window.addEventListener('pagehide', () => { player.pause(); selectionTimeline?.suspend(); });
 const ready = Promise.resolve();
-if ($('mode-offline')) $('mode-offline').onclick = () => switchWorkspaceMode('offline');
-if ($('mode-live')) $('mode-live').onclick = () => switchWorkspaceMode('live');
-if ($('live-workspace')) {
-  liveCompanion = createLiveCompanionWorkspace({
-    MB,
-    container: $('live-workspace'),
-    onLiveRunningChange(running) {
-      if ($('mode-live-dot')) $('mode-live-dot').dataset.live = String(!!running);
-      if (running) queue.pause();
-      else queue.resume();
-    },
-    async onOpenMasterReview(conformed) {
-      const identity = await identifyFile(conformed.file);
-      identified.set(conformed.file, identity);
-      const sourceId = identity.id;
-      while (pendingImports.has(sourceId)) await pendingImports.get(sourceId);
-      if (!bindings.get(sourceId)?.liveHandoffComplete) {
-        await trackImport(sourceId, importLiveMaster(sourceId, conformed));
-      }
-      switchWorkspaceMode('offline');
-      await openReview(sourceId);
-      const alignTag = conformed.alignment?.confidence === 'exact'
-        ? `精确对齐 (${conformed.alignment.offsetMs >= 0 ? '+' : ''}${conformed.alignment.offsetMs}ms)`
-        : '粗略对齐（建议微调或重新分析）';
-      note(`已打开录像：${conformed.name} · ${alignTag}`);
-    },
-  });
-}
 function buildDiagnosticState() {
   const sources = view.sources.map((saved) => {
     const record = bindings.get(saved.id);
@@ -820,12 +1341,9 @@ function buildDiagnosticState() {
     savedCount: Array.isArray(batch.outputs) ? batch.outputs.filter((item) => item?.saved).length : 0,
     error: batch.error || null,
   }));
-  const liveSnap = liveCompanion?.session?.snapshot?.() || null;
-  const watcherState = liveCompanion?.watcher?.state || null;
-  const resourceSnapshot = liveCompanion?.resourceMonitor?.getSnapshot?.() || null;
+  const bridgeState = engineBridge?.getState?.() || null;
   return {
-    mode: workspaceMode,
-    page: currentPage,
+    page: reportedPage(),
     language: getLang(),
     workspace: {
       sources,
@@ -837,15 +1355,8 @@ function buildDiagnosticState() {
         muted: playerState.muted,
       },
     },
-    liveCompanion: liveSnap ? {
-      active: liveSnap.active,
-      watchingDirectory: Boolean(watcherState?.watching),
-      gated: Boolean(liveSnap.gated),
-      candidateCount: liveSnap.candidates?.length || 0,
-      decisionCount: liveSnap.decisions?.length || 0,
-      conformedCount: liveSnap.conformed?.length || 0,
-      resourceSnapshot,
-    } : null,
+    liveMonitor: bridgeState?.liveMonitor || null,
+    autoIntake: bridgeState?.watchDirectory || null,
   };
 }
 
@@ -905,9 +1416,70 @@ if ($('copy-diagnostics')) {
   $('copy-diagnostics').onclick = () => { void copyDiagnostics(); };
 }
 $('import-files').disabled = false;
+if (libraryPreview) {
+  libraryPreviewHarness = mountLibraryPreview({
+    onNote: (message, tone) => note(message, tone),
+    createEmptyGraphic: createFrameSignal,
+  });
+}
 render();
 note(t('status_ready'), 'quiet');
-window.reviewApp = { workspace, queue, player, exportQueue, submitExport, importFiles, openReview, showAnalysis, switchWorkspaceMode, liveCompanion, collectDiagnostics: getDiagnosticsSnapshot, copyDiagnostics, diagnosticLog, ready, bindings, shouldWarnOnLeave, get activeSourceId() { return activeSourceId; }, get page() { return currentPage; }, get mode() { return workspaceMode; } };
+const watchDirRestoreReady = (!preview && !libraryPreview && !workspacePreview)
+  ? engineBridge.restorePersistedWatchDirectory().catch(() => null)
+  : Promise.resolve(null);
 
-if (preview) void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
-else if (new URLSearchParams(location.search).get('mode') === 'live') switchWorkspaceMode('live');
+window.reviewApp = {
+  workspace,
+  queue,
+  player,
+  exportQueue,
+  liveMonitor: engineBridge.liveMonitor,
+  autoIntake: engineBridge.autoIntake,
+  engineBridge,
+  globalTopbarControls,
+  watchDirStore,
+  readyNotifier,
+  backgroundReadiness,
+  watchDirRestoreReady,
+  submitExport,
+  importFiles,
+  openReview,
+  showAnalysis,
+  render,
+  libraryView,
+  uxController,
+  markRecordingNew: (id, opts) => uxController.markRecordingNew(id, { activeSourceId, ...opts }),
+  clearRecordingNew: (id) => uxController.clearRecordingNew(id),
+  getNewRecordingIds: () => uxController.getNewRecordingIds(),
+  setSidebarCollapsed: (collapsed) => uxController.setSidebarCollapsed(collapsed),
+  toggleSidebarCollapsed: () => uxController.toggleSidebarCollapsed(),
+  openLibraryDrawer: () => uxController.openDrawer(),
+  closeLibraryDrawer: () => uxController.closeDrawer(),
+  toggleLibraryDrawer: () => uxController.toggleDrawer(),
+  setOnboardingHandlers,
+  setOnboardingState,
+  setWatchDirectoryHandle: (handle, opts) => engineBridge.setWatchDirectoryHandle(handle, opts),
+  setWatchDirectoryRestoreNeeded: (handle, name) => engineBridge.setWatchDirectoryRestoreNeeded(handle, name),
+  getWatchDirectoryHandle: () => engineBridge.getWatchDirectoryHandle(),
+  get watchDirState() { return engineBridge.watchDirState; },
+  collectDiagnostics: getDiagnosticsSnapshot,
+  copyDiagnostics,
+  diagnosticLog,
+  ready,
+  bindings,
+  shouldWarnOnLeave,
+  get activeSourceId() { return activeSourceId; },
+  get sidebarCollapsed() { return uxController.sidebarCollapsed; },
+  get drawerOpen() { return uxController.drawerOpen; },
+  get page() { return reportedPage(); },
+};
+
+if (workspacePreview) {
+  void ready.then(async () => {
+    workspacePreviewHarness = await mountSplitWorkspacePreview(window.reviewApp, {
+      onNote: (message, tone) => note(message, tone),
+    });
+  }).catch((error) => note(errorText(error), 'error'));
+} else if (preview) {
+  void ready.then(() => mountReviewPreview(window.reviewApp)).catch((error) => note(errorText(error), 'error'));
+}

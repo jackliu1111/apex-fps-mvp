@@ -1,5 +1,39 @@
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+
+// Spec-mandated non-session preference/handle stores only (ADR 0009, ADR 0010, #62, #65).
+// Review state, clips, waveforms, and export batches MUST stay strictly in-memory for the current session.
+const ALLOWED_LOCAL_STORAGE_KEYS = new Set([
+  'apex_local_cut_lang',
+  'apex_local_cut_library_collapsed',
+  'apex_local_cut_ready_notifications',
+]);
+const ALLOWED_IDB_DATABASES = new Set([
+  'apex-watch-dir-v1',
+]);
+
+function assertAllowedStorageTouches(touches, phase) {
+  for (const touch of touches) {
+    if (touch.kind === 'storage') {
+      assert.notEqual(touch.op, 'clear', `[${phase}] Unexpected Storage.clear()`);
+      assert.equal(
+        ALLOWED_LOCAL_STORAGE_KEYS.has(touch.key),
+        true,
+        `[${phase}] Disallowed Web Storage access: ${JSON.stringify(touch)}`,
+      );
+    } else if (touch.kind === 'idb') {
+      assert.equal(touch.op, 'open', `[${phase}] Disallowed IndexedDB operation: ${JSON.stringify(touch)}`);
+      assert.equal(
+        ALLOWED_IDB_DATABASES.has(touch.key),
+        true,
+        `[${phase}] Disallowed IndexedDB database access: ${JSON.stringify(touch)}`,
+      );
+    } else {
+      assert.fail(`[${phase}] Unknown storage touch: ${JSON.stringify(touch)}`);
+    }
+  }
+}
+
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE, headless: true });
   try {
@@ -25,11 +59,17 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       window.storageTouches = [];
       for (const name of ['open', 'deleteDatabase']) {
         const original = IDBFactory.prototype[name];
-        IDBFactory.prototype[name] = function (...args) { storageTouches.push(`idb:${name}`); return original.apply(this, args); };
+        IDBFactory.prototype[name] = function (...args) {
+          window.storageTouches.push({ kind: 'idb', op: name, key: args[0] ?? null });
+          return original.apply(this, args);
+        };
       }
       for (const name of ['getItem', 'setItem', 'removeItem', 'clear']) {
         const original = Storage.prototype[name];
-        Storage.prototype[name] = function (...args) { storageTouches.push(`storage:${name}`); return original.apply(this, args); };
+        Storage.prototype[name] = function (...args) {
+          window.storageTouches.push({ kind: 'storage', op: name, key: args[0] ?? null });
+          return original.apply(this, args);
+        };
       }
     });
     await page.reload(); await page.waitForFunction(() => window.reviewApp);
@@ -60,9 +100,20 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), false, 'Completed saved files do not warn on leave');
     const savedBytes = await page.evaluate(async name => (await (await testDirectory.getFileHandle(name)).getFile()).size, batch.outputs[0].name);
     assert.equal(savedBytes, batch.outputs[0].bytes);
-    await page.evaluate(() => reviewApp.workspace.addManual(reviewApp.activeSourceId, { start: 15, end: 17 }));
+    await page.evaluate(() => {
+      const id = reviewApp.activeSourceId;
+      const duration = reviewApp.workspace.getSource(id).duration;
+      const range = duration >= 18 ? { start: 15, end: 17 } : { start: Math.max(0.5, duration - 3), end: Math.max(1.5, duration - 1) };
+      reviewApp.workspace.addManual(id, range);
+    });
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), true, 'Unsubmitted manual decisions still warn on leave');
-    assert.deepEqual(await page.evaluate(() => storageTouches), []);
+    const preReloadTouches = await page.evaluate(() => window.storageTouches);
+    assertAllowedStorageTouches(preReloadTouches, 'pre-reload');
+    assert.equal(
+      preReloadTouches.some((t) => t.kind === 'storage' && t.op === 'setItem'),
+      false,
+      'Importing, reviewing, and exporting must not write any session state to Web Storage',
+    );
     let warned = false;
     page.on('dialog', async dialog => { warned = dialog.type() === 'beforeunload'; await dialog.accept(); });
     await page.reload(); await page.waitForFunction(() => window.reviewApp);
@@ -70,7 +121,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.deepEqual(await page.evaluate(() => reviewApp.workspace.view().sources), []);
     assert.deepEqual(await page.evaluate(() => reviewApp.workspace.view().batches), []);
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), false);
-    assert.deepEqual(await page.evaluate(() => storageTouches), []);
+    const postReloadTouches = await page.evaluate(() => window.storageTouches);
+    assertAllowedStorageTouches(postReloadTouches, 'post-reload');
+    const storedKeys = await page.evaluate(() => Object.keys(localStorage));
+    for (const key of storedKeys) {
+      assert.equal(
+        key === 'apex-review-navigation-v1' || ALLOWED_LOCAL_STORAGE_KEYS.has(key),
+        true,
+        `Unexpected persisted localStorage key after reload: ${key}`,
+      );
+    }
     assert.equal(await page.evaluate(() => localStorage.getItem('apex-review-navigation-v1')), 'legacy-navigation');
     assert.deepEqual(await page.evaluate(() => new Promise(resolve => {
       const open = indexedDB.open('apex-review-v1');
@@ -80,6 +140,6 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
       };
     })), { legacy: true });
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ realMediaAnalysisAndExport: 'passed', directoryWriteReadback: 'OPFS passed (picker substituted)', bytes: batch.outputs[0].bytes, leaveWarning: 'passed', refreshEmpty: 'passed', oldStorageUntouched: 'passed' }));
+    console.log(JSON.stringify({ realMediaAnalysisAndExport: 'passed', directoryWriteReadback: 'OPFS passed (picker substituted)', bytes: batch.outputs[0].bytes, leaveWarning: 'passed', refreshEmpty: 'passed', oldStorageUntouched: 'passed', storageBoundary: 'passed' }));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

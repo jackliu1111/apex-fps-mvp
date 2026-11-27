@@ -33,7 +33,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     });
     assert.equal(result.status, 'complete'); assert.equal(result.windows, 2); assert.equal(result.sourceCount, 1);
     assert.equal(await page.locator('#queue select').count(), 0, 'No track-confirmation gate');
-    await page.locator('#queue [data-action="review"]').first().click();
+    await page.locator('#queue .file').first().click();
     await page.locator('#review-page').waitFor();
     await page.waitForFunction(() => window.reviewApp.player.state.status === 'paused');
     assert.ok(Math.abs(Number(await page.locator('#source-head').getAttribute('aria-valuemax')) - 12) < 0.02, 'Timeline covers the full 12-second source including codec timestamp rounding');
@@ -73,14 +73,16 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     assert.equal(batch.outputs[0].saved, true, 'Streamed directly to the selected directory handle');
     assert.ok(batch.outputs[0].measuredDuration > 3.4 && batch.outputs[0].measuredDuration < 3.7);
     assert.equal(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).hasUnexportedChanges), true);
+    await page.waitForFunction(() => reviewApp.queue.records[0]?.status === 'complete', null, { timeout: 60000 });
     await page.evaluate(() => reviewApp.queue.recompute(reviewApp.queue.records[0].id, 0.01));
     assert.equal(await page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).review.position), 7.5);
-    // Playback leaving the page pauses only the player; returning starts paused.
+    // Playback leaving the clipping workspace pauses only the player; returning starts paused.
+    await page.locator('#nav-analysis').click();
     await page.locator('#play-pause').click();
     await page.waitForFunction(() => reviewApp.player.state.playing);
-    await page.locator('#back-analysis').click();
+    await page.locator('#nav-exports').click();
     assert.equal(await page.evaluate(() => reviewApp.player.state.playing), false);
-    await page.locator('#nav-review').click();
+    await page.locator('#nav-analysis').click();
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
     await seekToTestPosition();
     await page.waitForFunction(() => reviewApp.player.state.status === 'paused');

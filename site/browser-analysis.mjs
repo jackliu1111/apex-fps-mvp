@@ -3,7 +3,7 @@ import { createAnalysisQueue } from './analysis-queue.mjs';
 import { sequentialAudio } from './stream-audio.js';
 import { createMediaReadSource } from './media-read-source.mjs';
 import { CANDIDATE_PADDING_SECONDS, CANDIDATE_GAP_SECONDS, mergeCandidateRanges } from './candidate-ranges.mjs';
-import { DEFAULT_MODEL, assetRecoveryHint, defaultModelRegistry, validateModelManifest, validateInferenceOutput } from './model-registry.mjs';
+import { DEFAULT_MODEL, assetRecoveryHint, defaultModelRegistry, serializeSpec, validateModelManifest, validateInferenceOutput } from './model-registry.mjs';
 import { FrameOverlap } from './lab-scores.mjs';
 import { DISPLAY_GROUPS, createDisplayGrouping } from './lab-display-groups.mjs';
 import { createGroupScorePyramid, updateGroupScorePyramid } from './waveform-layers.mjs';
@@ -45,12 +45,14 @@ export function candidatesFromScores(record, threshold = record.threshold, front
 // Metadata/decoder capability selection only: never decode-scan all source tracks.
 export async function chooseAudioTracks(input, tracks) {
   if (!tracks.length) throw new Error('录像中没有可用于分析的音轨');
-  const primary = await input.getPrimaryAudioTrack();
-  const primaryIndex = Math.max(0, tracks.findIndex((track) => track === primary || track.id === primary?.id));
+  const primary = typeof input?.getPrimaryAudioTrack === 'function' ? await input.getPrimaryAudioTrack() : (tracks[0] || null);
+  const primaryIndex = Math.max(0, tracks.findIndex((track) => track === primary || (primary && track.id === primary.id)));
   const order = [primaryIndex, ...tracks.map((_, index) => index).filter((index) => index !== primaryIndex)];
   for (const index of order) {
     let decodable = false;
-    try { decodable = await tracks[index].canDecode(); } catch { /* A failed codec probe cannot block other decodable audio. */ }
+    try {
+      decodable = typeof tracks[index].canDecode === 'function' ? await tracks[index].canDecode() : true;
+    } catch { /* A failed codec probe cannot block other decodable audio. */ }
     if (decodable) return {
       selected: index, outputAudioTrackIndex: primaryIndex,
       audioPolicy: { analysis: 'primary-decodable', selectedIndex: index, sourcePrimaryIndex: primaryIndex, fallback: index !== primaryIndex, message: '自动使用默认且可解码的音轨进行分析；未判断其是否为游戏声音。预览和导出沿用原片默认声音。' },
@@ -61,28 +63,6 @@ export async function chooseAudioTracks(input, tracks) {
 
 export function modelManifestUrl(model, registry = defaultModelRegistry) {
   return registry.get(model).manifestUrl;
-}
-
-function serializeModelSpec(spec) {
-  return {
-    id: spec.id,
-    manifestUrl: spec.manifestUrl,
-    onnxUrl: spec.onnxUrl,
-    frontendUrl: spec.frontendUrl ?? null,
-    frontendType: spec.frontendType || 'efficientsed',
-    sampleRate: spec.sampleRate,
-    windowSeconds: spec.windowSeconds,
-    strideSeconds: spec.strideSeconds,
-    frameSeconds: spec.frameSeconds,
-    framesPerWindow: spec.framesPerWindow,
-    hopFrames: spec.hopFrames,
-    scoreType: spec.scoreType,
-    inputName: spec.inputName,
-    inputShape: Array.isArray(spec.inputShape) ? [...spec.inputShape] : [],
-    ...(spec.outputName ? { outputName: spec.outputName } : {}),
-    ...(Array.isArray(spec.outputShape) ? { outputShape: [...spec.outputShape] } : {}),
-    ...(spec.gunshotClasses ? { gunshotClasses: [...spec.gunshotClasses] } : {}),
-  };
 }
 
 export function createBrowserAnalysis({
@@ -147,7 +127,7 @@ export function createBrowserAnalysis({
           id,
           waveform,
           model: spec.id,
-          spec: serializeModelSpec(spec),
+          spec: serializeSpec(spec),
           manifest: { sha256: manifest.sha256, bytes: manifest.bytes, modelFile: manifest.modelFile },
         }, [waveform.buffer]);
       } catch (error) { releaseWorker(); finish(reject, error); }
@@ -194,6 +174,7 @@ export function createBrowserAnalysis({
       const metrics = record.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, audioSetupMs: performance.now() - started, audioWaitMs: 0, inferenceRoundTripMs: 0, postprocessAndRenderMs: 0, timingVersion: 3 };
       record.analysisStarted = started; record.windows = 0; record.processedUntil = 0; record.frontier = -Infinity;
       record.scores = null; record.scoreFrames = 0; record.frameSeconds = spec.frameSeconds || 0.04; record.windowScores = null;
+      record.alignment = null;
       const groupCount = DISPLAY_GROUPS.length;
       record.scoreTimeline = null;
       record.waveform = createAudioPeaks(record.duration, record.selected);
@@ -297,7 +278,7 @@ export function createBrowserAnalysis({
       record.windowScores = Array.isArray(precomputed.windowScores) ? structuredClone(precomputed.windowScores) : [];
       record.windows = record.windowScores.length;
       record.alignment = precomputed.alignment ? structuredClone(precomputed.alignment) : null;
-      record.modelInfo = precomputed.modelInfo || { model: record.model, scoreType: 'frame', sampleRate: 16000, frameSeconds: 0.04, source: 'live-companion' };
+      record.modelInfo = precomputed.modelInfo || { model: record.model, scoreType: 'frame', sampleRate: 16000, frameSeconds: 0.04, source: 'live-monitor' };
       record.scoreTimeline = precomputed.scoreTimeline || null;
       record.waveform = precomputed.waveform || createAudioPeaks(record.duration, record.selected);
       onWaveform(record, record.waveform);
