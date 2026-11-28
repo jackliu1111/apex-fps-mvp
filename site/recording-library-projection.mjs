@@ -70,7 +70,7 @@ export function formatFileSize(bytes) {
 
 export function projectRecordingStatus(rawStatus, alignment = null) {
   const status = typeof rawStatus === 'string' ? rawStatus.trim().toLowerCase() : '';
-  if (status === 'preparing' || status === 'queued' || status === 'analyzing') {
+  if (status === 'identifying' || status === 'preparing' || status === 'queued' || status === 'analyzing') {
     return 'analyzing';
   }
   if (status === 'conformed-coarse' || status === 'ready-coarse') {
@@ -156,6 +156,7 @@ function buildItem({
   durationSeconds = null,
   sizeBytes = null,
   rawStatus,
+  phase = null,
   alignment = null,
   processedUntil = 0,
   progressPercent = null,
@@ -201,6 +202,7 @@ function buildItem({
       sizeBytes: size,
       sizeText: formatFileSize(size),
       status,
+      phase: ['analyzing', 'preparing'].includes(rawStatus) ? phase || rawStatus : rawStatus,
       progressPercent: percent,
       candidateCount: Math.max(0, Math.floor(Number(candidateCount) || 0)),
       exportedCount: Math.max(0, Math.floor(Number(exportedCount) || 0)),
@@ -252,6 +254,7 @@ export function projectRecordingLibrary({
         durationSeconds: raw.durationSeconds ?? raw.duration ?? null,
         sizeBytes: raw.sizeBytes ?? raw.size ?? null,
         rawStatus: raw.status,
+        phase: raw.phase,
         alignment: raw.alignment ?? null,
         processedUntil: raw.processedUntil ?? 0,
         progressPercent: raw.progressPercent ?? null,
@@ -290,6 +293,7 @@ export function projectRecordingLibrary({
         durationSeconds: duration,
         sizeBytes: identity.size ?? record?.file?.size ?? null,
         rawStatus,
+        phase: record?.phase,
         alignment: record?.alignment ?? saved.alignment ?? null,
         processedUntil,
         candidateCount: countCandidates(saved, record),
@@ -316,6 +320,7 @@ export function projectRecordingLibrary({
         recordedAtMs: file.lastModified ?? null,
         durationSeconds: record.duration ?? null,
         sizeBytes: file.size ?? null,
+        phase: record.phase,
         rawStatus: record.status || 'unanalyzed',
         alignment: record.alignment ?? null,
         processedUntil: record.processedUntil ?? 0,
@@ -323,7 +328,7 @@ export function projectRecordingLibrary({
         exportedCount: 0,
         canReview: false,
         canAnalyze: true,
-        canStop: true,
+        canStop: record.status !== 'identifying',
         canReanalyze: true,
         selected: key === activeSourceId,
         isNew: isNewId(key),

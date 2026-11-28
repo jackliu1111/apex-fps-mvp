@@ -353,14 +353,15 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     $('prediction-playhead').hidden = !headVisible;
     if (headVisible) $('prediction-playhead').style.left = `${overviewPosition / overviewSpan * 100}%`;
     if ($('player-overview-markers')) {
-      const overviewItems = source.clips.filter((item) => !item.excluded && !item.provisional);
-      const nextMarkerKey = `${source.id}:${overviewSpan}:${source.review.selectedClipId}:${overviewItems.map((item) => `${item.id}:${item.start}:${item.end}`).join(',')}`;
+      const overviewItems = source.clips.filter((item) => !item.excluded);
+      const nextMarkerKey = `${source.id}:${overviewSpan}:${source.review.selectedClipId}:${overviewItems.map((item) => `${item.id}:${item.start}:${item.end}:${item.provisional}`).join(',')}`;
       if (overviewMarkerKey !== nextMarkerKey) {
         overviewMarkerKey = nextMarkerKey;
         $('player-overview-markers').replaceChildren(...overviewItems.map((item) => {
           const spanEl = document.createElement('span');
           spanEl.style.left = `${Math.max(0, item.start / overviewSpan * 100)}%`;
-          spanEl.style.width = `${Math.max(0.6, (item.end - item.start) / overviewSpan * 100)}%`;
+          spanEl.style.width = `${(item.end - item.start) / overviewSpan * 100}%`;
+          spanEl.dataset.provisional = String(!!item.provisional);
           spanEl.dataset.active = String(item.id === source.review.selectedClipId);
           return spanEl;
         }));

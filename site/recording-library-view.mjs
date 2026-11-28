@@ -21,6 +21,12 @@ function setText(node, text) {
 }
 
 function formatStatusLabel(item, translate) {
+  const phaseKey = {
+    identifying: 'library_read_file', preparing: 'status_preparing', video: 'library_read_video',
+    audioTracks: 'library_read_tracks', queued: 'library_queued', audio: 'library_load_audio',
+    model: 'library_load_model', failed: 'outcome_failed', stopped: 'library_stopped',
+  }[item.phase];
+  if (phaseKey) return translate(phaseKey);
   switch (item.status) {
     case 'ready':
       return translate('library_status_ready');
@@ -44,13 +50,11 @@ function formatSummaryLabel(item, translate) {
   return candidates;
 }
 
-function formatIdentityMeta(item, { showSize, translate }) {
+function formatIdentityMeta(item, showSize) {
   const parts = [];
   if (item.recordedTimeText) parts.push(item.recordedTimeText);
   if (item.durationText) {
     parts.push(item.durationText);
-  } else if (item.status === 'analyzing') {
-    parts.push(translate('status_preparing'));
   }
   if (showSize && item.sizeText) parts.push(item.sizeText);
   return parts.join(' · ');
@@ -342,9 +346,10 @@ export function createRecordingLibraryView({
     newBadge.hidden = !item.isNew;
     if (item.isNew) setText(newBadge, translate('library_new_badge'));
 
-    setText(meta, formatIdentityMeta(item, { showSize, translate }));
+    setText(meta, formatIdentityMeta(item, showSize));
 
     statusBadge.dataset.status = item.status;
+    statusBadge.dataset.phase = item.phase;
     setText(statusBadge, statusLabel);
 
     setText(summaryText, formatSummaryLabel(item, translate));

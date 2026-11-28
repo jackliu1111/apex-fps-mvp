@@ -254,6 +254,7 @@ function summarizeWorkspace(state) {
   if (!state) return null;
   const sources = Array.isArray(state.sources) ? state.sources.map((src) => ({
     status: src.status || null,
+    phase: ['analyzing', 'preparing'].includes(src.status) ? src.phase || src.status : src.status || null,
     durationSec: round1(src.duration),
     processedUntilSec: round1(src.processedUntil),
     width: Number.isFinite(src.width) ? src.width : null,
