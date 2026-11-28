@@ -112,7 +112,7 @@ async function assertZeroScroll(page, width, height, label) {
       ['已就绪', '已就绪 ⚠ 粗略', '分析中 62%', '已停止', '已就绪'],
     );
     for (const row of sidebarCheck.rows) {
-      assert.equal(row.buttonCount, 0, 'These sidebar rows should only offer selection');
+      assert.equal(row.buttonCount, row.status === 'unanalyzed' ? 1 : 0, 'Only the idle watched recording offers background analysis');
       assert.equal(/\b(?:GB|MB|KB)\b/.test(row.innerText), false, 'Sidebar rows must not show file size');
       assert.equal(row.filename.includes('/') || row.filename.includes('\\'), false, 'Sidebar filename must be basename only');
       assert.equal(row.title, row.filename, 'Hover tooltip must expose full basename');
