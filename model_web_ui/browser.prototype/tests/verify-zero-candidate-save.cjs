@@ -11,20 +11,31 @@ async function run(directory) {
       contentType: 'text/javascript',
       body: `import { createAnalysisQueue as create } from './analysis-queue.mjs?original';
         export const createAnalysisQueue = options => create({ ...options,
-          analyze: async (record, context) => context.publish([], {frontier: Infinity}) });`,
+          analyze: async (record, context) => {
+            await new Promise(resolve => { window.finishZeroAnalysis = resolve; });
+            context.publish([], {frontier: Infinity});
+          } });`,
     }));
     await page.goto(process.env.REVIEW_URL);
     await page.locator('#files').setInputFiles(path.join(directory, 'B.mp4'));
     const row = page.locator('#queue .file[title="B.mp4"]');
-    await row.locator('.library-status-badge[data-status="ready"]').waitFor();
+    await page.waitForFunction(() => Boolean(window.finishZeroAnalysis));
     await row.click();
+    const empty = page.locator('#prediction-empty');
+    await empty.waitFor();
+    assert.match(await empty.innerText(), /analysis proceeds|随分析逐步出现/);
+    await page.evaluate(() => finishZeroAnalysis());
+    await row.locator('.library-status-badge[data-status="ready"]').waitFor();
     const source = () => page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId));
     const b = await source();
     assert.equal(b.identity.name, 'B.mp4');
     assert.equal(b.clips.length, 0);
-    const empty = page.locator('#prediction-empty');
-    await empty.waitFor();
-    assert.match(await empty.innerText(), /manually|添加选片/);
+    for (let language = 0; language < 2; language++) {
+      const chinese = (await page.locator('html').getAttribute('lang')).startsWith('zh');
+      const expected = chinese ? /分析已完成，未发现候选/ : /Analysis complete\. No candidates found/;
+      assert.match(await empty.innerText(), expected);
+      await page.locator('#lang-toggle').click();
+    }
     const manual = page.locator('#quick-manual');
     assert.ok(await manual.isEnabled());
     console.log('Ready with zero candidates', await empty.innerText());
