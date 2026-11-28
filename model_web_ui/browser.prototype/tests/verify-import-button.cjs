@@ -6,7 +6,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   try {
     const page = await browser.newPage();
     const errors = [];
-    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error') console.error('Browser console:', message.text());
+    });
+    page.on('pageerror', error => { console.error('Page error:', error); errors.push(error.message); });
     await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:18796');
     await page.waitForFunction(() => window.reviewApp);
     await page.evaluate(() => reviewApp.ready);
