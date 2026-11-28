@@ -1588,7 +1588,7 @@ async function copyDiagnostics({ allowDownloadFallback = true } = {}) {
 if ($('copy-diagnostics')) {
   $('copy-diagnostics').onclick = () => { void copyDiagnostics(); };
 }
-$('import-files').disabled = false;
+$('import-files').disabled = true;
 if (libraryPreview) {
   libraryPreviewHarness = mountLibraryPreview({
     onNote: (message, tone) => note(message, tone),
