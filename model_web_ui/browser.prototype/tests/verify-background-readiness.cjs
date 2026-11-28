@@ -67,9 +67,13 @@ async function assertDesktopZeroScroll(page, width, height, label) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE, headless: true });
+  // For native tab visibility, point this at a dedicated Chrome with a fresh test profile.
+  const nativeEndpoint = process.env.REVIEW_NATIVE_CDP_URL;
+  const browser = nativeEndpoint
+    ? await chromium.connectOverCDP(nativeEndpoint, { noDefaults: true })
+    : await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE, headless: true });
   try {
-    const context = await browser.newContext({
+    const context = nativeEndpoint ? browser.contexts()[0] : await browser.newContext({
       viewport: { width: 1440, height: 900 },
       ignoreHTTPSErrors: process.env.REVIEW_IGNORE_HTTPS_ERRORS === '1',
     });
@@ -336,13 +340,16 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     }, fgIds.idB);
 
     // Open a second Chrome tab; if headless Chrome keeps background tab 'visible', fall back to dispatching real visibilitychange.
-    const otherTab = await context.newPage();
+    const opened = page.waitForEvent('popup');
+    await page.evaluate(() => window.open('about:blank', '_blank'));
+    const otherTab = await opened;
     await otherTab.setContent('<h1>Game Foreground Tab</h1>');
     async function setWorkspaceBackgrounded(hidden) {
       if (hidden) {
         await otherTab.bringToFront();
         const nativeHidden = await page.waitForFunction(() => document.visibilityState === 'hidden', null, { timeout: 600 }).then(() => true).catch(() => false);
         console.log('Workspace hidden event:', nativeHidden ? 'native tab' : 'simulated visibility');
+        if (nativeEndpoint) assert.ok(nativeHidden, 'Chrome must hide the workspace tab');
         if (!nativeHidden) {
           await page.evaluate(() => window.__setForcedVisibility('hidden'));
         }
@@ -351,6 +358,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
         await page.bringToFront();
         const nativeVisible = await page.waitForFunction(() => document.visibilityState === 'visible', null, { timeout: 600 }).then(() => true).catch(() => false);
         console.log('Workspace visible event:', nativeVisible ? 'native tab' : 'simulated visibility');
+        if (nativeEndpoint) assert.ok(nativeVisible, 'Chrome must restore the workspace tab');
         if (!nativeVisible) {
           await page.evaluate(() => window.__setForcedVisibility(null));
         }
