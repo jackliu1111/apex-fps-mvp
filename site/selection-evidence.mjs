@@ -24,7 +24,7 @@ export function createSelectionEvidence({ MB, onResult, isBusy }) {
   function ensureSession(record) {
     if (session && session.file === record.file) return session;
     closeSession();
-    const input = new MB.Input({ source: createMediaReadSource({ MB, file: record.file, priority: 'preview' }), formats: MB.ALL_FORMATS });
+    const input = new MB.Input({ source: createMediaReadSource({ MB, file: record.file, priority: 'thumbnail' }), formats: MB.ALL_FORMATS });
     const current = {
       file: record.file,
       input,
@@ -73,52 +73,62 @@ export function createSelectionEvidence({ MB, onResult, isBusy }) {
     const previewFrames = session ? previewFromCache(session.images, start, end) : [];
     onResult({ frames: previewFrames, provisional: true, status: '正在读取原片参考画面…' });
     timer = setTimeout(() => {
-      if (own !== revision) return;
-      const current = ensureSession(record);
-      current.chain = current.chain.then(async () => {
-        if (own !== revision || session !== current) return;
-        for (let wait = 0; wait < 6 && own === revision && isBusy?.(); wait++) {
-          await new Promise((resolve) => setTimeout(resolve, 20));
+      void (async () => {
+        while (own === revision && isBusy?.()) {
+          await new Promise((resolve) => setTimeout(resolve, 40));
         }
-        if (own !== revision || session !== current) return;
-        const frames = [];
-        try {
-          const { origin, sink, packets } = await current.ready;
-          if (own !== revision || session !== current) return;
-          for (let index = 0; index < 10; index++) {
-            if (own !== revision || session !== current) return;
-            const target = start + (end - start) * index / 10;
-            const targetKey = Math.round((origin + target) * 1000);
-            let packetTimestamp = current.packetTimestamps.get(targetKey);
-            if (packetTimestamp === undefined || !current.images.has(packetTimestamp)) {
-              // Reference pictures need no inter-frame decoding up to the target.
-              // Use the preceding verified keyframe and reuse it within this file session.
-              const packet = await packets.getKeyPacket(origin + target, { verifyKeyPackets: true })
-                ?? await packets.getFirstPacket({ verifyKeyPackets: true });
-              if (own !== revision || session !== current) return;
-              if (!packet || packet.type !== 'key') throw new Error('没有可用的关键帧参考画面');
-              packetTimestamp = packet.timestamp;
-              if (current.packetTimestamps.size >= MAX_CACHED_KEYFRAMES * 4) {
-                current.packetTimestamps.delete(current.packetTimestamps.keys().next().value);
-              }
-              current.packetTimestamps.set(targetKey, packetTimestamp);
-            }
-            if (!current.images.has(packetTimestamp)) {
-              const frame = await sink.getCanvas(packetTimestamp);
-              if (own !== revision || session !== current) return;
-              cacheImage(current.images, packetTimestamp, frame ? { time: Math.max(0, frame.timestamp - origin), image: frame.canvas.toDataURL('image/jpeg', 0.65) } : null);
-              if (index < 9) await yieldTurn();
-            }
-            const image = current.images.get(packetTimestamp);
-            if (image) frames.push(image);
+        if (own !== revision) return;
+        const current = ensureSession(record);
+        const waitWhileBusy = async () => {
+          while (own === revision && session === current && isBusy?.()) {
+            await new Promise((resolve) => setTimeout(resolve, 40));
           }
+        };
+        current.chain = current.chain.then(async () => {
+          await waitWhileBusy();
           if (own !== revision || session !== current) return;
-          onResult({ frames, provisional: false, status: '原片参考画面' });
-        } catch (error) {
-          if (session === current) closeSession();
-          if (own === revision) onResult({ frames, provisional: false, status: `原片信息读取失败：${error.message}` });
-        }
-      });
+          const frames = [];
+          try {
+            const { origin, sink, packets } = await current.ready;
+            if (own !== revision || session !== current) return;
+            for (let index = 0; index < 10; index++) {
+              await waitWhileBusy();
+              if (own !== revision || session !== current) return;
+              const target = start + (end - start) * index / 10;
+              const targetKey = Math.round((origin + target) * 1000);
+              let packetTimestamp = current.packetTimestamps.get(targetKey);
+              if (packetTimestamp === undefined || !current.images.has(packetTimestamp)) {
+                // Reference pictures need no inter-frame decoding up to the target.
+                // Use the preceding verified keyframe and reuse it within this file session.
+                const packet = await packets.getKeyPacket(origin + target, { verifyKeyPackets: true })
+                  ?? await packets.getFirstPacket({ verifyKeyPackets: true });
+                if (own !== revision || session !== current) return;
+                if (!packet || packet.type !== 'key') throw new Error('没有可用的关键帧参考画面');
+                packetTimestamp = packet.timestamp;
+                if (current.packetTimestamps.size >= MAX_CACHED_KEYFRAMES * 4) {
+                  current.packetTimestamps.delete(current.packetTimestamps.keys().next().value);
+                }
+                current.packetTimestamps.set(targetKey, packetTimestamp);
+              }
+              if (!current.images.has(packetTimestamp)) {
+                await waitWhileBusy();
+                if (own !== revision || session !== current) return;
+                const frame = await sink.getCanvas(packetTimestamp);
+                if (own !== revision || session !== current) return;
+                cacheImage(current.images, packetTimestamp, frame ? { time: Math.max(0, frame.timestamp - origin), image: frame.canvas.toDataURL('image/jpeg', 0.65) } : null);
+                if (index < 9) await yieldTurn();
+              }
+              const image = current.images.get(packetTimestamp);
+              if (image) frames.push(image);
+            }
+            if (own !== revision || session !== current) return;
+            onResult({ frames, provisional: false, status: '原片参考画面' });
+          } catch (error) {
+            if (session === current) closeSession();
+            if (own === revision) onResult({ frames, provisional: false, status: `原片信息读取失败：${error.message}` });
+          }
+        });
+      })();
     }, 240);
   }
   return { request, cancel };

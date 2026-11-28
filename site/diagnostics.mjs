@@ -258,6 +258,7 @@ function summarizeWorkspace(state) {
     status: src.status || null,
     phase: effectiveAnalysisPhase(src.status, src.phase),
     durationSec: round1(src.duration),
+    sizeMB: bytesToMB(src.sizeBytes),
     processedUntilSec: round1(src.processedUntil),
     width: Number.isFinite(src.width) ? src.width : null,
     height: Number.isFinite(src.height) ? src.height : null,
@@ -269,10 +270,13 @@ function summarizeWorkspace(state) {
     selectedCount: Number.isFinite(src.selectedCount) ? src.selectedCount : null,
     timingsMs: src.timings ? {
       decode: round1(src.timings.decodeMs),
+      sourceDecodeWait: round1(src.timings.sourceDecodeWaitMs),
+      audioWait: round1(src.timings.audioWaitMs),
       read: round1(src.timings.readMs),
       initialize: round1(src.timings.initializeMs),
       frontend: round1(src.timings.frontendMs),
       inference: round1(src.timings.inferenceMs),
+      total: round1(src.timings.totalMs),
       firstReviewable: round1(src.timings.firstReviewableMs),
     } : null,
     error: src.error ? sanitizeDiagnosticText(src.error, 200) : null,
@@ -296,6 +300,14 @@ function summarizeWorkspace(state) {
       status: state.player.status || null,
       playing: Boolean(state.player.playing),
       muted: Boolean(state.player.muted),
+      ...(state.player.metrics ? {
+        metrics: {
+          framesDisplayed: Number.isFinite(state.player.metrics.framesDisplayed) ? state.player.metrics.framesDisplayed : 0,
+          seeks: Number.isFinite(state.player.metrics.seeks) ? state.player.metrics.seeks : 0,
+          lastSeekMs: round1(state.player.metrics.lastSeekMs),
+          maxFrameLagMs: round1(state.player.metrics.maxFrameLagMs),
+        },
+      } : {}),
     } : null,
   };
 }

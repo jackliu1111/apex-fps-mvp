@@ -181,10 +181,16 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
       language: 'zh',
       workspace: {
         hasOutputDirectory: true,
-        player: { status: 'paused', playing: false, muted: false },
+        player: {
+          status: 'paused',
+          playing: false,
+          muted: false,
+          metrics: { framesDisplayed: 120, seeks: 2, lastSeekMs: 245.67, maxFrameLagMs: 14.23 },
+        },
         sources: [{
           status: 'complete',
           duration: 1800.44,
+          sizeBytes: 3 * 1024 * 1024 * 1024,
           processedUntil: 1800.44,
           width: 2560,
           height: 1440,
@@ -194,7 +200,7 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
           model: 'efficientsed',
           candidateCount: 14,
           selectedCount: 5,
-          timings: { decodeMs: 1200.4, inferenceMs: 3400.7, firstReviewableMs: 850.2 },
+          timings: { decodeMs: 1200.4, sourceDecodeWaitMs: 980.12, audioWaitMs: 1100.56, inferenceMs: 3400.7, totalMs: 5200.34, firstReviewableMs: 850.2 },
           error: null,
         }],
         batches: [{
@@ -259,6 +265,15 @@ test('collectDiagnostics gathers Windows browser/GPU/audio/codec/workspace telem
   assert.equal(report.memory.storageUsageMB, 50);
   assert.equal(report.workspace.sourceCount, 1);
   assert.equal(report.workspace.sources[0].width, 2560);
+  assert.equal(report.workspace.sources[0].sizeMB, 3072);
+  assert.equal(report.workspace.sources[0].timingsMs.sourceDecodeWait, 980.1);
+  assert.equal(report.workspace.sources[0].timingsMs.total, 5200.3);
+  assert.deepEqual(report.workspace.player.metrics, {
+    framesDisplayed: 120,
+    seeks: 2,
+    lastSeekMs: 245.7,
+    maxFrameLagMs: 14.2,
+  });
   assert.equal('liveCompanion' in report, false, 'legacy liveCompanion diagnostics section must be removed');
   assert.deepEqual(report.liveMonitor, {
     status: 'listening',

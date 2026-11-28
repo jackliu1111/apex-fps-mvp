@@ -1440,7 +1440,7 @@ selectionTimeline = createSelectionTimeline({ MB, workspace, getSource: source, 
   playRange: () => { if (!$('play-selection').disabled) $('play-selection').click(); },
   toggleMute: () => player.toggleMute(),
   toggleFullscreen: () => { if (!$('player-fullscreen').disabled) $('player-fullscreen').click(); },
-  isPlayerBusy: () => playerSync.isLoading || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
+  isPlayerBusy: () => playerSync.isLoading || playerState.playing || ['loading', 'seeking'].includes(playerState.status), report: (error) => note(errorText(error)) });
 const fitSelectedClip = () => safely(() => { const clip = selectedClip(); if (clip) selectRange(clip, false); });
 if ($('quick-fit-clip')) $('quick-fit-clip').onclick = fitSelectedClip;
 $('export-format').onchange = () => { outputSettings = exportSettings({ format: $('export-format').value }); };
@@ -1483,6 +1483,7 @@ function buildDiagnosticState() {
       status: record?.status || saved.analysis?.status || null,
       phase: record?.phase,
       duration: saved.duration || record?.duration || null,
+      sizeBytes: record?.file?.size ?? saved.identity?.size ?? null,
       processedUntil: record?.processedUntil ?? saved.analysis?.processedUntil ?? null,
       width: video?.displayWidth || video?.codedWidth || null,
       height: video?.displayHeight || video?.codedHeight || null,
@@ -1526,6 +1527,7 @@ function buildDiagnosticState() {
         status: playerState.status,
         playing: playerState.playing,
         muted: playerState.muted,
+        metrics: playerState.metrics || null,
       },
     },
     liveMonitor: bridgeState?.liveMonitor || null,

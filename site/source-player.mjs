@@ -1,4 +1,4 @@
-import { createMediaReadSource } from './media-read-source.mjs';
+import { createMediaReadSource, acquirePreviewUrgent } from './media-read-source.mjs';
 
 /** Full-source, bounded preview. Times exposed to callers are relative to video origin. */
 export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudioContext = (options) => new AudioContext(options),
@@ -94,7 +94,7 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
         nextAudio = sample;
         const sourceStart = sample.timestamp - origin;
         if (sourceStart >= playbackEnd()) return;
-        if (sourceStart > currentPosition() + 0.5) return;
+        if (sourceStart > currentPosition() + 1.5) return;
         nextAudio = null;
         const offset = Math.max(0, currentPosition() - sourceStart);
         const duration = Math.min(sample.buffer.duration - offset, playbackEnd() - sourceStart - offset);
@@ -133,28 +133,33 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
     tick(ownRevision);
   }
   async function drainSeeks() {
-    while (pendingSeek) {
-      await videoIterator?.return(); videoIterator = null;
-      const ownRevision = revision;
-      const target = state.target;
-      const started = clock.now();
-      pendingSeek = false;
-      try {
-        videoIterator = videoSink.canvases(origin + Math.min(target, Math.max(0, state.duration - 0.001)), origin + state.duration);
-        const frame = (await videoIterator.next()).value;
-        if (ownRevision !== revision) continue;
-        if (!frame) throw new Error('该位置没有可解码的视频画面');
-        draw(frame); state.metrics.lastSeekMs = clock.now() - started;
-        emit({ status: 'paused' });
-        if (wantPlay) startPlayback(ownRevision);
-        else void warmNextFrame(ownRevision);
-      } catch (error) {
-        if (ownRevision !== revision) continue;
-        emit({ status: 'error', error: error.message });
-        throw error;
+    const releaseUrgent = acquirePreviewUrgent();
+    try {
+      while (pendingSeek) {
+        await videoIterator?.return(); videoIterator = null;
+        const ownRevision = revision;
+        const target = state.target;
+        const started = clock.now();
+        pendingSeek = false;
+        try {
+          videoIterator = videoSink.canvases(origin + Math.min(target, Math.max(0, state.duration - 0.001)), origin + state.duration);
+          const frame = (await videoIterator.next()).value;
+          if (ownRevision !== revision) continue;
+          if (!frame) throw new Error('该位置没有可解码的视频画面');
+          draw(frame); state.metrics.lastSeekMs = clock.now() - started;
+          emit({ status: 'paused' });
+          if (wantPlay) startPlayback(ownRevision);
+          else void warmNextFrame(ownRevision);
+        } catch (error) {
+          if (ownRevision !== revision) continue;
+          emit({ status: 'error', error: error.message });
+          throw error;
+        }
       }
+      return player.state;
+    } finally {
+      releaseUrgent();
     }
-    return player.state;
   }
   function seekTo(seconds, playRange = null) {
     if (!Number.isFinite(seconds)) return Promise.reject(new Error('定位时间无效'));
@@ -177,37 +182,42 @@ export function createSourcePlayer({ MB, canvas, onState = () => {}, createAudio
   }
   async function load(source) {
     const ownLoad = ++loadRevision;
-    await release();
-    if (ownLoad !== loadRevision) return player.state;
-    emit({ status: 'loading', playing: false, error: null, actual: null });
-    const opened = new MB.Input({ source: createMediaReadSource({ MB, file: source.file, priority: 'preview' }), formats: MB.ALL_FORMATS });
-    openingInputs.add(opened);
+    const releaseUrgent = acquirePreviewUrgent();
     try {
-      const video = await opened.getPrimaryVideoTrack();
-      const audio = await opened.getPrimaryAudioTrack();
-      if (!video || !await video.canDecode()) throw new Error('浏览器无法解码原录像画面');
-      if (audio && !await audio.canDecode()) throw new Error('浏览器无法解码原录像默认声音');
-      const sourceOrigin = source.origin ?? Math.max(0, await video.getFirstTimestamp());
-      const duration = source.duration ?? (await video.computeDuration()) - sourceOrigin;
-      if (!(duration > 0) || !Number.isFinite(duration)) throw new Error('原录像没有有效时长');
+      await release();
       if (ownLoad !== loadRevision) return player.state;
-      input = opened; audioTrack = audio; origin = sourceOrigin;
-      const dpr = Math.max(1, Math.min(globalThis.devicePixelRatio || 1, 2));
-      const stageWidth = Math.round((canvas.clientWidth || canvas.parentElement?.clientWidth || 0) * dpr);
-      const maxDecodeWidth = Math.max(1280, Math.min(2560, stageWidth));
-      canvas.width = Math.min(maxDecodeWidth, video.displayWidth);
-      canvas.height = Math.max(1, Math.round(canvas.width * video.displayHeight / video.displayWidth));
-      videoSink = new MB.CanvasSink(video, { width: canvas.width, height: canvas.height, fit: 'contain', poolSize: 2 });
-      audioSink = audio ? new MB.AudioBufferSink(audio) : null;
-      emit({ duration, playing: false });
-      return await seekTo(source.position || 0);
-    } catch (error) {
-      if (ownLoad !== loadRevision) return player.state;
-      emit({ status: 'error', playing: false, error: error.message || String(error) });
-      throw error;
+      emit({ status: 'loading', playing: false, error: null, actual: null });
+      const opened = new MB.Input({ source: createMediaReadSource({ MB, file: source.file, priority: 'preview' }), formats: MB.ALL_FORMATS });
+      openingInputs.add(opened);
+      try {
+        const video = await opened.getPrimaryVideoTrack();
+        const audio = await opened.getPrimaryAudioTrack();
+        if (!video || !await video.canDecode()) throw new Error('浏览器无法解码原录像画面');
+        if (audio && !await audio.canDecode()) throw new Error('浏览器无法解码原录像默认声音');
+        const sourceOrigin = source.origin ?? Math.max(0, await video.getFirstTimestamp());
+        const duration = source.duration ?? (await video.computeDuration()) - sourceOrigin;
+        if (!(duration > 0) || !Number.isFinite(duration)) throw new Error('原录像没有有效时长');
+        if (ownLoad !== loadRevision) return player.state;
+        input = opened; audioTrack = audio; origin = sourceOrigin;
+        const dpr = Math.max(1, Math.min(globalThis.devicePixelRatio || 1, 2));
+        const stageWidth = Math.round((canvas.clientWidth || canvas.parentElement?.clientWidth || 0) * dpr);
+        const maxDecodeWidth = Math.max(1280, Math.min(2560, stageWidth));
+        canvas.width = Math.min(maxDecodeWidth, video.displayWidth);
+        canvas.height = Math.max(1, Math.round(canvas.width * video.displayHeight / video.displayWidth));
+        videoSink = new MB.CanvasSink(video, { width: canvas.width, height: canvas.height, fit: 'contain', poolSize: 2 });
+        audioSink = audio ? new MB.AudioBufferSink(audio) : null;
+        emit({ duration, playing: false });
+        return await seekTo(source.position || 0);
+      } catch (error) {
+        if (ownLoad !== loadRevision) return player.state;
+        emit({ status: 'error', playing: false, error: error.message || String(error) });
+        throw error;
+      } finally {
+        openingInputs.delete(opened);
+        if (input !== opened) opened.dispose();
+      }
     } finally {
-      openingInputs.delete(opened);
-      if (input !== opened) opened.dispose();
+      releaseUrgent();
     }
   }
   async function seekAndStart(seconds, range) {
