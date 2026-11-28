@@ -104,3 +104,18 @@
 - [播放轴区间与导航](../../model_web_ui/browser.prototype/tests/verify-player-clip-navigation.cjs)、[全屏拖动](../../model_web_ui/browser.prototype/tests/verify-overview-scrub.cjs)、[勾选与排除](../../model_web_ui/browser.prototype/tests/verify-clip-selection.cjs)、[人工决定与候选更新](../../model_web_ui/browser.prototype/tests/review-workspace.test.mjs)
 - [目录导出](../../model_web_ui/browser.prototype/tests/verify-directory-export.cjs)、[写入错误](../../model_web_ui/browser.prototype/tests/verify-directory-errors.cjs)、[导出队列](../../model_web_ui/browser.prototype/tests/export-queue.test.mjs)、[监听接入策略](../../model_web_ui/browser.prototype/tests/auto-intake-service.test.mjs)、[会话生命周期](../../model_web_ui/browser.prototype/tests/verify-session-lifecycle.cjs)
 - [文件关闭成功作为保存边界](../adr/0006-directory-only-export.md)、[勾选与显式排除](../adr/0007-decouple-clip-selection-from-exclusion.md)、[监听目录与离线分析策略](../adr/0012-watch-folder-subordinate-analysis.md)
+
+## 4. 本地集成验收 · 2026-11-28
+
+集成分支为 `integration/end-to-end-regression`。与本地 `main` 的共同基线为 `d1b17eb`，`bcb9374` 带入了导入阶段、播放导航、全片轴及其已有测试。各票的前置条件、执行版本和实际观测在[本地工单](../../.scratch/end-to-end-regression/issues/)中。
+
+| 范围 | 实际执行与结果 |
+|---|---|
+| 标准入口 | 在集成版本 `3d9ecf2` 运行 `npm run test:e2e`，2/2 通过。运行 ID 为 `01a22259-68da-7787-abd6-2d7fe8cf0b87`，包含文件输入框至真实模型就绪的批量导入。 |
+| 逻辑回归 | `node --test model_web_ui/browser.prototype/tests/*.test.mjs`，230/230 通过，零跳过。 |
+| 浏览器专项 | macOS Chrome 158.0.8127.37，对集成工作区的独立静态服务执行 17 次，全部通过。涵盖 01 的暂停与播放两个入口、02、04–12，以及原有后台就绪、片段导航、选片、全屏拖动和目录错误专项。 |
+| B4 原生标签页 | 额外用独立可见 Chrome 和空白配置运行 `verify-background-readiness.cjs`，`REVIEW_NATIVE_CDP_URL` 指向该浏览器的回环调试地址。两轮切走和返回均观察到原生可见性事件。普通无头模式另行复跑，两轮均走模拟可见性。 |
+| 保存与刷新 | 产品按钮提交，测试控制目录授权和错误时点，OPFS 实际写入、关闭并重新打开成片。会话用例在刷新后读回全部 11,985,337 字节，摘要与刷新前相同。 |
+| Windows 实机 | [13 的录制与分析路径](../../.scratch/end-to-end-regression/issues/13-windows-live-intake.md)和[14 的逐文件耗时](../../.scratch/end-to-end-regression/issues/14-windows-batch-timings.md)分别登记。14 以原盘两份录像测量，每轮依次单选 A、单选 B、批选 A+B，共两轮。 |
+
+分支审查补强了后台完成事件的有序记录和文件关闭到保存提示之间的观测，并统一列表和诊断的阶段映射。注入同一微任务中的瞬时暂停、在真实关闭完成前短暂显示已保存，两项负对照都按预期触发断言；恢复正常实现后复跑通过。

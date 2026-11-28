@@ -8,7 +8,7 @@
 
 **执行条件**　实机验收。Windows Edge、授权使用的录像、原存储位置。
 
-**Status:** completed
+**Status:** done
 
 ## 验收标准
 

@@ -8,7 +8,7 @@
 
 **执行条件**　实机验收。可交互 Windows 桌面、Edge、OBS、系统音频共享及可写监听目录。
 
-**Status:** completed
+**Status:** done
 
 ## 验收标准
 
