@@ -26,7 +26,7 @@ async function installLiveFixture(page) {
   }));
 }
 
-async function exerciseWatch(page, directory, row) {
+async function exerciseWatch(page, directory, row, manual = false) {
   const navigations = [];
   const onNavigation = frame => { if (frame === page.mainFrame()) navigations.push(frame.url()); };
   page.on('framenavigated', onNavigation);
@@ -74,15 +74,16 @@ async function exerciseWatch(page, directory, row) {
   await page.locator('#sidebar-watch-btn').click();
   await page.waitForFunction(() => reviewApp.watchDirState.status === 'watching');
   await page.locator('#sidebar-intake-settings-btn').click();
-  await page.locator('#sidebar-auto-analyze').check();
+  await page.locator('#sidebar-auto-analyze').setChecked(!manual);
   await page.locator('#sidebar-live-toggle').click();
   await page.waitForFunction(() => document.querySelector('#sidebar-live-toggle').getAttribute('aria-pressed') === 'true');
   await page.waitForFunction(() => reviewApp.liveMonitor.getState().status === 'listening');
-  assert.equal(await page.evaluate(() => reviewApp.autoIntake.getState().autoAnalyzeUncovered),true);
+  assert.equal(await page.evaluate(() => reviewApp.autoIntake.getState().autoAnalyzeUncovered),!manual);
   await page.keyboard.press('Escape');
   // A separate file input gives the fixture writer bytes without importing into the app.
   const input = await page.evaluateHandle(() => Object.assign(document.createElement('input'), {type:'file',multiple:true}));
-  await input.setInputFiles(['C','A'].map(id => path.join(directory,id+'.mp4')));
+  const arrivals = manual ? ['A'] : ['C','A'];
+  await input.setInputFiles(arrivals.map(id => path.join(directory,id+'.mp4')));
   await input.evaluate(async input => {
     for (const file of input.files) {
       const handle = await watchFixtureDir.getFileHandle(file.name,{create:true});
@@ -91,7 +92,21 @@ async function exerciseWatch(page, directory, row) {
       await writer.close();
     }
   });
-  for (const id of ['C','A']) await row(id).locator('.library-status-badge[data-status="ready"]').waitFor({timeout:120000});
+  if (manual) {
+    const d = row('A');
+    await d.locator('.library-status-badge[data-status="unanalyzed"]').waitFor();
+    await page.evaluate(async () => {
+      await reviewApp.engineBridge.pollWatchDirectory();
+      await reviewApp.engineBridge.pollWatchDirectory();
+      await reviewApp.queue.whenIdle();
+    });
+    assert.equal(await d.count(), 1);
+    assert.equal(await d.getAttribute('data-status'), 'unanalyzed');
+    assert.deepEqual(await page.evaluate(() => offlineStarts), []);
+    console.log('Before manual start', JSON.stringify({sourceId: await d.getAttribute('data-source-id'), starts:0}));
+    await d.locator('[data-action="analyze"]').click();
+  }
+  for (const id of arrivals) await row(id).locator('.library-status-badge[data-status="ready"]').waitFor({timeout:120000});
   const result = await page.evaluate(async () => {
     for (let i=0; i<2; i++) await reviewApp.engineBridge.pollWatchDirectory();
     await reviewApp.queue.whenIdle();
@@ -109,18 +124,20 @@ async function exerciseWatch(page, directory, row) {
   assert.deepEqual(result.trace.violations,[]);
   assert.ok(result.trace.samples > 1);
   assert.deepEqual(result.loads,[]);
-  assert.equal(result.intakeCount,2);
-  assert.equal(result.records.length,3);
+  assert.equal(result.intakeCount,arrivals.length);
+  assert.equal(result.records.length,arrivals.length + 1);
   const c = result.records.find(r => r.name === 'C.mp4');
   const d = result.records.find(r => r.name === 'A.mp4');
-  for (const record of [c,d]) {
+  for (const record of (manual ? [d] : [c,d])) {
     const item = row(record.name.slice(0,-4));
     assert.equal(await item.count(),1);
     assert.equal(await item.getAttribute('data-source-id'),record.id);
     assert.equal(record.status,'complete');
   }
-  assert.equal(c.source,'live-monitor');
-  assert.equal(c.alignment,'exact');
+  if (!manual) {
+    assert.equal(c.source,'live-monitor');
+    assert.equal(c.alignment,'exact');
+  }
   assert.ok(d.windows > 0);
   assert.deepEqual(result.starts,[{name:d.name,id:d.id}]);
 }
