@@ -27,7 +27,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       while (!disposed && !paused && (record = records.find((item) => item.status === 'queued'))) {
         const { controller, current } = begin(record);
         if (record.alignment != null) record.alignment = null;
-        record.status = 'analyzing'; emit(record);
+        record.phase = null; record.status = 'analyzing'; emit(record);
         try {
           await analyze(record, {
             signal: controller.signal,
@@ -71,10 +71,10 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
   }
   const queue = {
     records, get,
-    async importFiles(files, options = {}) {
+    async importFiles(files, options = {}, allocateId = () => crypto.randomUUID()) {
       if (disposed) throw new Error('录像分析已关闭');
       const autoAnalyze = options.autoAnalyze !== false;
-      const added = [...files].map((file) => ({ id: crypto.randomUUID(), file, model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2, status: 'preparing', error: null, candidates: [], processedUntil: 0, windows: 0, frontier: -Infinity }));
+      const added = [...files].map((file) => ({ id: allocateId(), file, model: options.model || DEFAULT_MODEL, threshold: options.threshold ?? 0.2, status: 'preparing', error: null, candidates: [], processedUntil: 0, windows: 0, frontier: -Infinity }));
       records.push(...added); added.forEach(emit);
       await Promise.all(added.map((record) => prepareOne(record, { autoAnalyze })));
       return added;
@@ -97,7 +97,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       };
       if (existing) {
         jobs.get(record.id)?.abort(stopped());
-        record.status = 'preparing'; emit(record);
+        record.phase = null; record.status = 'preparing'; emit(record);
       } else {
         records.push(record); emit(record);
       }
@@ -151,7 +151,7 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       record.model = options.model || record.model; record.threshold = options.threshold ?? record.threshold; record.error = null;
       record.processedUntil = 0; record.windows = 0; record.frontier = -Infinity;
       if (record.alignment != null) record.alignment = null;
-      record.status = 'preparing'; emit(record); await prepareOne(record);
+      record.phase = null; record.status = 'preparing'; emit(record); await prepareOne(record);
       return true;
     },
     remove(id) {

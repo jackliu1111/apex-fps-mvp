@@ -610,7 +610,7 @@ test('Slice 2: ready-notifier optional browser Notification requests permission 
   assert.equal(deniedNotifier.notificationsEnabled, false);
 });
 
-test('Slice 3: visibility-return switches to latest background-ready recording, focuses its first candidate, clears badge/count, and preserves prior manual decisions', async () => {
+test('Slice 3: visibility-return polls the directory and preserves review and unread recordings', async () => {
   const env = createFakeNotifierEnv({ permission: 'granted' });
   const workspace = createReviewWorkspace();
   const uxController = createWorkspaceUxController({ storage: null });
@@ -690,25 +690,17 @@ test('Slice 3: visibility-return switches to latest background-ready recording, 
   assert.equal(uxController.isRecordingNew(idC), true);
   assert.equal(toastHistory.length, 0, 'Hidden arrivals must not show foreground toast');
 
-  // Player tabs back to browser -> immediate poll + switch to latest ready C + focus first candidate!
   visibilityState = 'visible';
-  const visResult = await controller.handleVisibilityChange('visible');
-  assert.equal(visResult.switched, true);
-  assert.equal(visResult.targetId, idC);
-  assert.equal(pollCalls, 1, 'Visibility return must trigger immediate watch-directory poll');
-  assert.equal(activeSourceId, idC);
-  assert.equal(uxController.isRecordingNew(idC), false, 'Auto-opened latest recording clears its New badge');
-  assert.equal(uxController.isRecordingNew(idB), true, 'Earlier unvisited background recording retains New badge');
-  assert.equal(readyNotifier.unseenCount, 0, 'Visibility return resets unseen title/favicon count');
-  assert.equal(env.doc.title, 'Apex Local Cut');
-
-  // Verify first non-provisional candidate (18..25) was selected and seeked
-  const savedC = workspace.getSource(idC);
-  assert.equal(seeks.length, 1);
-  assert.equal(seeks[0].sourceId, idC);
-  assert.equal(seeks[0].position, 18);
-  assert.equal(savedC.review.position, 18);
-  assert.equal(savedC.review.selectedClipId, seeks[0].clipId);
+  const visResult = await controller.handleVisibilityChange();
+  await visResult.pollPromise;
+  assert.equal(visResult.switched, false);
+  assert.equal(pollCalls, 1);
+  assert.equal(activeSourceId, idA);
+  assert.deepEqual(seeks, []);
+  assert.equal(uxController.isRecordingNew(idB), true);
+  assert.equal(uxController.isRecordingNew(idC), true);
+  assert.equal(readyNotifier.unseenCount, 2);
+  assert.equal(env.doc.title, '(2) Apex Local Cut');
 
   // Verify recording A's manual decisions remain completely untouched (ADR 0004)
   const savedA = workspace.getSource(idA);
@@ -1197,14 +1189,13 @@ test('Slice 5: index.html and i18n wire #62 restore CTA, ready toast, favicon, a
     'ready_toast_dismiss_aria',
     'ready_notification_title',
     'note_watch_dir_restored',
-    'note_visibility_switched',
   ]) {
     assert.ok(translations.en[key], `Missing EN translation: ${key}`);
     assert.ok(translations.zh[key], `Missing ZH translation: ${key}`);
   }
 });
 
-test('Slice 5 E2E: visibility-return handles 0-candidate ready recording cleanly and notification click opens target with first candidate', async () => {
+test('Slice 5 E2E: visibility-return handles 0-candidate ready recording cleanly and notification click identifies its target', async () => {
   const env = createFakeNotifierEnv({ permission: 'granted' });
   const workspace = createReviewWorkspace();
   const uxController = createWorkspaceUxController({ storage: null });
@@ -1254,11 +1245,9 @@ test('Slice 5 E2E: visibility-return handles 0-candidate ready recording cleanly
 
   visibility = 'visible';
   const res = await controller.handleVisibilityChange('visible');
-  assert.equal(res.switched, true);
-  assert.equal(res.targetId, idZero);
-  assert.deepEqual(openCalls, [{ id: idZero, first: null }]);
-  assert.equal(readyNotifier.unseenCount, 0);
-  assert.equal(env.doc.title, 'Apex Local Cut');
+  assert.equal(res.switched, false);
+  assert.deepEqual(openCalls, []);
+  assert.equal(readyNotifier.unseenCount, 1);
 });
 
 

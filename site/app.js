@@ -43,6 +43,7 @@ const $ = (id) => document.getElementById(id);
 const libraryPreview = isLibraryPreview();
 const workspacePreview = isWorkspacePreview();
 const bindings = new Map(), identified = new WeakMap(), pendingImports = new Map();
+const identifyingImports = new Set();
 const autoIngestedIds = new Set(), manualImportedIds = new Set();
 const batchRows = new Map();
 const seenCandidates = new Map();
@@ -108,9 +109,6 @@ const backgroundReadiness = createBackgroundReadinessController({
   onPollWatchDirectory: () => engineBridge?.pollWatchDirectory(),
   onToastChange() {
     renderReadyToast();
-  },
-  onBackgroundSwitch({ name }) {
-    if (name) note(t('note_visibility_switched', { name }), 'info');
   },
 });
 
@@ -387,7 +385,13 @@ async function importFiles(files, options = {}) {
   const importMessage = t('note_prep_files', { count: fileList.length });
   note(importMessage);
   let claimedEmptyFirst = false;
-  await Promise.all(fileList.map(async (file) => {
+  const incoming = fileList.map(file => ({
+    id: crypto.randomUUID(), file, status: 'identifying', intakeSource: 'manual',
+  }));
+  incoming.forEach(entry => identifyingImports.add(entry));
+  render();
+  await Promise.all(incoming.map(async entry => {
+    const { file } = entry;
     let identity = null;
     try {
       identity = await identifyFile(file);
@@ -396,7 +400,8 @@ async function importFiles(files, options = {}) {
       manualImportedIds.add(identity.id);
       const shouldMarkNew = !(wasEmpty && !claimedEmptyFirst);
       if (!shouldMarkNew) claimedEmptyFirst = true;
-      const pending = trackImport(identity.id, queue.importFiles([file], importOptions));
+      identifyingImports.delete(entry);
+      const pending = trackImport(identity.id, queue.importFiles([file], importOptions, () => entry.id));
       if (shouldMarkNew) {
         uxController.markRecordingNew(identity.id, { activeSourceId });
       }
@@ -405,6 +410,7 @@ async function importFiles(files, options = {}) {
       if (identity?.id) uxController.clearRecordingNew(identity.id);
       failures.push(`${file.name}: ${errorText(error)}`);
     } finally {
+      identifyingImports.delete(entry);
       render();
     }
   }));
@@ -412,7 +418,7 @@ async function importFiles(files, options = {}) {
   else if ($('status').textContent === importMessage) note(t('note_files_added'), 'quiet');
 }
 function buildLibrarySnapshot(selectedId = activeSourceId) {
-  const combinedRecords = [...queue.records];
+  const combinedRecords = [...queue.records, ...identifyingImports];
   const seenSourceIds = new Set(combinedRecords.map((record) => record?.sourceId).filter(Boolean));
   for (const [sourceId, record] of bindings) {
     if (record && !seenSourceIds.has(sourceId)) {
@@ -632,6 +638,17 @@ libraryIntakeControls = createLibraryIntakeControls({
   onStopWatchDir: () => safely(invokeStopWatchDir),
 });
 
+async function dispatchLibraryAction(id, item) {
+  const action = resolveReviewPrimaryAction(item);
+  if (!action || action.disabled) return;
+  if (workspacePreviewHarness && workspacePreviewHarness.runPreviewAction(id, action.kind)) {
+    render();
+    return;
+  }
+  const record = findLibraryRecord(id, item);
+  await engineBridge.dispatchPrimaryAction({ item, record, action });
+}
+
 const libraryView = createRecordingLibraryView({
   listContainer: $('queue'),
   topbarContainer: null,
@@ -642,6 +659,7 @@ const libraryView = createRecordingLibraryView({
   showSize: false,
   createEmptyGraphic: createFrameSignal,
   onReview: (id) => safely(() => openReview(id)),
+  onAnalyze: (id, item) => safely(() => dispatchLibraryAction(id, item)),
   onSelect: (id) => safely(() => openReview(id)),
   onRowTransition: (row, kind) => taskFeedback(row, kind),
 });
@@ -697,9 +715,9 @@ function renderPlayer() {
   $('player-mute').setAttribute('aria-label', $('player-mute').title);
   const position = loadedId === saved.id ? playerState.position : saved.review.position;
   $('playback-time').textContent = `${time(position)} / ${time(saved.duration)}${playerState.actual !== null && loadedId === saved.id ? ` · ${t('frame_text')} ${time(playerState.actual)}` : ''}`;
-  const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
-  $('prev-candidate').disabled = !stable.some((item) => item.start < position - 0.01);
-  $('next-candidate').disabled = !stable.some((item) => item.start > position + 0.01) && saved.analysis.status !== 'analyzing';
+  const neighbors = adjacentCandidates(saved, position);
+  $('prev-candidate').disabled = !neighbors.previous;
+  $('next-candidate').disabled = !neighbors.next && saved.analysis.status !== 'analyzing';
   const fsBtn = $('player-fullscreen');
   if (fsBtn) {
     fsBtn.disabled = !bound || isLoading || playerState.status === 'error';
@@ -1280,14 +1298,7 @@ $('nav-analysis').onclick = showAnalysis;
 if ($('review-primary-action')) {
   $('review-primary-action').onclick = () => safely(async () => {
     const item = latestLibrarySnapshot?.items.find((entry) => entry.id === activeSourceId) || null;
-    const action = resolveReviewPrimaryAction(item);
-    if (!action || action.disabled) return;
-    if (workspacePreviewHarness && workspacePreviewHarness.runPreviewAction(activeSourceId, action.kind)) {
-      render();
-      return;
-    }
-    const record = findLibraryRecord(activeSourceId, item);
-    await engineBridge.dispatchPrimaryAction({ item, record, action });
+    await dispatchLibraryAction(activeSourceId, item);
   });
 }
 $('play-pause').onclick = () => { if (playerState.playing) player.pause(); else player.play().catch((error) => note(errorText(error))); };
@@ -1342,13 +1353,21 @@ async function seek(value) {
   workspace.setReview(saved.id, { position });
   if (bindings.get(saved.id)?.file) await player.seek(position);
 }
+function adjacentCandidates(saved, position) {
+  const clips = saved.clips.filter((item) => !item.provisional && !item.excluded);
+  // Prefer the focused clip when a manual edit overlaps another candidate.
+  let index = clips.findIndex((clip) => clip.id === saved.review.selectedClipId && clip.start <= position && position <= clip.end);
+  if (index < 0) index = clips.findIndex((clip) => clip.start <= position && position < clip.end);
+  if (index >= 0) return { previous: clips[index - 1], next: clips[index + 1] };
+
+  const next = clips.findIndex((clip) => clip.start > position);
+  return { previous: next < 0 ? clips.at(-1) : clips[next - 1], next: clips[next] };
+}
 function stepCandidate(direction) {
   const saved = source(); if (!saved) return;
   const position = playerSync.loadedSourceId === saved.id ? playerState.position : saved.review.position;
-  const stable = saved.clips.filter((item) => !item.provisional && !item.excluded);
-  const clip = direction < 0
-    ? [...stable].reverse().find((item) => item.start < position - 0.01)
-    : stable.find((item) => item.start > position + 0.01);
+  const neighbors = adjacentCandidates(saved, position);
+  const clip = direction < 0 ? neighbors.previous : neighbors.next;
   if (clip) return selectRange(clip);
   if (direction < 0) note(t('note_no_earlier_candidate'));
   else note(saved.analysis.status === 'analyzing' ? t('note_tail_analyzing') : t('note_no_later_candidate'));
@@ -1443,7 +1462,7 @@ onLanguageChange(() => {
 
 // Session state is intentionally not written to browser storage.
 const shouldWarnOnLeave = () => !preview && !libraryPreview && !workspacePreview && (
-  pendingImports.size > 0 || (engineBridge?.watchDirState.processingCount || 0) > 0 ||
+  identifyingImports.size > 0 || pendingImports.size > 0 || (engineBridge?.watchDirState.processingCount || 0) > 0 ||
   queue.records.some(record => ['preparing', 'queued', 'analyzing'].includes(record.status)) ||
   view.sources.some(item => item.hasUnexportedChanges) ||
   view.batches.some(batch => ['awaiting-destination', 'queued', 'running'].includes(batch.status))
@@ -1462,6 +1481,7 @@ function buildDiagnosticState() {
     const tracks = Array.isArray(record?.tracks) ? record.tracks : [];
     return {
       status: record?.status || saved.analysis?.status || null,
+      phase: record?.phase,
       duration: saved.duration || record?.duration || null,
       processedUntil: record?.processedUntil ?? saved.analysis?.processedUntil ?? null,
       width: video?.displayWidth || video?.codedWidth || null,
@@ -1476,9 +1496,10 @@ function buildDiagnosticState() {
       error: record?.error || saved.analysis?.error || null,
     };
   });
-  for (const record of queue.records) {
+  for (const record of [...queue.records, ...identifyingImports]) {
     if (record.sourceId) continue;
     sources.push({
+      phase: record.phase,
       status: record.status || null,
       duration: record.duration || null,
       processedUntil: record.processedUntil ?? null,

@@ -48,7 +48,7 @@ async function readModel(url) {
       }
       received += value.length;
       if (performance.now() - lastUpdate > 250 || (hasLength && received === total)) {
-        self.postMessage({ type: 'status', progress: hasLength ? received / total : null,
+        self.postMessage({ type: 'status', phase: 'model', progress: hasLength ? received / total : null,
           message: hasLength
             ? `正在下载模型：${(received / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} MiB`
             : `正在下载模型：${(received / 1048576).toFixed(1)} MiB` });
@@ -89,7 +89,7 @@ self.onmessage = async ({ data }) => {
         url: assets.onnxUrl,
         manifest: data.manifest,
         download: readModel,
-        onStatus: message => self.postMessage({ type: 'status', progress: null, message }),
+        onStatus: message => self.postMessage({ type: 'status', phase: 'model', progress: null, message }),
       });
       if (assets.frontendUrl) {
         const response = await fetch(assets.frontendUrl);
@@ -101,13 +101,13 @@ self.onmessage = async ({ data }) => {
         frontend = createFrontend();
       }
       timings.readMs = performance.now() - started;
-      self.postMessage({ type: 'status', progress: null, message: '模型读取完成，正在初始化 WASM 推理引擎…' });
+      self.postMessage({ type: 'status', phase: 'model', progress: null, message: '模型读取完成，正在初始化 WASM 推理引擎…' });
       started = performance.now();
       session = await ort.InferenceSession.create(bytes, { executionProviders: ['wasm'] });
       loadedKey = requestKey;
       timings.initializeMs = performance.now() - started;
     }
-    self.postMessage({ type: 'status', progress: null, message: '模型已就绪，正在计算当前音频窗口…' });
+    self.postMessage({ type: 'status', phase: 'inference', progress: null, message: '模型已就绪，正在计算当前音频窗口…' });
     const frontendStarted = performance.now();
     const features = frontend(data.waveform);
     timings.frontendMs = assets.frontendUrl ? performance.now() - frontendStarted : 0;

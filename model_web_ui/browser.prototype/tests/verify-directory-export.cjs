@@ -47,9 +47,82 @@ const base = process.env.REVIEW_URL || 'http://127.0.0.1:18806';
     await page.locator('.batch-start').click();
     await page.waitForFunction(() => /尚未选择/.test(reviewApp.workspace.view().batches[0].error));
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), true);
-    await page.evaluate(() => { pickerMode = 'select'; });
+    await page.evaluate(() => {
+      pickerMode = 'select';
+      const gate = Promise.withResolvers();
+      window.releaseClose = gate.resolve;
+      const original = testDirectory.getFileHandle.bind(testDirectory);
+      testDirectory.getFileHandle = async (...args) => {
+        const file = await original(...args);
+        if (!args[1]?.create) return file;
+        const createWritable = file.createWritable.bind(file);
+        file.createWritable = async () => {
+          const writer = await createWritable();
+          const close = writer.close.bind(writer);
+          writer.close = async () => {
+            window.closingFile = file.name;
+            await gate.promise;
+            await close();
+            // Drain mutations queued before native fulfillment, before moving the boundary.
+            observePublication(summaryObserver.takeRecords());
+            window.closeFulfilled = true;
+          };
+          return writer;
+        };
+        return file;
+      };
+      window.closeFulfilled = false;
+      window.publications = [];
+      const summary = document.querySelector('.batch-summary');
+      const outputs = document.querySelector('.batch-outputs');
+      window.observePublication = records => {
+        for (const record of records) {
+          if (record.target === outputs) {
+            for (const node of record.addedNodes) {
+              if (node.matches?.('.output-item')) publications.push({ kind: 'output', closeFulfilled });
+            }
+          } else {
+            const texts = record.type === 'characterData'
+              ? [record.oldValue, record.target.textContent]
+              : Array.from(record.addedNodes, node => node.textContent);
+            if (texts.some(text => /已完成 1 \/ 1/.test(text))) publications.push({ kind: 'saved count', closeFulfilled });
+          }
+        }
+      };
+      window.summaryObserver = new MutationObserver(observePublication);
+      summaryObserver.observe(summary, { childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+      summaryObserver.observe(outputs, { childList: true });
+    });
     await page.locator('.batch-start').click();
+    await page.waitForFunction(() => window.closingFile);
+    assert.match(await page.locator('.batch-summary').innerText(), /已完成 0 \/ 1/);
+    assert.equal(await page.locator('.output-item').count(), 0);
+    await page.evaluate(() => releaseClose());
     await page.waitForFunction(() => reviewApp.workspace.view().batches[0].status === 'completed');
+    assert.match(await page.locator('.batch-summary').innerText(), /已完成 1 \/ 1/);
+    const publications = await page.evaluate(() => {
+      observePublication(summaryObserver.takeRecords());
+      summaryObserver.disconnect();
+      return window.publications;
+    });
+    assert.ok(publications.every(event => event.closeFulfilled), JSON.stringify(publications));
+    assert.deepEqual(new Set(publications.map(event => event.kind)), new Set(['output', 'saved count']));
+    const decoded = await page.evaluate(async () => {
+      const MB = await import('/assets/vendor/mediabunny.mjs');
+      const names = Array.fromAsync(testDirectory.keys());
+      const file = await (await testDirectory.getFileHandle(closingFile)).getFile();
+      const input = new MB.Input({ source: new MB.BlobSource(file), formats: MB.ALL_FORMATS });
+      try {
+        const track = await input.getPrimaryVideoTrack();
+        const frame = await new MB.CanvasSink(track).getCanvas(0.25);
+        return { names: await names, name: file.name, duration: await input.computeDuration(), width: frame?.canvas.width };
+      } finally { input.dispose(); }
+    });
+    assert.deepEqual(decoded.names, [decoded.name]);
+    assert.ok((await page.locator('.output-item').textContent()).includes(decoded.name));
+    assert.equal(decoded.width, 640);
+    assert.ok(Math.abs(decoded.duration - 0.5) <= 1 / 12, JSON.stringify(decoded));
+    console.log('PASS close gate and independent OPFS decode:', decoded);
     assert.equal(await page.evaluate(() => reviewApp.workspace.view().batches[0].outputs[0].saved), true);
     assert.equal(await page.evaluate(() => reviewApp.shouldWarnOnLeave()), false);
     // Subsequent submissions reuse the selected directory without another picker.

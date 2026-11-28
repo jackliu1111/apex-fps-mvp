@@ -172,7 +172,7 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     const visible = items.filter((item) => item.start < high && item.end > low);
     const axisWidth = predictions.clientWidth || 0;
     const effectiveAxisWidth = axisWidth > 0 ? axisWidth : 960;
-    const nextMarkerKey = `${source.id}:${low}:${high}:${Math.round(axisWidth)}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
+    const nextMarkerKey = `${source.id}:${source.analysis.status}:${low}:${high}:${Math.round(axisWidth)}:${showExcluded}:${isZh}:${source.review.selectedClipId}:${items.length}:${visible.map((item) => `${item.id}:${item.start}:${item.end}:${item.excluded}:${item.provisional}:${item.supplemental}:${item.selected}:${item.label}`).join(',')}:${source.decisions.map((d) => `${d.id}:${d.kind}:${d.range.start}:${d.range.end}`).join(',')}`;
     if (markerRenderKey === nextMarkerKey) return;
     markerRenderKey = nextMarkerKey;
     const span = Math.max(1e-6, high - low);
@@ -276,10 +276,13 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
       });
     });
     if ($('prediction-empty')) {
+      const emptyHint = source.analysis.status === 'completed'
+        ? t('prediction_empty_completed')
+        : (isZh ? '候选将随分析逐步出现，也可从当前位置添加选片。' : 'Candidates will appear as analysis proceeds; you can also add clips manually.');
       $('prediction-empty').textContent = !items.length
         ? source.clips.some((clip) => clip.excluded)
           ? (isZh ? '片段已排除，勾选“显示已排除”可查看并恢复。' : 'Clips are excluded. Check "Show excluded" to view and restore.')
-          : (isZh ? '候选将随分析逐步出现，也可从当前位置添加选片。' : 'Candidates will appear as analysis proceeds; you can also add clips manually.')
+          : emptyHint
         : !visible.length
           ? (isZh ? '当前视野无候选，可点击「全片」查看。' : 'No candidates in this view; fit all to inspect.')
           : '';
@@ -353,14 +356,15 @@ export function createSelectionTimeline({ MB, workspace, getSource, getRecord, s
     $('prediction-playhead').hidden = !headVisible;
     if (headVisible) $('prediction-playhead').style.left = `${overviewPosition / overviewSpan * 100}%`;
     if ($('player-overview-markers')) {
-      const overviewItems = source.clips.filter((item) => !item.excluded && !item.provisional);
-      const nextMarkerKey = `${source.id}:${overviewSpan}:${source.review.selectedClipId}:${overviewItems.map((item) => `${item.id}:${item.start}:${item.end}`).join(',')}`;
+      const overviewItems = source.clips.filter((item) => !item.excluded);
+      const nextMarkerKey = `${source.id}:${source.analysis.status}:${overviewSpan}:${source.review.selectedClipId}:${overviewItems.map((item) => `${item.id}:${item.start}:${item.end}:${item.provisional}`).join(',')}`;
       if (overviewMarkerKey !== nextMarkerKey) {
         overviewMarkerKey = nextMarkerKey;
         $('player-overview-markers').replaceChildren(...overviewItems.map((item) => {
           const spanEl = document.createElement('span');
           spanEl.style.left = `${Math.max(0, item.start / overviewSpan * 100)}%`;
-          spanEl.style.width = `${Math.max(0.6, (item.end - item.start) / overviewSpan * 100)}%`;
+          spanEl.style.width = `${(item.end - item.start) / overviewSpan * 100}%`;
+          spanEl.dataset.provisional = String(!!item.provisional);
           spanEl.dataset.active = String(item.id === source.review.selectedClipId);
           return spanEl;
         }));

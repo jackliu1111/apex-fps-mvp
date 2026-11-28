@@ -1368,15 +1368,17 @@ body:has(#review-page:not([hidden])) .workspace-status[hidden] {
 }
 #review-page .player-overview-markers > span {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
-  border-radius: 3px;
+  top: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  border-radius: 1px;
   background: rgba(113, 113, 122, 0.25);
   border: 1px solid rgba(113, 113, 122, 0.38);
 }
+#review-page .player-overview-markers > span[data-provisional="true"] {
+  border-style: dashed;
+}
 #review-page .player-overview-markers > span[data-active="true"] {
-  top: 2px;
-  bottom: 2px;
   background: rgba(59, 130, 246, 0.24);
   border-color: #3b82f6;
 }
@@ -1637,7 +1639,7 @@ body:has(.player-frame[data-fullscreen="true"]) .app-header {
 #review-page .player-frame:fullscreen .player-overview-markers > span[data-active="true"],
 #review-page .player-frame:-webkit-full-screen .player-overview-markers > span[data-active="true"],
 #review-page .player-frame[data-fullscreen="true"] .player-overview-markers > span[data-active="true"] {
-  background: #93c5fd;
+  background: rgba(147, 197, 253, 0.32);
   border-color: #dbeafe;
 }
 #review-page .player-frame:fullscreen .player-overview-playhead,

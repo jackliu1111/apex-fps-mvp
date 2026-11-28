@@ -105,7 +105,7 @@ export function createBrowserAnalysis({
       worker = new WorkerCtor(new URL('./inference-worker.js', import.meta.url), { type: 'module' });
       workerModel = spec.id;
       worker.onmessage = ({ data }) => {
-        if (data.type === 'status') { activeRequest?.progress({ message: data.message, modelLoadProgress: data.progress }); return; }
+        if (data.type === 'status') { activeRequest?.progress({ phase: data.phase, message: data.message, modelLoadProgress: data.progress }); return; }
         if (data.id !== activeRequest?.id) return;
         if (data.type === 'error') activeRequest.reject(new Error(data.message));
         else activeRequest.resolve(data);
@@ -143,12 +143,17 @@ export function createBrowserAnalysis({
       const started = performance.now();
       const input = new MB.Input({ source: createMediaReadSource({ MB, file: record.file }), formats: MB.ALL_FORMATS });
       try {
+        record.phase = 'video';
+        onChange(record);
         const video = await input.getPrimaryVideoTrack(); signal.throwIfAborted();
         if (!video) throw new Error('文件不包含视频轨道');
-        const tracks = await input.getAudioTracks(); signal.throwIfAborted();
         const origin = Math.max(0, await video.getFirstTimestamp());
         const duration = await video.computeDuration() - origin;
         if (!Number.isFinite(duration) || duration <= 0) throw new Error('无法确定有效视频时长');
+        signal.throwIfAborted();
+        record.phase = 'audioTracks';
+        onChange(record);
+        const tracks = await input.getAudioTracks(); signal.throwIfAborted();
         const audio = await chooseAudioTracks(input, tracks); signal.throwIfAborted();
         return { input, video, tracks, origin, duration, ...audio, importMs: performance.now() - started };
       } catch (error) { input.dispose(); throw error; }
@@ -156,9 +161,11 @@ export function createBrowserAnalysis({
     async analyze(record, { signal, publish, progress }) {
       const started = performance.now();
       const check = () => signal.throwIfAborted();
+      progress({ phase: 'model' });
       const { spec, manifest, validated } = await modelMetadata(record.model, signal);
       const indices = validated.gunshotIndices;
       const track = record.tracks[record.selected];
+      progress({ phase: 'audio' });
       const audioOrigin = Math.max(0, await track.getFirstTimestamp()); check();
       const duration = await track.computeDuration() - audioOrigin; check();
       if (!Number.isFinite(duration) || duration <= 0) throw new Error('音轨没有有效采样');
@@ -201,13 +208,14 @@ export function createBrowserAnalysis({
         const prefetch = () => stream.next().then((value) => { onWaveform(record, record.waveform); return { value }; }, (error) => { onWaveform(record, record.waveform); return { error }; });
         ahead = prefetch();
         for (let index = 0; index < windows; index++) {
-          check(); progress({ message: `正在分析第 ${index + 1} / ${windows} 个窗口`, totalWindows: windows });
+          check(); progress({ phase: 'audio', message: `正在分析第 ${index + 1} / ${windows} 个窗口`, totalWindows: windows });
           const audioWaitStarted = performance.now();
           const decoded = await ahead;
           metrics.audioWaitMs += performance.now() - audioWaitStarted;
           if (decoded.error) throw decoded.error;
           check();
           const inferenceStarted = performance.now();
+          progress({ phase: 'inference' });
           const inference = infer(decoded.value, spec, manifest, signal, progress);
           ahead = index + 1 < windows ? prefetch() : null;
           const result = await inference; check();

@@ -6,7 +6,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
   try {
     const page = await browser.newPage();
     const errors = [];
-    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error') console.error('Browser console:', message.text());
+    });
+    page.on('pageerror', error => { console.error('Page error:', error); errors.push(error.message); });
     await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:18796');
     await page.waitForFunction(() => window.reviewApp);
     await page.evaluate(() => reviewApp.ready);
@@ -22,6 +25,15 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => reviewApp.workspace.view().sources.length === 1);
     assert.equal(await page.evaluate(() => reviewApp.workspace.view().sources[0].identity.name), 'import-button.webm');
     assert.equal(await button.isEnabled(), true, 'Import must remain available after queue updates');
+    const analyzed = await page.evaluate(async () => {
+      await reviewApp.queue.whenIdle();
+      const [record] = reviewApp.queue.records;
+      return { name: record?.file.name, status: record?.status, windows: record?.windows, error: record?.error };
+    });
+    assert.equal(analyzed.name, 'import-button.webm');
+    assert.equal(analyzed.status, 'complete', JSON.stringify(analyzed));
+    assert.ok(analyzed.windows > 0, JSON.stringify(analyzed));
+    console.log('File chooser to production model:', analyzed);
     await page.locator('#nav-exports').click();
     await page.locator('#nav-analysis').click();
     assert.equal(await button.isEnabled(), true, 'Returning to analysis must preserve import availability');

@@ -13,9 +13,7 @@
 //     that switches to the recording, jumps to its first candidate, clears badge/title/favicon, and
 //     preserves the previous recording's manual review decisions (ADR 0004).
 //  5. Background-tab ready recording (verified both deterministically and with a genuinely backgrounded
-//     second Chrome tab + real OPFS watch folder) switches on `visibilitychange -> visible` to the
-//     latest ready recording, focuses its first candidate, clears `新` badge + title/favicon count,
-//     and preserves prior manual decisions.
+//     second Chrome tab) stays unread until the user opens its row. Returning also polls OPFS.
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 
@@ -32,7 +30,7 @@ async function assertHeaderInvariant(page, widths, label) {
       const nav = document.querySelector('.app-header .navigation');
       const wrapped = [...nav.children].filter((item) => {
         const range = document.createRange();
-        range.selectNodeContents(item);
+        range.selectNodeContents(item.querySelector('[data-i18n]') || item);
         return new Set([...range.getClientRects()].map((rect) => rect.top)).size > 1;
       }).map((item) => item.textContent);
       return {
@@ -67,9 +65,13 @@ async function assertDesktopZeroScroll(page, width, height, label) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE, headless: true });
+  // For native tab visibility, point this at a dedicated Chrome with a fresh test profile.
+  const nativeEndpoint = process.env.REVIEW_NATIVE_CDP_URL;
+  const browser = nativeEndpoint
+    ? await chromium.connectOverCDP(nativeEndpoint, { noDefaults: true })
+    : await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE, headless: true });
   try {
-    const context = await browser.newContext({
+    const context = nativeEndpoint ? browser.contexts()[0] : await browser.newContext({
       viewport: { width: 1440, height: 900 },
       ignoreHTTPSErrors: process.env.REVIEW_IGNORE_HTTPS_ERRORS === '1',
     });
@@ -327,8 +329,8 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     assert.equal(afterToastOpen.reviewPosB, afterToastOpen.expectedStartB);
 
     // -------------------------------------------------------------------------
-    // 5. Real background Chrome tab + visibility-return auto-switch to latest ready recording
-    //    with first-candidate focus + real OPFS watch-folder background discovery!
+    // 5. Real background Chrome tab + visibility-return preserves the current recording
+    //    and real OPFS watch-folder background discovery
     // -------------------------------------------------------------------------
     // Add a manual decision on B before backgrounding the tab
     const manualIdB = await page.evaluate((idB) => {
@@ -336,12 +338,16 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     }, fgIds.idB);
 
     // Open a second Chrome tab; if headless Chrome keeps background tab 'visible', fall back to dispatching real visibilitychange.
-    const otherTab = await context.newPage();
+    const opened = page.waitForEvent('popup');
+    await page.evaluate(() => window.open('about:blank', '_blank'));
+    const otherTab = await opened;
     await otherTab.setContent('<h1>Game Foreground Tab</h1>');
     async function setWorkspaceBackgrounded(hidden) {
       if (hidden) {
         await otherTab.bringToFront();
         const nativeHidden = await page.waitForFunction(() => document.visibilityState === 'hidden', null, { timeout: 600 }).then(() => true).catch(() => false);
+        console.log('Workspace hidden event:', nativeHidden ? 'native tab' : 'simulated visibility');
+        if (nativeEndpoint) assert.ok(nativeHidden, 'Chrome must hide the workspace tab');
         if (!nativeHidden) {
           await page.evaluate(() => window.__setForcedVisibility('hidden'));
         }
@@ -349,6 +355,8 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       } else {
         await page.bringToFront();
         const nativeVisible = await page.waitForFunction(() => document.visibilityState === 'visible', null, { timeout: 600 }).then(() => true).catch(() => false);
+        console.log('Workspace visible event:', nativeVisible ? 'native tab' : 'simulated visibility');
+        if (nativeEndpoint) assert.ok(nativeVisible, 'Chrome must restore the workspace tab');
         if (!nativeVisible) {
           await page.evaluate(() => window.__setForcedVisibility(null));
         }
@@ -386,33 +394,18 @@ async function assertDesktopZeroScroll(page, width, height, label) {
     assert.equal(await page.locator('#ready-toast').isHidden(), true);
     assert.equal(await page.evaluate(() => window.__notifTest.getFocusCalls()), 0);
 
-    // Bring workspace tab back to foreground -> real visibilitychange triggers auto-switch to C + first candidate!
     await setWorkspaceBackgrounded(false);
-    await page.waitForFunction((target) => window.reviewApp.activeSourceId === target, idC);
-
-    const bgReturn = await page.evaluate(({ idB, manualIdB, idC }) => {
-      const srcB = window.reviewApp.workspace.getSource(idB);
-      const srcC = window.reviewApp.workspace.getSource(idC);
-      const firstC = srcC.clips.find((c) => !c.provisional && !c.excluded);
-      return {
-        title: document.title,
-        iconHref: document.getElementById('app-favicon').getAttribute('href'),
-        preservedB: srcB.clips.some((c) => c.id === manualIdB),
-        selectedClipC: srcC.review.selectedClipId,
-        expectedFirstC: firstC?.id || null,
-        reviewPosC: srcC.review.position,
-        expectedStartC: firstC?.start ?? null,
-        newBadgeHiddenC: document.querySelector(`#queue .file[data-source-id="${idC}"] .library-new-badge`)?.hidden,
-      };
-    }, { idB: fgIds.idB, manualIdB, idC });
-
-    assert.equal(bgReturn.title, baseTitleZh, 'Visibility return must restore clean base title');
-    assert.equal(bgReturn.iconHref, baseIconHref, 'Visibility return must restore original favicon');
-    assert.equal(bgReturn.preservedB, true, 'Previous recording B manual decision must remain intact');
-    assert.ok(bgReturn.expectedFirstC);
-    assert.equal(bgReturn.selectedClipC, bgReturn.expectedFirstC);
-    assert.equal(bgReturn.reviewPosC, bgReturn.expectedStartC);
-    assert.equal(bgReturn.newBadgeHiddenC, true);
+    await settleFrames(page);
+    assert.equal(await page.evaluate(() => window.reviewApp.activeSourceId), fgIds.idB);
+    assert.equal(await page.evaluate(() => document.title), `(1) ${baseTitleZh}`);
+    const readyRow = page.locator(`#queue .file[data-source-id="${idC}"]`);
+    assert.equal(await readyRow.locator('.library-new-badge').isVisible(), true);
+    assert.ok(await page.evaluate(({id, clip}) => reviewApp.workspace.getSource(id).clips.some(c => c.id === clip),
+      {id: fgIds.idB, clip: manualIdB}));
+    await readyRow.click();
+    await page.waitForFunction(id => reviewApp.activeSourceId === id, idC);
+    assert.equal(await page.evaluate(() => document.title), baseTitleZh);
+    assert.equal(await readyRow.locator('.library-new-badge').isHidden(), true);
 
     // -------------------------------------------------------------------------
     // 6. Real OPFS background-tab file discovery: switch to real OPFS watch folder, background tab,
@@ -442,8 +435,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       await writable.close();
     }, bgFileName);
 
-    // Wait briefly in background, then switch back to workspace tab -> immediate poll + normal timer ingests it!
-    await new Promise((r) => setTimeout(r, 1200));
+    // A successful close makes this file eligible for discovery on visibility return.
     await setWorkspaceBackgrounded(false);
     await page.waitForFunction(
       (name) => window.reviewApp.workspace.view().sources.some((s) => s.identity.name === name),
@@ -453,7 +445,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
 
     await otherTab.close();
     assert.deepEqual(pageErrors, [], `Unexpected page errors: ${pageErrors.join('; ')}`);
-    console.log('PASS: watch-dir IndexedDB auto-restore, 54px restore CTA header, opt-in notifications, foreground ready toast, visibility-return jump, and real background-tab OPFS discovery');
+    console.log('PASS: watch-dir IndexedDB auto-restore, 54px restore CTA header, opt-in notifications, foreground ready toast, visibility-return review retention, and real background-tab OPFS discovery');
   } finally {
     await browser.close();
   }

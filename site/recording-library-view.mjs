@@ -21,6 +21,12 @@ function setText(node, text) {
 }
 
 function formatStatusLabel(item, translate) {
+  const phaseKey = {
+    identifying: 'library_read_file', preparing: 'status_preparing', video: 'library_read_video',
+    audioTracks: 'library_read_tracks', queued: 'library_queued', audio: 'library_load_audio',
+    model: 'library_load_model', failed: 'outcome_failed', stopped: 'library_stopped',
+  }[item.phase];
+  if (phaseKey) return translate(phaseKey);
   switch (item.status) {
     case 'ready':
       return translate('library_status_ready');
@@ -44,13 +50,11 @@ function formatSummaryLabel(item, translate) {
   return candidates;
 }
 
-function formatIdentityMeta(item, { showSize, translate }) {
+function formatIdentityMeta(item, showSize) {
   const parts = [];
   if (item.recordedTimeText) parts.push(item.recordedTimeText);
   if (item.durationText) {
     parts.push(item.durationText);
-  } else if (item.status === 'analyzing') {
-    parts.push(translate('status_preparing'));
   }
   if (showSize && item.sizeText) parts.push(item.sizeText);
   return parts.join(' · ');
@@ -241,6 +245,14 @@ export function createRecordingLibraryView({
 
     let actionsRefs = null;
     let railRefs = null;
+    const analyzeBtn = createNode(doc, 'button', 'library-action-btn library-action-primary');
+    analyzeBtn.setAttribute('type', 'button');
+    analyzeBtn.dataset.action = 'analyze';
+    analyzeBtn.onclick = (event) => {
+      event?.stopPropagation?.();
+      if (row._item) onAnalyze(row._item.id, row._item);
+    };
+
     if (showActions) {
       // Block 4: Minimal Action Buttons (1 primary action + secondary reanalyze ONLY for coarse)
       const actionsWrap = createNode(doc, 'div', 'row file-actions library-row-actions');
@@ -262,14 +274,6 @@ export function createRecordingLibraryView({
         if (row._item) onReanalyze(row._item.id, row._item);
       };
 
-      const analyzeBtn = createNode(doc, 'button', 'library-action-btn library-action-primary');
-      analyzeBtn.setAttribute('type', 'button');
-      analyzeBtn.dataset.action = 'analyze';
-      analyzeBtn.onclick = (event) => {
-        event?.stopPropagation?.();
-        if (row._item) onAnalyze(row._item.id, row._item);
-      };
-
       const stopBtn = createNode(doc, 'button', 'quiet library-action-btn library-action-stop');
       stopBtn.setAttribute('type', 'button');
       stopBtn.dataset.action = 'stop';
@@ -285,6 +289,7 @@ export function createRecordingLibraryView({
       row.setAttribute('role', 'option');
       row.setAttribute('tabindex', '0');
       row.onkeydown = (event) => {
+        if (event.target && event.target !== row) return;
         if (event?.key === 'Enter' || (event?.key === ' ' && !row._item?.selected)) {
           event.preventDefault?.();
           triggerSelect();
@@ -300,7 +305,7 @@ export function createRecordingLibraryView({
       railCell.append(railDot, railTime, railNewDot);
       railRefs = { railCell, railDot, railTime, railNewDot };
 
-      row.append(identity, statusWrap, summaryWrap, railCell);
+      row.append(identity, statusWrap, summaryWrap, analyzeBtn, railCell);
     }
 
     row._refs = {
@@ -311,6 +316,7 @@ export function createRecordingLibraryView({
       statusBadge,
       summaryText,
       actionsRefs,
+      analyzeBtn,
       railRefs,
     };
     return row;
@@ -334,6 +340,11 @@ export function createRecordingLibraryView({
       row.setAttribute('aria-label', ariaParts.join(' · '));
     }
 
+    if (!showActions) {
+      const button = row._refs.analyzeBtn;
+      button.hidden = item.intakeSource !== 'auto' || item.primaryAction !== 'analyze' || item.canAnalyze === false || item.selected;
+      if (!button.hidden) setText(button, translate('library_action_analyze'));
+    }
     const { filename, newBadge, meta, statusBadge, summaryText, actionsRefs, railRefs } = row._refs;
 
     setText(filename, item.filename);
@@ -342,9 +353,10 @@ export function createRecordingLibraryView({
     newBadge.hidden = !item.isNew;
     if (item.isNew) setText(newBadge, translate('library_new_badge'));
 
-    setText(meta, formatIdentityMeta(item, { showSize, translate }));
+    setText(meta, formatIdentityMeta(item, showSize));
 
     statusBadge.dataset.status = item.status;
+    statusBadge.dataset.phase = item.phase;
     setText(statusBadge, statusLabel);
 
     setText(summaryText, formatSummaryLabel(item, translate));

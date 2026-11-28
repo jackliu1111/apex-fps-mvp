@@ -59,6 +59,10 @@ class StaticServer(ThreadingHTTPServer):
 
 
 class StaticHandler(SimpleHTTPRequestHandler):
+    # Module loading requires JavaScript MIME even on hosts with custom file associations.
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map,
+                      '.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm'}
+
     def do_GET(self):
         if urlsplit(self.path).path == '/demo/manifest.json':
             sample = self.server.sample
