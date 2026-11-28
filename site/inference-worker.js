@@ -21,7 +21,7 @@ async function readModel(url) {
   };
   resetDeadline();
   try {
-    self.postMessage({ type: 'status', message: '正在连接模型文件…' });
+    self.postMessage({ type: 'status', phase: 'model', progress: null, message: '正在连接模型文件…' });
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
       const error = new Error(`HTTP ${response.status}`);

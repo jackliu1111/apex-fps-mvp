@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { candidatesFromScores, chooseAudioTracks, createBrowserAnalysis, modelManifestUrl } from '../../../site/browser-analysis.mjs';
+import { projectRecordingLibrary } from '../../../site/recording-library-projection.mjs';
+import { createRecordingLibraryView } from '../../../site/recording-library-view.mjs';
+import { translations } from '../../../site/i18n.js';
 import { groupScoreColumns } from '../../../site/waveform-layers.mjs';
 import { DEFAULT_MODEL, createModelRegistry, resolveModelAssets, validateModelManifest, validateInferenceOutput } from '../../../site/model-registry.mjs';
 
@@ -519,4 +522,131 @@ test('createBrowserAnalysis serializes custom registered model spec across Worke
   });
   assert.equal(record.candidates.length, 1);
   assert.equal(terminated, 0);
+});
+
+test('createBrowserAnalysis drives monotonic status badges without audio/percentage oscillation across multi-window batch imports', async () => {
+  const classes = ['Speech', 'Gunshot, gunfire', 'Music', 'Machine gun'];
+  const manifest = {
+    model: 'EfficientSED',
+    modelFile: 'fmn10-tf256.onnx',
+    sha256: 'abc123',
+    bytes: 1024,
+    classes,
+    sampleRate: 16000,
+    windowSeconds: 10,
+    strideSeconds: 5,
+    frameSeconds: 0.04,
+    scoreType: 'frame',
+    output: [1, 250, classes.length],
+  };
+
+  let loaded = false;
+  class StatusWorker {
+    constructor() {
+      this.onmessage = null;
+      this.onerror = null;
+    }
+    postMessage(msg) {
+      queueMicrotask(() => {
+        if (!loaded) {
+          this.onmessage?.({ data: { type: 'status', message: '正在连接模型文件…' } });
+          this.onmessage?.({ data: { type: 'status', phase: 'model', progress: 0.5, message: '正在下载模型' } });
+          this.onmessage?.({ data: { type: 'status', phase: 'model', progress: null, message: '正在初始化 WASM…' } });
+          loaded = true;
+        }
+        this.onmessage?.({ data: { type: 'status', phase: 'inference', progress: null, message: '正在计算窗口…' } });
+        const values = new Float32Array(250 * classes.length);
+        this.onmessage?.({ data: { id: msg.id, type: 'result', values, dims: [1, 250, classes.length], timings: { inferenceMs: 2 } } });
+      });
+    }
+    terminate() {}
+  }
+
+  function makeFakeDom() {
+    const makeEl = (tag) => {
+      const el = {
+        tagName: tag.toUpperCase(), className: '', textContent: '', title: '', hidden: false, disabled: false,
+        dataset: {}, attributes: {}, children: [], parentNode: null,
+        classList: { toggle() {} },
+        setAttribute(k, v) { this.attributes[k] = String(v); },
+        removeAttribute(k) { delete this.attributes[k]; },
+        append(...nodes) { for (const n of nodes) { if (!n) continue; if (n.parentNode) n.remove(); n.parentNode = this; this.children.push(n); } },
+        replaceChildren(...nodes) { for (const c of this.children) c.parentNode = null; this.children = []; this.append(...nodes); },
+        remove() { if (!this.parentNode) return; const i = this.parentNode.children.indexOf(this); if (i >= 0) this.parentNode.children.splice(i, 1); this.parentNode = null; },
+      };
+      el.ownerDocument = doc;
+      return el;
+    };
+    const doc = { createElement: makeEl };
+    return doc;
+  }
+
+  const doc = makeFakeDom();
+  const listContainer = doc.createElement('div');
+  const translate = (key, params = {}) => {
+    let text = translations.zh[key] || translations.en[key] || key;
+    for (const [k, v] of Object.entries(params)) text = text.replaceAll(`{${k}}`, String(v));
+    return text;
+  };
+  const view = createRecordingLibraryView({ listContainer, doc, showActions: false, showSize: false, translate });
+
+  const historyByFile = new Map();
+  const recordSnapshot = () => {
+    view.render(projectRecordingLibrary({ records: queue.records }));
+    for (const row of listContainer.children) {
+      const name = row._refs?.filename?.textContent;
+      const badge = row._refs?.statusBadge;
+      if (!name || !badge) continue;
+      const entry = { status: badge.dataset.status, phase: badge.dataset.phase, label: badge.textContent };
+      const list = historyByFile.get(name) || [];
+      const prev = list.at(-1);
+      if (!prev || prev.status !== entry.status || prev.phase !== entry.phase || prev.label !== entry.label) {
+        list.push(entry);
+        historyByFile.set(name, list);
+      }
+    }
+  };
+
+  const { MB, openAudioStream } = createFakeMediaBoundary({ duration: 30, audioDuration: 30 });
+  const queue = createBrowserAnalysis({
+    MB,
+    Worker: StatusWorker,
+    openAudioStream,
+    fetch: async () => ({ ok: true, status: 200, json: async () => manifest }),
+    onChange: recordSnapshot,
+  });
+
+  await queue.importFiles([
+    { name: 'cold-first.mp4', size: 1000, lastModified: 2000 },
+    { name: 'warm-second.mp4', size: 1000, lastModified: 1000 },
+  ]);
+  await queue.whenIdle();
+
+  const phaseOrder = ['preparing', 'video', 'audioTracks', 'queued', 'audio', 'model', 'inference', 'complete'];
+  for (const name of ['cold-first.mp4', 'warm-second.mp4']) {
+    const entries = historyByFile.get(name) || [];
+    assert.ok(entries.length > 0, name);
+    let maxRank = -1;
+    let maxPercent = -1;
+    for (const entry of entries) {
+      const rank = phaseOrder.indexOf(entry.phase);
+      assert.ok(rank >= 0, `${name}: unexpected phase ${JSON.stringify(entry)}`);
+      assert.ok(rank >= maxRank, `${name}: phase regressed in ${JSON.stringify(entries)}`);
+      maxRank = rank;
+      const percentMatch = entry.label.match(/(\d+)%/);
+      if (maxPercent >= 0 && entry.status === 'analyzing') {
+        assert.ok(percentMatch, `${name}: label bounced away from percentage in ${JSON.stringify(entries)}`);
+      }
+      if (percentMatch) {
+        const pct = Number(percentMatch[1]);
+        assert.ok(pct >= maxPercent, `${name}: percentage regressed in ${JSON.stringify(entries)}`);
+        maxPercent = pct;
+      }
+    }
+    assert.equal(entries.at(-1).phase, 'complete', name);
+    assert.ok(entries.some((e) => e.phase === 'audio'), `${name}: should show initial audio loading`);
+    assert.ok(entries.some((e) => e.phase === 'inference' && /\d+%/.test(e.label)), `${name}: should show percentage`);
+  }
+  assert.ok(historyByFile.get('cold-first.mp4').some((e) => e.phase === 'model'), 'cold start should show model preparation');
+  assert.equal(historyByFile.get('warm-second.mp4').some((e) => e.phase === 'model'), false, 'warm start should not flash model preparation');
 });

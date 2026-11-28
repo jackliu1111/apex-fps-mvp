@@ -11,7 +11,7 @@ test('batch import shows each stage and the player navigates from the middle of 
   const encoded = await browser.evaluate(async () => {
     const { createSyntheticFile } = await import('/tests/synthetic-media.mjs');
     const samples = [];
-    for (const duration of [12, 6, 9]) {
+    for (const duration of [12, 16, 9]) {
       const file = await createSyntheticFile({ duration });
       const reader = new FileReader();
       const data = new Promise<string>((resolve, reject) => {
@@ -52,12 +52,28 @@ test('batch import shows each stage and the player navigates from the middle of 
         return result;
       };
       window.batchHistory = [];
+      window.phaseTransitions = {};
       const queue = document.querySelector('#queue');
-      const observer = new MutationObserver(() => {
+      const observer = new MutationObserver((records) => {
+        const seenOld = new Map();
+        for (const rec of records) {
+          if (rec.type !== 'attributes' || rec.attributeName !== 'data-phase') continue;
+          const row = rec.target.closest?.('.file');
+          const name = row?.querySelector('.library-filename')?.textContent;
+          if (!name) continue;
+          const seq = seenOld.get(name) || [];
+          if (rec.oldValue) seq.push(rec.oldValue);
+          seenOld.set(name, seq);
+        }
         const rows = [...queue.querySelectorAll('.file')].map(row => {
           const badge = row.querySelector('.library-status-badge');
-          return { name: row.querySelector('.library-filename').textContent, phase: badge.dataset.phase,
-            label: badge.textContent, status: badge.dataset.status };
+          const name = row.querySelector('.library-filename').textContent;
+          const phase = badge.dataset.phase;
+          const list = window.phaseTransitions[name] || (window.phaseTransitions[name] = []);
+          for (const item of [...(seenOld.get(name) || []), phase]) {
+            if (item && list.at(-1) !== item) list.push(item);
+          }
+          return { name, phase, label: badge.textContent, status: badge.dataset.status };
         });
         window.batchHistory.push(rows);
         if (rows.length === 3 && rows.every(row => row.status === 'ready')) {
@@ -66,7 +82,7 @@ test('batch import shows each stage and the player navigates from the middle of 
           window.fetch = originalFetch;
         }
       });
-      observer.observe(queue, { childList: true, subtree: true, attributes: true });
+      observer.observe(queue, { childList: true, subtree: true, attributes: true, attributeOldValue: true });
     });
     const badge = (name: string) => browser.locator(`#queue .file[title="${name}"] .library-status-badge`);
     await browser.locator('#files').setInputFiles(paths);
@@ -79,19 +95,49 @@ test('batch import shows each stage and the player navigates from the middle of 
     await expect(badge('three.webm')).toHaveAttribute('data-phase', 'audioTracks');
     await browser.evaluate(() => { window.batchGates.tracks.resolve(); });
     await expect(browser.locator('#queue .library-status-badge[data-status="ready"]')).toHaveCount(3, { timeout: 120000 });
-    const history = await browser.evaluate(() => window.batchHistory);
+    const { history, phaseTransitions } = await browser.evaluate(() => ({
+      history: window.batchHistory,
+      phaseTransitions: window.phaseTransitions,
+    }));
     const names = ['one.webm', 'three.webm', 'two.webm'];
     assert.ok(history.some(rows => rows.length === 3 && rows.every(row => row.phase === 'identifying' && row.label.trim()) &&
       rows.map(row => row.name).sort().join() === names.join()), 'three named files appear while identifying');
     for (const phase of ['video', 'audioTracks', 'audio', 'inference']) {
       assert.ok(history.some(rows => rows.some(row => row.phase === phase)), phase);
     }
+    const phaseOrder = ['identifying', 'preparing', 'video', 'audioTracks', 'queued', 'audio', 'model', 'inference', 'complete'];
+    for (const name of names) {
+      const phases = phaseTransitions[name] || [];
+      assert.ok(phases.length > 0, `${name} recorded phase transitions`);
+      let maxRank = -1;
+      for (const phase of phases) {
+        const rank = phaseOrder.indexOf(phase);
+        assert.ok(rank >= 0, `${name}: unexpected phase ${phase} in ${JSON.stringify(phases)}`);
+        assert.ok(rank >= maxRank, `${name}: non-monotonic phase transition in ${JSON.stringify(phases)}`);
+        maxRank = rank;
+      }
+      const labels = history
+        .map(rows => rows.find(row => row.name === name))
+        .filter(Boolean);
+      let maxPercent = -1;
+      for (const entry of labels) {
+        const match = entry.label.match(/(\d+)%/);
+        if (maxPercent >= 0 && entry.status === 'analyzing') {
+          assert.ok(match, `${name}: badge reverted from percentage to "${entry.label}" (phase=${entry.phase})`);
+        }
+        if (match) {
+          const pct = Number(match[1]);
+          assert.ok(pct >= maxPercent, `${name}: percentage regressed from ${maxPercent}% to ${pct}%`);
+          maxPercent = pct;
+        }
+      }
+    }
     const diagnostics = await browser.evaluate(async () => {
       await window.reviewApp.queue.whenIdle();
       return (await window.reviewApp.collectDiagnostics()).workspace.sources;
     });
     assert.equal(diagnostics.length, 3);
-    for (const [name, duration] of [['one.webm', 12], ['two.webm', 6], ['three.webm', 9]] as const) {
+    for (const [name, duration] of [['one.webm', 12], ['two.webm', 16], ['three.webm', 9]] as const) {
       await expect(badge(name)).toHaveAttribute('data-status', 'ready');
       const sources = diagnostics.filter(source => source.durationSec === duration);
       assert.equal(sources.length, 1, name);
