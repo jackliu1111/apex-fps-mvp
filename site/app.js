@@ -110,9 +110,6 @@ const backgroundReadiness = createBackgroundReadinessController({
   onToastChange() {
     renderReadyToast();
   },
-  onBackgroundSwitch({ name }) {
-    if (name) note(t('note_visibility_switched', { name }), 'info');
-  },
 });
 
 function setIntakeHandlers(handlers = {}) {

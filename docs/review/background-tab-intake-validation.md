@@ -2,6 +2,8 @@
 
 日期：2026-11-26。对应 [ADR 0009](../adr/0009-recording-library-auto-intake.md)（待验证项 1、2）、[ADR 0010](../adr/0010-split-library-review-workspace.md)（决策 5）与 Ticket #62。
 
+本记录保留 2026-11-26 当时的验收结果。2026-11-28 起，切回标签页保留当前录像，见[本轮 B4 验收](../design/real-recording-e2e-ci.md)。
+
 ## 浏览器后台限速行为分析
 
 玩家在全屏游玩 Apex Legends 时，本地选片工作区标签页处于 `document.visibilityState === 'hidden'`。桌面 Chromium（Chrome / Edge）对后台标签页的定时轮询施加两级限速：

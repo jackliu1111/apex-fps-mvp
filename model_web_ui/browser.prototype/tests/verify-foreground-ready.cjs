@@ -3,9 +3,12 @@ const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core');
 
 async function run(mode) {
-  assert.ok(['paused', 'playing'].includes(mode), 'Specify paused or playing');
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  assert.ok(['paused', 'playing', 'background'].includes(mode), 'Specify paused, playing or background');
+  const background = mode === 'background';
+  const browser = background && process.env.REVIEW_NATIVE_CDP_URL
+    ? await chromium.connectOverCDP(process.env.REVIEW_NATIVE_CDP_URL, { noDefaults: true })
+    : await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE, headless: !background });
+  const page = process.env.REVIEW_NATIVE_CDP_URL && background ? await browser.contexts()[0].newPage() : await browser.newPage({ viewport: { width: 1440, height: 900 } });
   try {
     await page.addInitScript(() => {
       window.trace = { events: [], frames: [], loads: [], states: [] };
@@ -63,7 +66,8 @@ async function run(mode) {
     await page.waitForFunction(() => window.resultGate);
     await page.locator('#next-candidate').click();
     await page.waitForFunction(() => currentFrame().source === 'B' && Math.abs(currentFrame().frame - 96) <= 1);
-    if (mode === 'paused') {
+    if (mode !== 'playing') {
+      if (background) await page.locator('#toggle-current-clip').click();
       await page.evaluate(() => reviewApp.player.seek(8.5));
     }
     const start = await page.evaluate(() => {
@@ -77,6 +81,16 @@ async function run(mode) {
       assert.equal(start.source, 'B');
       assert.ok(Math.abs(start.frame - 102) <= 1);
     }
+    let decisions;
+    const currentSource = () => page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId));
+    if (background) {
+      const source = await currentSource();
+      assert.equal(source.clips.find(c => c.id === 'auto:second').selected, false);
+      decisions = source.decisions;
+      const other = await page.context().newPage();
+      await other.bringToFront();
+      await page.waitForFunction(() => document.hidden, null, { polling: 50, timeout: 3000 });
+    }
     const boundary = await page.evaluate(() => {
       const index = trace.frames.length;
       mark('release result');
@@ -87,11 +101,20 @@ async function run(mode) {
     await a.locator('.library-status-badge[data-status="ready"]').waitFor();
     await page.evaluate(() => mark('A ready'));
     assert.equal(await a.locator('.library-summary-text').textContent(), '3 candidates');
+    if (background) {
+      await page.bringToFront();
+      await page.waitForFunction(() => !document.hidden);
+    }
     const b = page.locator('#queue .file[data-selected="true"]');
     assert.match(await b.innerText(), /B\.webm/);
     const selected = () => page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId).review.selectedClipId);
     assert.equal(await selected(), 'auto:second');
-    if (mode === 'paused') {
+    if (mode !== 'playing') {
+      if (background) {
+        const source = await currentSource();
+        assert.deepEqual(source.decisions, decisions);
+        assert.equal(source.clips.find(c => c.id === 'auto:second').selected, false);
+      }
       assert.deepEqual(await page.evaluate(() => currentFrame()), start);
       assert.equal(await page.locator('#player-frame').getAttribute('data-playing'), 'false');
       assert.ok(await page.evaluate(n => trace.frames.every(f => f.source === 'B' && f.frame === n), start.frame));
@@ -127,7 +150,12 @@ async function run(mode) {
       for (const draw of frozen.draws) assert.deepEqual(draw, frozen.frame);
     }
     assert.deepEqual(await page.evaluate(() => trace.loads), []);
-    console.log('PASS', mode, JSON.stringify(await page.evaluate(() => trace.events)));
+    if (background) {
+      await a.click();
+      await page.waitForFunction(() => currentFrame().source === 'A');
+      assert.match(await b.innerText(), /A\.webm/);
+    }
+    console.log('PASS', browser.version(), mode, JSON.stringify(await page.evaluate(() => trace.events)));
   } catch (error) {
     console.error(await page.evaluate(() => ({trace:window.trace, selected:document.querySelector('#queue .file[data-selected="true"]')?.title})).catch(() => null));
     throw error;
