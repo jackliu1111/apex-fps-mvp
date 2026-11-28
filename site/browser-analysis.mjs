@@ -141,7 +141,8 @@ export function createBrowserAnalysis({
     onChange, onCandidates, onPrepared, release: releaseWorker,
     async prepare(record, { signal }) {
       const started = performance.now();
-      const input = new MB.Input({ source: createMediaReadSource({ MB, file: record.file }), formats: MB.ALL_FORMATS });
+      const readSource = createMediaReadSource({ MB, file: record.file, priority: 'prepare' });
+      const input = new MB.Input({ source: readSource, formats: MB.ALL_FORMATS });
       try {
         record.phase = 'video';
         onChange(record);
@@ -155,12 +156,13 @@ export function createBrowserAnalysis({
         onChange(record);
         const tracks = await input.getAudioTracks(); signal.throwIfAborted();
         const audio = await chooseAudioTracks(input, tracks); signal.throwIfAborted();
-        return { input, video, tracks, origin, duration, ...audio, importMs: performance.now() - started };
+        return { input, readSource, video, tracks, origin, duration, ...audio, importMs: performance.now() - started };
       } catch (error) { input.dispose(); throw error; }
     },
     async analyze(record, { signal, publish, progress }) {
       const started = performance.now();
       const check = () => signal.throwIfAborted();
+      record.readSource?.setPriority?.('analysis');
       progress({ phase: 'model' });
       const { spec, manifest, validated } = await modelMetadata(record.model, signal);
       const indices = validated.gunshotIndices;
