@@ -1,5 +1,6 @@
 // Supply three distinct local one-minute 30 fps gameplay recordings named A/B/C.mp4.
 const assert = require('node:assert/strict');
+const { verifyExport } = require('./recording-export-readback.cjs');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core');
 
@@ -134,95 +135,7 @@ async function run(directory, mode) {
     await page.mouse.up();
     const trimmed = (await source()).clips.find(c => c.manual && c.selected);
     assert.ok(trimmed?.start > 2 && trimmed.end === 6);
-    await page.evaluate(async () => {
-      window.outputDirectory = await (await navigator.storage.getDirectory()).getDirectoryHandle('exports-' + crypto.randomUUID(), { create: true });
-      window.closedOutputs = [];
-      const getHandle = outputDirectory.getFileHandle.bind(outputDirectory);
-      outputDirectory.getFileHandle = async (...args) => {
-        const file = await getHandle(...args);
-        if (!args[1]?.create) return file;
-        const open = file.createWritable.bind(file);
-        file.createWritable = async (...options) => {
-          const writer = await open(...options);
-          const close = writer.close.bind(writer);
-          writer.close = async () => {
-            await close();
-            closedOutputs.push(file.name);
-          };
-          return writer;
-        };
-        return file;
-      };
-      window.showDirectoryPicker = async () => { throw new DOMException('cancel', 'AbortError'); };
-    });
-    await page.locator('#export-format').selectOption('webm');
-    await page.locator('#export').click();
-    await page.waitForFunction(() => reviewApp.workspace.view().batches[0]?.status === 'awaiting-destination');
-    const [submission] = await page.evaluate(() => reviewApp.workspace.view().batches);
-    assert.equal(submission.sourceId, b.id);
-    assert.deepEqual(submission.clips, [{id:trimmed.id, start:trimmed.start, end:trimmed.end}]);
-    console.log('Submitted', JSON.stringify({sourceId:submission.sourceId,name:b.identity.name,clips:submission.clips}));
-    await page.locator('.batch-review').click();
-    await page.locator('#toggle-current-clip').click();
-    assert.equal((await source()).clips.find(c => c.id === trimmed.id).selected, false);
-    await page.evaluate(() => { window.showDirectoryPicker = async () => outputDirectory; });
-    await page.locator('#nav-exports').click();
-    await page.locator('.batch-start').click();
-    await page.waitForFunction(() => ['completed','failed'].includes(reviewApp.workspace.view().batches[0]?.status));
-    const [batch] = await page.evaluate(() => reviewApp.workspace.view().batches);
-    assert.equal(batch.status, 'completed', batch.error);
-    assert.equal(batch.sourceId, b.id);
-    assert.deepEqual(batch.clips, [{id:trimmed.id, start:trimmed.start, end:trimmed.end}]);
-    assert.equal(batch.id, submission.id);
-    const [output] = batch.outputs;
-    assert.ok(output.saved);
-    assert.deepEqual(await page.evaluate(() => closedOutputs), [output.name]);
-    await page.locator('.batch-files > summary').click();
-    assert.ok((await page.locator('.output-item').innerText()).includes(output.name));
-    const decoded = await page.evaluate(async ({name, start, end}) => {
-      const MB = await import('/assets/vendor/mediabunny.mjs');
-      const names = await Array.fromAsync(outputDirectory.keys());
-      const saved = await (await outputDirectory.getFileHandle(name)).getFile();
-      const inputs = [];
-      async function sink(file) {
-        const input = new MB.Input({ source: new MB.BlobSource(file), formats: MB.ALL_FORMATS });
-        inputs.push(input);
-        const track = await input.getPrimaryVideoTrack();
-        return { frames: new MB.CanvasSink(track, { width: 80, height: 45, fit: 'contain' }),
-          origin: await track.getFirstTimestamp() };
-      }
-      async function pixels(reader, time) {
-        const {canvas} = await reader.frames.getCanvas(reader.origin + time);
-        return canvas.getContext('2d').getImageData(0, 0, 80, 45).data;
-      }
-      function distance(a,b) {
-        let sum = 0;
-        for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
-        return sum / a.length;
-      }
-      try {
-        const output = await sink(saved);
-        const sources = {};
-        for (const {file} of reviewApp.queue.records) sources[file.name] = await sink(file);
-        const errors = [];
-        for (const offset of [0.1, (end-start)/2, end-start-0.12]) {
-          const actual = await pixels(output, offset);
-          const target = start + offset;
-          const errorAt = async (id, time) => distance(actual, await pixels(sources[id + '.mp4'], time));
-          const aligned = [];
-          for (const n of [-1, 0, 1]) aligned.push(await errorAt('B', target + n / 30));
-          errors.push({ b: Math.min(...aligned), a: await errorAt('A', target), c: await errorAt('C', target),
-            wrongRange: await errorAt('B', 8 + offset) });
-        }
-        return {names, duration:await inputs[0].computeDuration(), bytes:saved.size, errors};
-      } finally {
-        inputs.forEach(input => input.dispose());
-      }
-    }, {name:output.name, ...trimmed});
-    assert.deepEqual(decoded.names, [output.name]);
-    assert.equal(decoded.bytes, output.bytes);
-    assert.ok(Math.abs(decoded.duration - trimmed.end + trimmed.start) <= 1/30, JSON.stringify(decoded));
-    for (const e of decoded.errors) assert.ok(e.b < 4 && e.b + 1 < Math.min(e.a,e.c,e.wrongRange), JSON.stringify(e));
+    const decoded = await verifyExport(page, source, b, trimmed, ['A', 'C']);
     await page.locator('.batch-review').click();
     await row('C').locator('.library-status-badge[data-status="ready"]').waitFor();
     const durations = await page.evaluate(() => reviewApp.queue.records.map(record => record.duration));
