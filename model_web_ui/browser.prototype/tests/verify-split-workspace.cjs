@@ -85,7 +85,7 @@ async function assertZeroScroll(page, width, height, label) {
     await assertZeroScroll(page, 1440, 900, 'workspacePreview-mixed-zh');
     await assertZeroScroll(page, 1280, 800, 'workspacePreview-mixed-zh');
 
-    // Verify flat sidebar rows (4 merged statuses, zero file size/path, zero inline buttons, tooltip full basename)
+    // Verify flat sidebar rows (4 merged statuses, zero file size/path, no visible actions for these recordings, tooltip full basename)
     const sidebarCheck = await page.evaluate(() => {
       const rows = [...document.querySelectorAll('#queue .file.library-row')].map((row) => ({
         id: row.dataset.sourceId,
@@ -96,7 +96,7 @@ async function assertZeroScroll(page, width, height, label) {
         meta: row.querySelector('.library-meta')?.textContent,
         badge: row.querySelector('.library-status-badge')?.textContent,
         summary: row.querySelector('.library-summary-text')?.textContent,
-        buttonCount: row.querySelectorAll('button').length,
+        buttonCount: [...row.querySelectorAll('button')].filter(button => !button.hidden).length,
         innerText: row.innerText,
       }));
       return {
@@ -109,10 +109,10 @@ async function assertZeroScroll(page, width, height, label) {
     assert.equal(sidebarCheck.rows.length, 5);
     assert.deepEqual(
       sidebarCheck.rows.map((r) => r.badge),
-      ['已就绪', '已就绪 ⚠ 粗略', '分析中 62%', '未分析', '已就绪'],
+      ['已就绪', '已就绪 ⚠ 粗略', '分析中 62%', '已停止', '已就绪'],
     );
     for (const row of sidebarCheck.rows) {
-      assert.equal(row.buttonCount, 0, 'Sidebar rows must not contain inline action buttons');
+      assert.equal(row.buttonCount, 0, 'These sidebar rows should only offer selection');
       assert.equal(/\b(?:GB|MB|KB)\b/.test(row.innerText), false, 'Sidebar rows must not show file size');
       assert.equal(row.filename.includes('/') || row.filename.includes('\\'), false, 'Sidebar filename must be basename only');
       assert.equal(row.title, row.filename, 'Hover tooltip must expose full basename');

@@ -638,6 +638,17 @@ libraryIntakeControls = createLibraryIntakeControls({
   onStopWatchDir: () => safely(invokeStopWatchDir),
 });
 
+async function dispatchLibraryAction(id, item) {
+  const action = resolveReviewPrimaryAction(item);
+  if (!action || action.disabled) return;
+  if (workspacePreviewHarness && workspacePreviewHarness.runPreviewAction(id, action.kind)) {
+    render();
+    return;
+  }
+  const record = findLibraryRecord(id, item);
+  await engineBridge.dispatchPrimaryAction({ item, record, action });
+}
+
 const libraryView = createRecordingLibraryView({
   listContainer: $('queue'),
   topbarContainer: null,
@@ -648,6 +659,7 @@ const libraryView = createRecordingLibraryView({
   showSize: false,
   createEmptyGraphic: createFrameSignal,
   onReview: (id) => safely(() => openReview(id)),
+  onAnalyze: (id, item) => safely(() => dispatchLibraryAction(id, item)),
   onSelect: (id) => safely(() => openReview(id)),
   onRowTransition: (row, kind) => taskFeedback(row, kind),
 });
@@ -1286,14 +1298,7 @@ $('nav-analysis').onclick = showAnalysis;
 if ($('review-primary-action')) {
   $('review-primary-action').onclick = () => safely(async () => {
     const item = latestLibrarySnapshot?.items.find((entry) => entry.id === activeSourceId) || null;
-    const action = resolveReviewPrimaryAction(item);
-    if (!action || action.disabled) return;
-    if (workspacePreviewHarness && workspacePreviewHarness.runPreviewAction(activeSourceId, action.kind)) {
-      render();
-      return;
-    }
-    const record = findLibraryRecord(activeSourceId, item);
-    await engineBridge.dispatchPrimaryAction({ item, record, action });
+    await dispatchLibraryAction(activeSourceId, item);
   });
 }
 $('play-pause').onclick = () => { if (playerState.playing) player.pause(); else player.play().catch((error) => note(errorText(error))); };

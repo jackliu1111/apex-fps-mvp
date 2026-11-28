@@ -582,7 +582,7 @@ function makeTranslate(lang) {
   };
 }
 
-test('sidebar library view renders flat newest-first rows with 4 merged statuses, zero inline buttons, zero file size/paths, tooltip full basename, and selects all 4 statuses via click or keyboard', () => {
+test('sidebar library view renders flat newest-first rows with 4 merged statuses, no visible actions for these recordings, zero file size/paths, tooltip full basename, and selects all 4 statuses via click or keyboard', () => {
   const doc = createFakeDocument();
   const listContainer = doc.createElement('div');
   const selected = [];
@@ -655,9 +655,9 @@ test('sidebar library view renders flat newest-first rows with 4 merged statuses
     'Sidebar list must be flat and strictly newest-first (never grouped by status)',
   );
 
-  // Check each row invariant: zero inline buttons, zero file sizes, zero paths, full basename tooltip, aria-selected
+  // Check each row invariant: no visible actions for these recordings, zero file sizes, zero paths, full basename tooltip, aria-selected
   for (const row of rows) {
-    assert.equal(row.querySelectorAll('button').length, 0, 'Sidebar rows must not contain inline action buttons');
+    assert.equal([...row.querySelectorAll('button')].filter(button => !button.hidden).length, 0, 'These sidebar rows should only offer selection');
     assert.equal(row.getAttribute('role'), 'option');
     assert.equal(row.getAttribute('tabindex'), '0');
     assert.equal(/\b(?:GB|MB|KB)\b/.test(row.innerText), false, 'Sidebar rows must not show file size');

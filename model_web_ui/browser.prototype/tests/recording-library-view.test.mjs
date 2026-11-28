@@ -624,7 +624,7 @@ test('compact sidebar options (showActions: false, showSize: false) reuse the ex
   assert.equal(row.dataset.selected, 'true');
   assert.equal(row.querySelector('.library-meta').textContent, '15:10 · 12:00');
   assert.equal(row.innerText.includes('GB'), false);
-  assert.equal(row.querySelectorAll('button').length, 0);
+  assert.equal([...row.querySelectorAll('button')].filter(button => !button.hidden).length, 0);
   row.click();
   assert.deepEqual(selectedIds, ['sidebar-1']);
 });

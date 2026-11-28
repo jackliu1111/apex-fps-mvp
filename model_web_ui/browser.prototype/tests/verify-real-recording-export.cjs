@@ -5,7 +5,9 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core')
 
 const { installLiveFixture, exerciseWatch } = require('./watch-recording-scenario.cjs');
 
-async function run(directory, watch) {
+async function run(directory, mode) {
+  const manual = mode === '--watch-manual';
+  const watch = manual || mode === '--watch';
   assert.ok(directory, 'Supply a directory containing A.mp4, B.mp4, C.mp4');
   const endpoint = process.env.REVIEW_NATIVE_CDP_URL;
   const browser = endpoint ? await chromium.connectOverCDP(endpoint, { noDefaults: true }) : await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
@@ -94,7 +96,7 @@ async function run(directory, watch) {
       };
     });
     if (watch) {
-      await exerciseWatch(page, directory, row);
+      await exerciseWatch(page, directory, row, manual);
     } else {
       await page.waitForFunction(() => window.aCompletion, null, { timeout: 120000 });
       if (endpoint) {
@@ -123,6 +125,7 @@ async function run(directory, watch) {
       reviewApp.workspace.getSource(reviewApp.activeSourceId).review.selectedClipId === 'auto:first');
     assert.equal(await page.locator('#overview-markers [data-clip-id="auto:first"]').getAttribute('aria-pressed'), 'true');
     await checkPausedB(2);
+    if (manual) return;
     const box = await page.locator('#selection-left').boundingBox();
     const x = box.x + box.width / 2, y = box.y + box.height / 2;
     await page.mouse.move(x, y);
@@ -233,4 +236,4 @@ async function run(directory, watch) {
     await browser.close();
   }
 }
-run(process.argv[2], process.argv[3] === '--watch').catch(error => { console.error(error); process.exitCode = 1; });
+run(process.argv[2], process.argv[3]).catch(error => { console.error(error); process.exitCode = 1; });
