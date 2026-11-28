@@ -72,6 +72,9 @@ export async function mountReviewPreview(app) {
   app.workspace.updateAnalysis(id, { status: mode === 'analyzing' ? 'analyzing' : 'completed', processedUntil: mode === 'analyzing' ? 6 : 12 });
   app.bindings.set(id, { file, duration: 12, origin: 0, status: 'complete', candidates, timings: {} });
   await app.openReview(id);
+  // Match the prepared recording metadata consumed by the normal export button.
+  const canvas = document.getElementById('source-canvas');
+  app.bindings.get(id).video = { displayWidth: canvas.width, displayHeight: canvas.height };
   note.textContent = '临时场景：12 秒合成录像，可真实播放与调整选片；候选和分析进度为预设，不代表识别结果。';
   if (candidates.length) {
     const firstClip = app.workspace.getSource(id).clips[0];
