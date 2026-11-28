@@ -78,9 +78,10 @@ export function createBrowserAnalysis({
   onWaveform = () => {},
 }) {
   const metadata = new Map();
-  let worker = null, workerModel = null, nextRequest = 0, activeRequest = null;
+  let worker = null, workerModel = null, workerReadyKey = null, nextRequest = 0, activeRequest = null;
+  const workerModelKey = (spec, manifest) => `${spec.id}:${spec.onnxUrl}:${manifest?.sha256 || ''}:${manifest?.modelFile || ''}`;
   function releaseWorker() {
-    worker?.terminate(); worker = null; workerModel = null;
+    worker?.terminate(); worker = null; workerModel = null; workerReadyKey = null;
   }
   async function modelMetadata(model, signal) {
     const spec = models.get(model);
@@ -105,10 +106,21 @@ export function createBrowserAnalysis({
       worker = new WorkerCtor(new URL('./inference-worker.js', import.meta.url), { type: 'module' });
       workerModel = spec.id;
       worker.onmessage = ({ data }) => {
-        if (data.type === 'status') { activeRequest?.progress({ phase: data.phase, message: data.message, modelLoadProgress: data.progress }); return; }
+        if (data.type === 'status') {
+          if (data.phase === 'inference' && activeRequest?.modelKey) workerReadyKey = activeRequest.modelKey;
+          activeRequest?.progress({
+            ...(data.phase ? { phase: data.phase } : {}),
+            message: data.message,
+            modelLoadProgress: data.progress,
+          });
+          return;
+        }
         if (data.id !== activeRequest?.id) return;
         if (data.type === 'error') activeRequest.reject(new Error(data.message));
-        else activeRequest.resolve(data);
+        else {
+          if (activeRequest?.modelKey) workerReadyKey = activeRequest.modelKey;
+          activeRequest.resolve(data);
+        }
       };
       worker.onerror = (event) => { activeRequest?.reject(new Error(event.message || '模型 Worker 失败')); releaseWorker(); };
     }
@@ -120,7 +132,7 @@ export function createBrowserAnalysis({
         callback(value);
       };
       const abort = () => { releaseWorker(); finish(reject, signal.reason); };
-      activeRequest = { id, progress, resolve: (value) => finish(resolve, value), reject: (error) => finish(reject, error) };
+      activeRequest = { id, modelKey: workerModelKey(spec, manifest), progress, resolve: (value) => finish(resolve, value), reject: (error) => finish(reject, error) };
       signal.addEventListener('abort', abort, { once: true });
       try {
         worker.postMessage({
@@ -163,23 +175,13 @@ export function createBrowserAnalysis({
       const started = performance.now();
       const check = () => signal.throwIfAborted();
       record.readSource?.setPriority?.('analysis');
-      progress({ phase: 'model' });
-      const { spec, manifest, validated } = await modelMetadata(record.model, signal);
-      const indices = validated.gunshotIndices;
+      const spec = models.get(record.model);
       const track = record.tracks[record.selected];
       progress({ phase: 'audio' });
       const audioOrigin = Math.max(0, await track.getFirstTimestamp()); check();
       const duration = await track.computeDuration() - audioOrigin; check();
       if (!Number.isFinite(duration) || duration <= 0) throw new Error('音轨没有有效采样');
       record.audioDuration = duration; record.audioOffset = audioOrigin - record.origin;
-      record.modelInfo = {
-        id: spec.id,
-        model: manifest.model,
-        sha256: manifest.sha256,
-        sampleRate: spec.sampleRate,
-        scoreType: spec.scoreType,
-        frameSeconds: spec.frameSeconds ?? null,
-      };
       const metrics = record.timings = { decodeMs: 0, readMs: 0, initializeMs: 0, frontendMs: 0, inferenceMs: 0, audioSetupMs: performance.now() - started, audioWaitMs: 0, inferenceRoundTripMs: 0, postprocessAndRenderMs: 0, timingVersion: 3 };
       record.analysisStarted = started; record.windows = 0; record.processedUntil = 0; record.frontier = -Infinity;
       record.scores = null; record.scoreFrames = 0; record.frameSeconds = spec.frameSeconds || 0.04; record.windowScores = null;
@@ -191,33 +193,62 @@ export function createBrowserAnalysis({
       const frameSeconds = spec.frameSeconds || 0.04;
       const frameCount = Math.max(1, Math.ceil((duration - 1e-9) / frameSeconds));
       const windows = Math.ceil(Math.max(0, duration - spec.windowSeconds) / spec.strideSeconds) + 1;
-      const overlap = new FrameOverlap(manifest.classes.length, frameCount, spec.framesPerWindow, spec.hopFrames);
       const preallocatedScores = new Float32Array(frameCount * 2);
       const preallocatedGroupScores = new Float32Array(frameCount * groupCount);
       const preallocatedGroupPyramid = createGroupScorePyramid(preallocatedGroupScores, frameCount, groupCount, frameSeconds);
-      const groupFrame = createDisplayGrouping(manifest.classes);
       const previousStable = record.candidates.filter((candidate) => !candidate.provisional);
       let stream, ahead;
       function publishProgress(frontier, processedUntil) {
         const next = candidatesFromScores(record, record.threshold, frontier);
         // During retry, later previously stable suggestions stay reviewable until this pass reaches them.
         const retained = Number.isFinite(frontier) ? previousStable.filter((candidate) => candidate.end > processedUntil && !next.some((item) => item.key === candidate.key)) : [];
-        publish(mergeCandidateRanges([...next, ...retained]), { frontier, processedUntil });
+        publish(mergeCandidateRanges([...next, ...retained]), { phase: 'inference', frontier, processedUntil });
         if (metrics.firstReviewableMs === undefined && next.some((candidate) => !candidate.provisional)) metrics.firstReviewableMs = performance.now() - started;
       }
       try {
         stream = openAudioStream(MB, track, audioOrigin, duration, spec.sampleRate, check, metrics, (block) => appendAudioPeaks(record.waveform, block, record.origin, record.duration));
         const prefetch = () => stream.next().then((value) => { onWaveform(record, record.waveform); return { value }; }, (error) => { onWaveform(record, record.waveform); return { error }; });
         ahead = prefetch();
+        progress({ phase: 'audio', message: `正在分析第 1 / ${windows} 个窗口`, totalWindows: windows });
+        const firstAudioWaitStarted = performance.now();
+        let decoded = await ahead;
+        ahead = null;
+        metrics.audioWaitMs += performance.now() - firstAudioWaitStarted;
+        if (decoded.error) throw decoded.error;
+        check();
+
+        if (!metadata.has(record.model)) progress({ phase: 'model' });
+        const { manifest, validated } = await modelMetadata(record.model, signal);
+        const indices = validated.gunshotIndices;
+        const modelKey = workerModelKey(spec, manifest);
+        record.modelInfo = {
+          id: spec.id,
+          model: manifest.model,
+          sha256: manifest.sha256,
+          sampleRate: spec.sampleRate,
+          scoreType: spec.scoreType,
+          frameSeconds: spec.frameSeconds ?? null,
+        };
+        const overlap = new FrameOverlap(manifest.classes.length, frameCount, spec.framesPerWindow, spec.hopFrames);
+        const groupFrame = createDisplayGrouping(manifest.classes);
+
         for (let index = 0; index < windows; index++) {
-          check(); progress({ phase: 'audio', message: `正在分析第 ${index + 1} / ${windows} 个窗口`, totalWindows: windows });
-          const audioWaitStarted = performance.now();
-          const decoded = await ahead;
-          metrics.audioWaitMs += performance.now() - audioWaitStarted;
-          if (decoded.error) throw decoded.error;
           check();
+          if (index > 0) {
+            progress({ message: `正在分析第 ${index + 1} / ${windows} 个窗口`, totalWindows: windows });
+            const audioWaitStarted = performance.now();
+            decoded = await ahead;
+            ahead = null;
+            metrics.audioWaitMs += performance.now() - audioWaitStarted;
+            if (decoded.error) throw decoded.error;
+            check();
+          }
           const inferenceStarted = performance.now();
-          progress({ phase: 'inference' });
+          if (index === 0 && !inferImpl && workerReadyKey !== modelKey) {
+            if (record.phase !== 'model') progress({ phase: 'model' });
+          } else if (record.phase !== 'inference') {
+            progress({ phase: 'inference' });
+          }
           const inference = infer(decoded.value, spec, manifest, signal, progress);
           ahead = index + 1 < windows ? prefetch() : null;
           const result = await inference; check();

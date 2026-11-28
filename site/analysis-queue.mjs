@@ -27,17 +27,21 @@ export function createAnalysisQueue({ prepare, analyze, onPrepared = async () =>
       while (!disposed && !paused && (record = records.find((item) => item.status === 'queued'))) {
         const { controller, current } = begin(record);
         if (record.alignment != null) record.alignment = null;
-        record.phase = null; record.status = 'analyzing'; emit(record);
+        record.phase = null; record.status = 'analyzing';
+        let emitted = false;
+        const notify = () => { emitted = true; emit(record); };
         try {
-          await analyze(record, {
+          const task = analyze(record, {
             signal: controller.signal,
             publish(candidates, progress = {}) {
               if (controller.signal.aborted || !current()) return;
               record.candidates = candidates; Object.assign(record, progress);
-              onCandidates(record, candidates); emit(record);
+              onCandidates(record, candidates); notify();
             },
-            progress(update) { if (!controller.signal.aborted && current()) { Object.assign(record, update); emit(record); } },
+            progress(update) { if (!controller.signal.aborted && current()) { Object.assign(record, update); notify(); } },
           });
+          if (!emitted && !controller.signal.aborted && current()) notify();
+          await task;
           if (current()) {
             if (!controller.signal.aborted && record.alignment != null) record.alignment = null;
             record.status = controller.signal.aborted ? 'stopped' : 'complete';
