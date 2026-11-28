@@ -1,3 +1,4 @@
+const {readDisplayedFrame} = require('./recording-frame.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core');
@@ -41,28 +42,8 @@ async function run(directory) {
     assert.ok(await frame() === middle,'Restored displayed A frame differs from original paused A frame');
     await page.locator('#play-pause').click();
     await page.waitForFunction(() => reviewApp.player.state.playing && reviewApp.player.state.actual > 9.1);
-    const playback = await page.evaluate(async () => {
-      const canvas = document.querySelector('#source-canvas');
-      const displayed = canvas.toDataURL();
-      const time = reviewApp.player.state.actual;
-      const {file} = reviewApp.queue.records.find(record => record.file.name === 'A.mp4');
-      const MB = await import('/assets/vendor/mediabunny.mjs');
-      const input = new MB.Input({source:new MB.BlobSource(file), formats:MB.ALL_FORMATS});
-      try {
-        const track = await input.getPrimaryVideoTrack();
-        const sink = new MB.CanvasSink(track, {width:canvas.width,height:canvas.height,fit:'contain'});
-        const expected = await sink.getCanvas(await track.getFirstTimestamp() + time + 0.001);
-        return {time, matches:await createImageBitmap(expected.canvas).then(bitmap => {
-          const copy = document.createElement('canvas');
-          copy.width = bitmap.width; copy.height = bitmap.height;
-          copy.getContext('2d').drawImage(bitmap,0,0); bitmap.close();
-          return copy.toDataURL() === displayed;
-        })};
-      } finally {
-        input.dispose();
-      }
-    });
-    assert.ok(playback.matches, JSON.stringify(playback));
+    const playback = await readDisplayedFrame(page, 'A.mp4');
+    assert.equal(playback.error, 0, JSON.stringify(playback));
     console.log('PASS A third clip at 8s, paused at 9s, B second clip toggled, A restored exact canvas at 9s and played', browser.version());
   } finally {
     await browser.close();

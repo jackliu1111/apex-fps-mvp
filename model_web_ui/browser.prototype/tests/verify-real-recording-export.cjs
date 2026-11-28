@@ -1,4 +1,5 @@
 // Supply three distinct local one-minute 30 fps gameplay recordings named A/B/C.mp4.
+const {readDisplayedFrame} = require('./recording-frame.cjs');
 const assert = require('node:assert/strict');
 const { verifyExport } = require('./recording-export-readback.cjs');
 const path = require('node:path');
@@ -59,25 +60,7 @@ async function run(directory, mode) {
         const { status, actual } = reviewApp.player.state;
         return status === 'paused' && Math.abs(actual - target) <= 1/30 + 0.000001;
       }, time);
-      const frame = await page.evaluate(async () => {
-        const MB = await import('/assets/vendor/mediabunny.mjs');
-        const record = reviewApp.queue.records.find(r => r.file.name === 'B.mp4');
-        const input = new MB.Input({source: new MB.BlobSource(record.file), formats: MB.ALL_FORMATS});
-        try {
-          const canvas = document.querySelector('#source-canvas');
-          const {width, height} = canvas;
-          const track = await input.getPrimaryVideoTrack();
-          const sink = new MB.CanvasSink(track, {width, height, fit: 'contain'});
-          const frame = await sink.getCanvas(await track.getFirstTimestamp() + reviewApp.player.state.actual + 0.001);
-          const pixels = c => c.getContext('2d').getImageData(0, 0, width, height).data;
-          const actual = pixels(canvas), expected = pixels(frame.canvas);
-          let sum = 0;
-          for (let i = 0; i < actual.length; i++) sum += Math.abs(actual[i] - expected[i]);
-          return {time:reviewApp.player.state.actual, error:sum / actual.length};
-        } finally {
-          input.dispose();
-        }
-      });
+      const frame = await readDisplayedFrame(page, 'B.mp4');
       console.log('Displayed B', JSON.stringify(frame));
       assert.ok(frame.error < 1, JSON.stringify(frame));
     }

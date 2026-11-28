@@ -1,3 +1,4 @@
+const {readDisplayedFrame} = require('./recording-frame.cjs');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright-core');
@@ -42,14 +43,18 @@ async function run(directory) {
     const before = await page.evaluate(() => sampleAudio());
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#player-mute').getAttribute('aria-pressed'),'false');
+    assert.ok(Number(await page.locator('#player-volume').inputValue()) > 0);
     await page.locator('#play-pause').click();
     await page.waitForFunction(() => sampleAudio().status === 'paused-loopback');
+    const firstFrame = await readDisplayedFrame(page, 'B.mp4');
     const gated = await page.evaluate(() => sampleAudio());
     await page.locator('#sidebar-intake-settings-btn').click();
     await page.locator('#sidebar-popover-notice').waitFor();
     assert.match(await page.locator('#sidebar-popover-notice').innerText(),/playback|回放/i);
     await page.keyboard.press('Escape');
     await page.waitForFunction(t => sampleAudio().frame > t+1,gated.frame);
+    const nextFrame = await readDisplayedFrame(page, 'B.mp4');
+    assert.ok(firstFrame.error === 0 && nextFrame.error === 0 && nextFrame.time > firstFrame.time, JSON.stringify({firstFrame,nextFrame}));
     const playing = await page.evaluate(() => sampleAudio());
     assert.equal(playing.buckets,gated.buckets);
     assert.ok(playing.clock > gated.clock+0.5);
@@ -64,22 +69,9 @@ async function run(directory) {
       assert.equal(item.watch,'watching');
     }
     assert.equal(await page.locator('#player-frame').getAttribute('data-playing'),'false');
-    const paused = await page.evaluate(async () => {
-      const MB = await import('/assets/vendor/mediabunny.mjs');
-      const canvas = document.querySelector('#source-canvas');
-      const {file} = reviewApp.queue.records.find(record => record.file.name === 'B.mp4');
-      const input = new MB.Input({source:new MB.BlobSource(file),formats:MB.ALL_FORMATS});
-      try {
-        const track = await input.getPrimaryVideoTrack();
-        const sink = new MB.CanvasSink(track,{width:canvas.width,height:canvas.height,fit:'contain'});
-        const frame = await sink.getCanvas(await track.getFirstTimestamp()+reviewApp.player.state.actual+0.001);
-        const pixels = c => c.getContext('2d').getImageData(0,0,c.width,c.height).data;
-        const expected = pixels(frame.canvas);
-        return pixels(canvas).every((value,index) => value === expected[index]);
-      } finally {input.dispose();}
-    });
-    assert.ok(paused,'Paused B canvas matches independent decode');
-    console.log('PASS controlled oscillator through real audio worklet',browser.version(),JSON.stringify({before,gated,playing,resumed,collecting}));
+    const paused = await readDisplayedFrame(page, 'B.mp4');
+    assert.equal(paused.error, 0, JSON.stringify(paused));
+    console.log('PASS controlled oscillator through real audio worklet',browser.version(),JSON.stringify({before,gated,playing,resumed,collecting,firstFrame,nextFrame,paused}));
   } finally {await browser.close();}
 }
 run(process.argv[2]).catch(error => {console.error(error);process.exitCode=1;});
