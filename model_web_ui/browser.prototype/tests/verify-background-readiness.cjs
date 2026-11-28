@@ -32,7 +32,7 @@ async function assertHeaderInvariant(page, widths, label) {
       const nav = document.querySelector('.app-header .navigation');
       const wrapped = [...nav.children].filter((item) => {
         const range = document.createRange();
-        range.selectNodeContents(item);
+        range.selectNodeContents(item.querySelector('[data-i18n]') || item);
         return new Set([...range.getClientRects()].map((rect) => rect.top)).size > 1;
       }).map((item) => item.textContent);
       return {
@@ -342,6 +342,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       if (hidden) {
         await otherTab.bringToFront();
         const nativeHidden = await page.waitForFunction(() => document.visibilityState === 'hidden', null, { timeout: 600 }).then(() => true).catch(() => false);
+        console.log('Workspace hidden event:', nativeHidden ? 'native tab' : 'simulated visibility');
         if (!nativeHidden) {
           await page.evaluate(() => window.__setForcedVisibility('hidden'));
         }
@@ -349,6 +350,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       } else {
         await page.bringToFront();
         const nativeVisible = await page.waitForFunction(() => document.visibilityState === 'visible', null, { timeout: 600 }).then(() => true).catch(() => false);
+        console.log('Workspace visible event:', nativeVisible ? 'native tab' : 'simulated visibility');
         if (!nativeVisible) {
           await page.evaluate(() => window.__setForcedVisibility(null));
         }
@@ -442,8 +444,7 @@ async function assertDesktopZeroScroll(page, width, height, label) {
       await writable.close();
     }, bgFileName);
 
-    // Wait briefly in background, then switch back to workspace tab -> immediate poll + normal timer ingests it!
-    await new Promise((r) => setTimeout(r, 1200));
+    // A successful close makes this file eligible for discovery on visibility return.
     await setWorkspaceBackgrounded(false);
     await page.waitForFunction(
       (name) => window.reviewApp.workspace.view().sources.some((s) => s.identity.name === name),
