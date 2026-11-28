@@ -15,6 +15,9 @@ async function run(directory, mode) {
   const browser = endpoint ? await chromium.connectOverCDP(endpoint, { noDefaults: true }) : await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
   try {
     const page = endpoint ? await browser.contexts()[0].newPage() : await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    page.on('pageerror', error => console.error('Page error:', error));
+    page.on('requestfailed', request => console.error('Request failed:', request.url(), request.failure()?.errorText));
+    page.on('console', message => { if (message.type() === 'error') console.error('Page console:', message.text()); });
     const source = () => page.evaluate(() => reviewApp.workspace.getSource(reviewApp.activeSourceId));
     const row = name => page.locator(`#queue .file[title="${name}.mp4"]`);
     if (watch) await installLiveFixture(page);
@@ -47,7 +50,8 @@ async function run(directory, mode) {
         }`,
     }));
     await page.goto(process.env.REVIEW_URL || 'http://127.0.0.1:8793/');
-    await page.locator('#files').setInputFiles((watch ? ['B'] : ['A', 'B', 'C']).map(id => path.join(directory, id + '.mp4')));
+    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#import-files').click()]);
+    await chooser.setFiles((watch ? ['B'] : ['A', 'B', 'C']).map(id => path.join(directory, id + '.mp4')));
     await row('B').locator('.library-status-badge[data-status="ready"]').waitFor();
     await row('B').click();
     await page.locator('#overview-markers [data-clip-id="auto:second"]').click();
