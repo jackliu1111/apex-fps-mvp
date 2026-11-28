@@ -130,7 +130,10 @@ async function exerciseWatch(page, directory, row, manual = false) {
   const d = result.records.find(r => r.name === 'A.mp4');
   for (const record of (manual ? [d] : [c,d])) {
     const item = row(record.name.slice(0,-4));
-    assert.equal(await item.count(),1);
+    const rows = await item.count();
+    const starts = result.starts.filter(start => start.id === record.id).length;
+    console.log('After repeated scans', JSON.stringify({name:record.name, sourceId:record.id, rows, starts}));
+    assert.equal(rows,1);
     assert.equal(await item.getAttribute('data-source-id'),record.id);
     assert.equal(record.status,'complete');
   }

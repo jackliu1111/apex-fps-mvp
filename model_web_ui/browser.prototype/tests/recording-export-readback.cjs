@@ -43,7 +43,9 @@ async function verifyExport(page, source, b, trimmed, otherNames) {
   assert.equal(batch.id, submission.id);
   const [output] = batch.outputs;
   assert.ok(output.saved);
-  assert.deepEqual(await page.evaluate(() => closedOutputs), [output.name]);
+  const closed = await page.evaluate(() => closedOutputs);
+  assert.deepEqual(closed, [output.name]);
+  console.log('Completed writer.close()', JSON.stringify({count:closed.length, files:closed}));
   await page.locator('.batch-files > summary').click();
   assert.ok((await page.locator('.output-item').innerText()).includes(output.name));
   const decoded = await page.evaluate(async ({name, start, end, otherNames}) => {

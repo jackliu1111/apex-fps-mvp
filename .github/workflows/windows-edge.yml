@@ -21,6 +21,8 @@ jobs:
             scenarios: stale-media-load navigation-frames
           - check: Trim and directory save
             scenarios: trim-refresh-export directory-export
+          - check: Real recording directory export
+            scenarios: real-recording-export
     env:
       PYTHONUTF8: '1'
       PLAYWRIGHT_MODULE: playwright-core
@@ -32,7 +34,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --ignore-scripts --no-audit
-      - name: Run synthetic media scenarios in installed Edge
+      - name: Run media scenarios in installed Edge
         shell: pwsh
         run: |
           $edge = Get-Item "${env:ProgramFiles(x86)}/Microsoft/Edge/Application/msedge.exe" -ErrorAction Stop
@@ -52,7 +54,20 @@ jobs:
             if (!$ready) { throw "Static service did not serve model manifest at $env:REVIEW_URL" }
             foreach ($scenario in '${{ matrix.scenarios }}'.Split(' ')) {
               Write-Host "Running $scenario"
-              node "model_web_ui/browser.prototype/tests/verify-$scenario.cjs"
+              $arguments = @()
+              if ($scenario -eq 'real-recording-export') {
+                $fixtures = 'tests/fixtures/recordings-v1'
+                $hashes = Get-Content "$fixtures/SHA256SUMS" -ErrorAction Stop
+                if ($hashes.Count -ne 3) { throw "Expected three v1 recording hashes" }
+                foreach ($name in 'A.mp4','B.mp4','C.mp4') {
+                  $digest = (Get-FileHash "$fixtures/$name" -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+                  if ("$digest  $name" -cnotin $hashes) { throw "Fixture digest mismatch for $name" }
+                  Write-Host "recordings-v1 $name $digest"
+                }
+                Write-Host "B.mp4 = paused review, C.mp4 = live covered, A.mp4 = D offline"
+                $arguments = @($fixtures, '--watch')
+              }
+              node "model_web_ui/browser.prototype/tests/verify-$scenario.cjs" @arguments
               if ($LASTEXITCODE -ne 0) { throw "$scenario failed with exit code $LASTEXITCODE" }
             }
           } finally {
