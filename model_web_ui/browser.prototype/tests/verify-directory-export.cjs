@@ -62,33 +62,51 @@ const base = process.env.REVIEW_URL || 'http://127.0.0.1:18806';
           writer.close = async () => {
             window.closingFile = file.name;
             await gate.promise;
-            return close();
+            await close();
+            // Drain mutations queued before native fulfillment, before moving the boundary.
+            observePublication(summaryObserver.takeRecords());
+            window.closeFulfilled = true;
           };
           return writer;
         };
         return file;
       };
-      window.publishedCounts = [];
+      window.closeFulfilled = false;
+      window.publications = [];
       const summary = document.querySelector('.batch-summary');
-      window.summaryObserver = new MutationObserver(records => {
+      const outputs = document.querySelector('.batch-outputs');
+      window.observePublication = records => {
         for (const record of records) {
-          for (const node of record.addedNodes) publishedCounts.push(node.textContent);
+          if (record.target === outputs) {
+            for (const node of record.addedNodes) {
+              if (node.matches?.('.output-item')) publications.push({ kind: 'output', closeFulfilled });
+            }
+          } else {
+            const texts = record.type === 'characterData'
+              ? [record.oldValue, record.target.textContent]
+              : Array.from(record.addedNodes, node => node.textContent);
+            if (texts.some(text => /已完成 1 \/ 1/.test(text))) publications.push({ kind: 'saved count', closeFulfilled });
+          }
         }
-      });
-      summaryObserver.observe(summary, { childList: true });
+      };
+      window.summaryObserver = new MutationObserver(observePublication);
+      summaryObserver.observe(summary, { childList: true, subtree: true, characterData: true, characterDataOldValue: true });
+      summaryObserver.observe(outputs, { childList: true });
     });
     await page.locator('.batch-start').click();
     await page.waitForFunction(() => window.closingFile);
     assert.match(await page.locator('.batch-summary').innerText(), /已完成 0 \/ 1/);
     assert.equal(await page.locator('.output-item').count(), 0);
-    const published = await page.evaluate(() => {
-      summaryObserver.disconnect();
-      releaseClose();
-      return publishedCounts;
-    });
-    assert.ok(published.every(text => !/已完成 1 \/ 1/.test(text)), JSON.stringify(published));
+    await page.evaluate(() => releaseClose());
     await page.waitForFunction(() => reviewApp.workspace.view().batches[0].status === 'completed');
     assert.match(await page.locator('.batch-summary').innerText(), /已完成 1 \/ 1/);
+    const publications = await page.evaluate(() => {
+      observePublication(summaryObserver.takeRecords());
+      summaryObserver.disconnect();
+      return window.publications;
+    });
+    assert.ok(publications.every(event => event.closeFulfilled), JSON.stringify(publications));
+    assert.deepEqual(new Set(publications.map(event => event.kind)), new Set(['output', 'saved count']));
     const decoded = await page.evaluate(async () => {
       const MB = await import('/assets/vendor/mediabunny.mjs');
       const names = Array.fromAsync(testDirectory.keys());

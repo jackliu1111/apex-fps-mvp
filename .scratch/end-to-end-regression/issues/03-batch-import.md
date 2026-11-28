@@ -20,3 +20,5 @@
 
 - 基线 `bcb9374`，本票测试位于 `tests/batch-import.e2e.ts`。在本 worktree 运行 `APP_URL=http://127.0.0.1:9033 npx e2e run tests/batch-import.e2e.ts`，HeadlessChrome 156.0.8078.4，1/1 通过（2.32 秒，运行 ID `01a22243-9e93-72a1-a7f3-84cdb9dd8fc8`）。
 - 文件框导入三份 VP8/Opus 双音轨 WebM，A/B/C 分别 12、6、9 秒。放行 B 轨道读取前已进入 A 模型清单响应；等待 A 模型响应时 B 已排队，C 仍在读取音轨。先放行 A，真实模型令 A 就绪时 C 仍在读取；再放行 C，队列空闲后按时长逐项对账三份 complete 诊断及对应就绪行。重复 A 与损坏文件组合最终只有四行，按文件名核对失败与就绪状态。
+
+阶段映射统一后在 62cc6d7 基线修复 worktree 的 9262 端口复跑本票，运行 ID `01a22256-e161-7b74-beea-af00eb108376`，1/1 通过（2.73 秒）。Node 全套 230/230 通过。

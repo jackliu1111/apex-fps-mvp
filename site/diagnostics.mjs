@@ -7,6 +7,8 @@
  * names, folder names, local paths, or media bytes.
  */
 
+import { effectiveAnalysisPhase } from './recording-library-projection.mjs';
+
 const DEFAULT_MAX_LOG_ENTRIES = 30;
 const MAX_MESSAGE_LENGTH = 400;
 const CODEC_PROBE_TIMEOUT_MS = 1200;
@@ -254,7 +256,7 @@ function summarizeWorkspace(state) {
   if (!state) return null;
   const sources = Array.isArray(state.sources) ? state.sources.map((src) => ({
     status: src.status || null,
-    phase: ['analyzing', 'preparing'].includes(src.status) ? src.phase || src.status : src.status || null,
+    phase: effectiveAnalysisPhase(src.status, src.phase),
     durationSec: round1(src.duration),
     processedUntilSec: round1(src.processedUntil),
     width: Number.isFinite(src.width) ? src.width : null,

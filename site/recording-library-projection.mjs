@@ -68,6 +68,11 @@ export function formatFileSize(bytes) {
   return `${Math.round(bytes)} B`;
 }
 
+export function effectiveAnalysisPhase(status, phase) {
+  if (status === 'preparing' || status === 'analyzing') return phase || status;
+  return status || null;
+}
+
 export function projectRecordingStatus(rawStatus, alignment = null) {
   const status = typeof rawStatus === 'string' ? rawStatus.trim().toLowerCase() : '';
   if (status === 'identifying' || status === 'preparing' || status === 'queued' || status === 'analyzing') {
@@ -202,7 +207,7 @@ function buildItem({
       sizeBytes: size,
       sizeText: formatFileSize(size),
       status,
-      phase: ['analyzing', 'preparing'].includes(rawStatus) ? phase || rawStatus : rawStatus,
+      phase: effectiveAnalysisPhase(rawStatus, phase),
       progressPercent: percent,
       candidateCount: Math.max(0, Math.floor(Number(candidateCount) || 0)),
       exportedCount: Math.max(0, Math.floor(Number(exportedCount) || 0)),

@@ -7,13 +7,26 @@ async function run(mode) {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_EXECUTABLE });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   try {
+    await page.addInitScript(() => {
+      window.trace = { events: [], frames: [], loads: [], states: [] };
+      window.mark = (event, detail) => trace.events.push({
+        event, detail, selected: document.querySelector('#queue .file[data-selected="true"]')?.title,
+        frame: window.currentFrame?.(),
+      });
+      document.addEventListener('click', event => {
+        const button = event.target.closest('button');
+        if (button) mark('click', { id: button.id, playing: button.dataset.playing });
+      }, true);
+    });
     await page.route('**/analysis-queue.mjs', route => route.fulfill({
       contentType: 'text/javascript',
       body: `import { createAnalysisQueue as create } from './analysis-queue.mjs?original';
         export function createAnalysisQueue(options) {
           return create({...options, async analyze(record, { publish }) {
             window.resultGate = Promise.withResolvers();
+            mark('result held', record.file.name);
             await resultGate.promise;
+            mark('result delivered', record.file.name);
             publish([[1,2],[4,5],[8,9]].map(([start,end]) => ({start,end})), {frontier:Infinity});
           }});
         }`,
@@ -32,17 +45,20 @@ async function run(mode) {
       await reviewApp.openReview(recB.sourceId, {focusFirstCandidate:true});
       const canvas = document.querySelector('#source-canvas');
       const context = canvas.getContext('2d');
-      window.trace = { frames: [], loads: [], states: [] };
       window.currentFrame = () => readSyntheticFrame(canvas);
       const draw = context.drawImage.bind(context);
-      context.drawImage = (...args) => { draw(...args); trace.frames.push(currentFrame()); };
+      context.drawImage = (...args) => { draw(...args); trace.frames.push(currentFrame()); mark('draw'); };
       const load = reviewApp.player.load.bind(reviewApp.player);
       reviewApp.player.load = params => {
-        trace.loads.push(params.file.name);
+        trace.loads.push(params.file.name); mark('load', params.file.name);
         return load(params);
       };
-      new MutationObserver(() => trace.states.push(document.querySelector('#player-frame').dataset.playing))
-        .observe(document.querySelector('#player-frame'), {attributes:true, attributeFilter:['data-playing']});
+      const frame = document.querySelector('#player-frame');
+      new MutationObserver(records => {
+        // A true -> false -> true update may occur within one microtask.
+        for (const record of records) trace.states.push(record.oldValue);
+        trace.states.push(frame.dataset.playing);
+      }).observe(frame, { attributes: true, attributeOldValue: true, attributeFilter: ['data-playing'] });
     });
     await page.waitForFunction(() => window.resultGate);
     await page.locator('#next-candidate').click();
@@ -63,11 +79,13 @@ async function run(mode) {
     }
     const boundary = await page.evaluate(() => {
       const index = trace.frames.length;
+      mark('release result');
       resultGate.resolve();
       return index;
     });
     const a = page.locator('#queue .file').filter({hasText:'A.webm'});
     await a.locator('.library-status-badge[data-status="ready"]').waitFor();
+    await page.evaluate(() => mark('A ready'));
     assert.equal(await a.locator('.library-summary-text').textContent(), '3 candidates');
     const b = page.locator('#queue .file[data-selected="true"]');
     assert.match(await b.innerText(), /B\.webm/);
@@ -84,18 +102,34 @@ async function run(mode) {
       await page.waitForFunction(n => trace.frames.length >= n + 3, boundary);
       const {frames, states} = await page.evaluate(() => trace);
       assert.ok(frames.every((f,i) => f.source === 'B' && (!i || frames[i-1].frame < f.frame)));
-      assert.ok(!states.slice(states.indexOf('true')).includes('false'), 'B paused before user click');
+      assert.ok(states.includes('true'), 'playing state was observed');
+      assert.ok(states.slice(states.indexOf('true')).every(state => state === 'true'), 'B paused before user click');
+      assert.equal(await page.locator('#player-frame').getAttribute('data-playing'), 'true');
       await page.locator('#play-pause').click();
       await page.waitForFunction(() => reviewApp.player.state.status === 'paused');
-      const frozen = await page.evaluate(() => currentFrame());
-      await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
-      assert.equal(frozen.source, 'B');
-      assert.deepEqual(await page.evaluate(() => currentFrame()), frozen);
+      const frozen = await page.evaluate(async () => {
+        const frame = currentFrame();
+        const start = performance.now();
+        const firstDraw = trace.frames.length;
+        // Keep observing through three source-frame deadlines after the pause event.
+        await new Promise(done => {
+          function sample(now) {
+            if (now - start >= 3 * 1000 / 12) done();
+            else requestAnimationFrame(sample);
+          }
+          requestAnimationFrame(sample);
+        });
+        return { frame, end: currentFrame(), draws: trace.frames.slice(firstDraw), playing: reviewApp.player.state.playing };
+      });
+      assert.equal(frozen.frame.source, 'B');
+      assert.equal(frozen.playing, false);
+      assert.deepEqual(frozen.end, frozen.frame);
+      for (const draw of frozen.draws) assert.deepEqual(draw, frozen.frame);
     }
     assert.deepEqual(await page.evaluate(() => trace.loads), []);
-    console.log('PASS', mode, JSON.stringify(await page.evaluate(() => ({frames:trace.frames, end:currentFrame(), loads:trace.loads}))));
+    console.log('PASS', mode, JSON.stringify(await page.evaluate(() => trace.events)));
   } catch (error) {
-    console.error(await page.evaluate(() => ({trace:window.trace, selected:document.querySelector('#queue .is-selected')?.innerText})).catch(() => null));
+    console.error(await page.evaluate(() => ({trace:window.trace, selected:document.querySelector('#queue .file[data-selected="true"]')?.title})).catch(() => null));
     throw error;
   } finally {
     await browser.close();
